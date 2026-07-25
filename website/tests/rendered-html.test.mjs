@@ -1,26 +1,90 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
+import { createServer } from "node:net";
+import test, { after, before } from "node:test";
+import { fileURLToPath } from "node:url";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+let nextServer;
+let serverOrigin;
 
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
+async function getAvailablePort() {
+  const server = createServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const { port } = address;
+
+  server.close();
+  await once(server, "close");
+  return port;
+}
+
+async function waitForServer(origin, output) {
+  const deadline = Date.now() + 30_000;
+
+  while (Date.now() < deadline) {
+    if (nextServer.exitCode !== null) {
+      throw new Error(
+        `Next.js exited before becoming ready.\n${output.join("")}`,
+      );
+    }
+
+    try {
+      const response = await fetch(origin, {
+        headers: { accept: "text/html" },
+      });
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // The production server is still starting.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(`Timed out waiting for Next.js.\n${output.join("")}`);
+}
+
+before(async () => {
+  const port = await getAvailablePort();
+  const output = [];
+  serverOrigin = `http://127.0.0.1:${port}`;
+  nextServer = spawn(
+    process.execPath,
+    ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)],
     {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
+      cwd: projectRoot,
+      env: { ...process.env, NODE_ENV: "production" },
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
+  nextServer.stdout.on("data", (chunk) => output.push(chunk.toString()));
+  nextServer.stderr.on("data", (chunk) => output.push(chunk.toString()));
+  await waitForServer(serverOrigin, output);
+});
+
+after(async () => {
+  if (!nextServer || nextServer.exitCode !== null) {
+    return;
+  }
+
+  nextServer.kill("SIGTERM");
+  await Promise.race([
+    once(nextServer, "exit"),
+    new Promise((resolve) => setTimeout(resolve, 5_000)),
+  ]);
+});
+
+async function render() {
+  return fetch(serverOrigin, {
+    headers: { accept: "text/html" },
+  });
 }
 
 test("server-renders the complete one-page Ducky landing page", async () => {
