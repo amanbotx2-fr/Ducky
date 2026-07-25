@@ -63,8 +63,10 @@ coffee and FAQ poses in `assets/support/ducky-coffee.png` and
 official art for their respective sections. The original visual briefs remain
 in `refrence photos/`.
 
-The current direct download URLs are centralized in `lib/releaseAssets.ts` and
-match the verified v1.1.0 assets published by the release pipeline.
+Platform downloads use the server-side routes under `app/download/`. Those
+routes cache the latest GitHub release lookup, select the appropriate platform
+asset, record the download through the tracker service, and return a temporary
+redirect to the release asset.
 
 ## Support destinations
 

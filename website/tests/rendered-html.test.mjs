@@ -81,8 +81,8 @@ after(async () => {
   ]);
 });
 
-async function render() {
-  return fetch(serverOrigin, {
+async function render(pathname = "/") {
+  return fetch(new URL(pathname, serverOrigin), {
     headers: { accept: "text/html" },
   });
 }
@@ -110,13 +110,18 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   assert.match(html, /Download for macOS/);
   assert.match(html, /Download for Windows/);
   assert.match(html, /Download AppImage/);
+  assert.match(html, /href="\/download\/mac"/);
+  assert.match(html, /href="\/download\/windows"/);
+  assert.match(html, /href="\/download\/linux"/);
   assert.equal(
     (html.match(/data-platform-icon="apple"/g) ?? []).length,
     3,
   );
-  assert.match(html, /Ducky-1\.1\.0-universal\.dmg/);
-  assert.match(html, /Ducky-Setup-1\.1\.0-x64\.exe/);
-  assert.match(html, /Ducky-1\.1\.0-x86_64\.AppImage/);
+  assert.match(html, /Ducky-\*\.AppImage/);
+  assert.doesNotMatch(
+    html,
+    /releases\/download|Ducky-\d+\.\d+\.\d+/,
+  );
   assert.match(html, /Need help installing\?/);
   assert.match(html, /macOS — Open Anyway/);
   assert.match(html, /Windows — Run Anyway/);
@@ -166,6 +171,7 @@ test("keeps the landing page scoped to the requested sections", async () => {
     downloadSection,
     platformDownloads,
     installationHelp,
+    linuxInstallCard,
     supportSection,
     supportHero,
     supportCards,
@@ -177,7 +183,13 @@ test("keeps the landing page scoped to the requested sections", async () => {
     helpCards,
     finalCta,
     globals,
-    releaseAssets,
+    siteLinks,
+    githubRelease,
+    downloadTracker,
+    routeHandler,
+    macRoute,
+    windowsRoute,
+    linuxRoute,
     brandAssets,
   ] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -223,6 +235,10 @@ test("keeps the landing page scoped to the requested sections", async () => {
       "utf8",
     ),
     readFile(
+      new URL("../components/Download/LinuxInstallCard.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
       new URL("../components/Support/SupportSection.tsx", import.meta.url),
       "utf8",
     ),
@@ -263,7 +279,28 @@ test("keeps the landing page scoped to the requested sections", async () => {
       "utf8",
     ),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../lib/releaseAssets.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/siteLinks.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../lib/downloads/githubRelease.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../lib/downloads/downloadTracker.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../lib/downloads/routeHandler.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/download/mac/route.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/download/windows/route.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/download/linux/route.ts", import.meta.url),
+      "utf8",
+    ),
     readFile(new URL("../lib/brandAssets.ts", import.meta.url), "utf8"),
   ]);
 
@@ -313,8 +350,12 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.doesNotMatch(navbar, /overflow-x-auto/);
   assert.match(navbar, /aria-current=/);
   assert.match(navbar, /href="#download"/);
-  assert.match(navbar, /https:\/\/github\.com\/amanbotx2-fr\/Ducky/);
-  assert.match(heroButtons, /releases\/latest/);
+  assert.match(navbar, /supportLinks\.repository/);
+  assert.doesNotMatch(navbar, /https:\/\/github\.com/);
+  assert.match(heroButtons, /downloadLinks\.mac/);
+  assert.match(heroButtons, /downloadLinks\.windows/);
+  assert.match(heroButtons, /downloadLinks\.linux/);
+  assert.doesNotMatch(heroButtons, /https:\/\/github\.com|releases\/latest/);
   assert.match(heroButtons, /AppleLogoIcon/);
   assert.doesNotMatch(heroButtons, /import \{[^}]*\bApple\b[^}]*\}/);
   assert.match(appleLogoIcon, /viewBox="0 0 24 24"/);
@@ -339,9 +380,9 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(downloadSection, /SupportSection/);
   assert.match(downloadSection, /CapabilityStrip/);
   assert.match(downloadSection, /id="download"/);
-  assert.match(platformDownloads, /releaseAssets\.macos/);
-  assert.match(platformDownloads, /releaseAssets\.windows/);
-  assert.match(platformDownloads, /releaseAssets\.linux/);
+  assert.match(platformDownloads, /downloadLinks\.mac/);
+  assert.match(platformDownloads, /downloadLinks\.windows/);
+  assert.match(platformDownloads, /downloadLinks\.linux/);
   assert.match(platformDownloads, /AppleLogoIcon/);
   assert.doesNotMatch(platformDownloads, /import \{[^}]*\bApple\b[^}]*\}/);
   assert.match(platformDownloads, /lg:grid-cols-3/);
@@ -350,6 +391,9 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(installationHelp, /AppleLogoIcon/);
   assert.doesNotMatch(installationHelp, /import \{[^}]*\bApple\b[^}]*\}/);
   assert.match(installationHelp, /lg:grid-cols-2/);
+  assert.match(linuxInstallCard, /Ducky-\*\.AppImage/);
+  assert.match(linuxInstallCard, /downloadLinks\.linux/);
+  assert.doesNotMatch(linuxInstallCard, /releaseAssets|\d+\.\d+\.\d+/);
   assert.match(supportSection, /id="support"/);
   assert.match(supportSection, /SupportHero/);
   assert.match(supportSection, /SupportCards/);
@@ -398,8 +442,28 @@ test("keeps the landing page scoped to the requested sections", async () => {
     globals,
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior:\s*auto/,
   );
-  assert.match(releaseAssets, /const releaseVersion = "1\.1\.0"/);
-  assert.match(releaseAssets, /Ducky-\$\{releaseVersion\}-universal\.dmg/);
-  assert.match(releaseAssets, /Ducky-Setup-\$\{releaseVersion\}-x64\.exe/);
-  assert.match(releaseAssets, /Ducky-\$\{releaseVersion\}-x86_64\.AppImage/);
+  assert.match(siteLinks, /mac: "\/download\/mac"/);
+  assert.match(siteLinks, /windows: "\/download\/windows"/);
+  assert.match(siteLinks, /linux: "\/download\/linux"/);
+  assert.doesNotMatch(
+    siteLinks,
+    /releases\/download|releaseVersion|\d+\.\d+\.\d+/,
+  );
+  assert.match(githubRelease, /releases\/latest/);
+  assert.match(githubRelease, /next:\s*\{\s*revalidate:/);
+  assert.match(githubRelease, /\.dmg/);
+  assert.match(githubRelease, /\.exe/);
+  assert.match(githubRelease, /\.appimage/);
+  assert.match(downloadTracker, /interface DownloadTracker/);
+  assert.match(downloadTracker, /class SupabaseDownloadTracker/);
+  assert.match(downloadTracker, /from\("downloads"\)\.insert/);
+  assert.match(downloadTracker, /platform: event\.platform/);
+  assert.match(downloadTracker, /version: event\.releaseTag/);
+  assert.doesNotMatch(downloadTracker, /created_at/);
+  assert.match(routeHandler, /recordDownload/);
+  assert.match(routeHandler, /status: 302/);
+  assert.match(routeHandler, /resolveLatestReleaseAsset/);
+  assert.match(macRoute, /handleDownloadRequest\("mac"\)/);
+  assert.match(windowsRoute, /handleDownloadRequest\("windows"\)/);
+  assert.match(linuxRoute, /handleDownloadRequest\("linux"\)/);
 });

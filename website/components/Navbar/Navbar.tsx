@@ -3,6 +3,7 @@
 import { Download, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { supportLinks } from "../../lib/siteLinks";
 import { BrandMark } from "../BrandMark";
 
 const navigation = [
@@ -16,7 +17,6 @@ type SectionId = (typeof navigation)[number]["href"] extends `#${infer Id}`
   ? Id
   : never;
 
-const repositoryUrl = "https://github.com/amanbotx2-fr/Ducky";
 const scrollThreshold = 20;
 
 const subscribeToScrolledState = (onStoreChange: () => void) => {
@@ -190,7 +190,7 @@ export function Navbar() {
 
             <div className="flex shrink-0 items-center gap-3">
               <a
-                href={repositoryUrl}
+                href={supportLinks.repository}
                 target="_blank"
                 rel="noreferrer"
                 className={`hidden h-12 items-center gap-2 rounded-xl border-2 border-ink px-4 text-sm font-black transition-[transform,background-color,box-shadow,backdrop-filter] duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow/45 lg:flex ${

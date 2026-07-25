@@ -1,5 +1,6 @@
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { supportLinks } from "../../lib/siteLinks";
 
 export type FeatureAccent =
   | "purple"
@@ -52,9 +53,6 @@ const accentStyles: Record<
   },
 };
 
-const featureOverviewUrl =
-  "https://github.com/amanbotx2-fr/Ducky#features";
-
 export function FeatureCard({
   title,
   description,
@@ -69,7 +67,7 @@ export function FeatureCard({
 
   return (
     <motion.a
-      href={featureOverviewUrl}
+      href={supportLinks.features}
       target="_blank"
       rel="noreferrer"
       aria-label={`${title}: view the feature overview on GitHub (opens in a new tab)`}

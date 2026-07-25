@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { supportLinks } from "../../lib/releaseAssets";
+import { supportLinks } from "../../lib/siteLinks";
 
 type FinalAction = {
   label: string;

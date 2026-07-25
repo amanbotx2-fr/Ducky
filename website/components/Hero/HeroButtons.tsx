@@ -1,25 +1,27 @@
 import { Download, MonitorDown } from "lucide-react";
 import { motion } from "framer-motion";
+import { downloadLinks } from "../../lib/siteLinks";
 import { AppleLogoIcon } from "../icons/AppleLogoIcon";
-
-const releaseUrl = "https://github.com/amanbotx2-fr/Ducky/releases/latest";
 
 const downloads = [
   {
     label: "Download for macOS",
     shortLabel: "macOS",
+    href: downloadLinks.mac,
     icon: AppleLogoIcon,
     tone: "bg-orange",
   },
   {
     label: "Download for Windows",
     shortLabel: "Windows",
+    href: downloadLinks.windows,
     icon: MonitorDown,
     tone: "bg-cream",
   },
   {
     label: "Download for Linux",
     shortLabel: "Linux",
+    href: downloadLinks.linux,
     icon: Download,
     tone: "bg-cream",
   },
@@ -30,10 +32,10 @@ export function HeroButtons() {
     <div
       className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-[690px]"
     >
-      {downloads.map(({ label, shortLabel, icon: Icon, tone }) => (
+      {downloads.map(({ label, shortLabel, href, icon: Icon, tone }) => (
         <motion.a
           key={label}
-          href={releaseUrl}
+          href={href}
           target="_blank"
           rel="noreferrer"
           whileHover={{ y: -5 }}

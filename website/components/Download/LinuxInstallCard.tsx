@@ -1,9 +1,9 @@
 import { Check, TerminalSquare } from "lucide-react";
 import { motion } from "framer-motion";
-import { releaseAssets } from "../../lib/releaseAssets";
+import { downloadLinks } from "../../lib/siteLinks";
 
 export function LinuxInstallCard() {
-  const appImageName = `Ducky-${releaseAssets.version}-x86_64.AppImage`;
+  const appImageName = "Ducky-*.AppImage";
 
   return (
     <motion.article
@@ -45,7 +45,7 @@ export function LinuxInstallCard() {
           Runs on most modern Linux distributions.
         </p>
         <a
-          href={releaseAssets.linux}
+          href={downloadLinks.linux}
           className="mt-2 inline-flex min-h-11 items-center rounded-lg text-xs font-black underline decoration-2 underline-offset-4 outline-none focus-visible:ring-4 focus-visible:ring-orange/35"
         >
           Download the AppImage

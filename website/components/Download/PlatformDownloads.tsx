@@ -1,5 +1,5 @@
 import { AppWindow, TerminalSquare } from "lucide-react";
-import { releaseAssets } from "../../lib/releaseAssets";
+import { downloadLinks } from "../../lib/siteLinks";
 import { AppleLogoIcon } from "../icons/AppleLogoIcon";
 import { PlatformCard, type PlatformDownload } from "./PlatformCard";
 
@@ -9,7 +9,7 @@ const platformDownloads: PlatformDownload[] = [
     subtitle: "macOS 10.14+",
     detail: "Intel and Apple Silicon",
     buttonLabel: "Download for macOS",
-    href: releaseAssets.macos,
+    href: downloadLinks.mac,
     icon: AppleLogoIcon,
     iconColor: "bg-purple",
     chips: ["Apple Silicon", "Intel x64"],
@@ -20,7 +20,7 @@ const platformDownloads: PlatformDownload[] = [
     subtitle: "Windows 10 / 11",
     detail: "64-bit installer",
     buttonLabel: "Download for Windows",
-    href: releaseAssets.windows,
+    href: downloadLinks.windows,
     icon: AppWindow,
     iconColor: "bg-mint",
     chips: ["x64 Installer"],
@@ -31,7 +31,7 @@ const platformDownloads: PlatformDownload[] = [
     subtitle: "Ubuntu, Debian, Fedora",
     detail: "Arch and other modern distributions",
     buttonLabel: "Download AppImage",
-    href: releaseAssets.linux,
+    href: downloadLinks.linux,
     icon: TerminalSquare,
     iconColor: "bg-yellow",
     chips: ["Portable"],
