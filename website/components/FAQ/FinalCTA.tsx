@@ -90,17 +90,17 @@ export function FinalCTA() {
       aria-labelledby="final-cta-title"
       className="mt-8 grid items-center gap-6 rounded-[22px] border-[3px] border-ink bg-yellow/75 p-5 shadow-brutal-window sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(620px,1.25fr)]"
     >
-      <div className="flex min-w-0 items-center gap-4">
-        <span className="pixel-bubble relative grid size-[74px] shrink-0 place-items-center bg-cream shadow-brutal-sm">
+      <div className="flex min-w-0 items-center gap-3 min-[380px]:gap-4">
+        <span className="pixel-bubble relative grid size-[62px] shrink-0 place-items-center bg-cream shadow-brutal-sm min-[380px]:size-[74px]">
           <Heart
             aria-hidden="true"
-            className="size-8 fill-orange"
+            className="size-7 fill-orange min-[380px]:size-8"
             strokeWidth={2.6}
           />
         </span>
         <h3
           id="final-cta-title"
-          className="text-[clamp(1.65rem,3vw,2.45rem)] font-black leading-[1.02] tracking-[-0.05em]"
+          className="text-[1.45rem] font-black leading-[1.02] tracking-[-0.05em] min-[380px]:text-[1.65rem] sm:text-[clamp(1.65rem,3vw,2.45rem)]"
         >
           Ready to bring Ducky <span className="text-orange">home?</span>
         </h3>

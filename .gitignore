@@ -9,3 +9,8 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+
+
+# docs
+docs/ANALYTICS_TASKS.md

@@ -69,12 +69,10 @@ match the verified v1.1.0 assets published by the release pipeline.
 ## Support destinations
 
 Payment destinations are intentionally not guessed. Configure the real public
-URLs through the deployment environment:
+URL through the deployment environment:
 
 - `NEXT_PUBLIC_BUY_ME_A_COFFEE_URL`
-- `NEXT_PUBLIC_GITHUB_SPONSORS_URL`
-- `NEXT_PUBLIC_UPI_SUPPORT_URL`
 
-These values are public links, not secrets. If a destination is omitted, its
-card remains visible but the action is safely marked unavailable instead of
-linking visitors to an unverified account.
+This value is a public link, not a secret. If it is omitted, the card remains
+visible but the action is safely marked unavailable instead of linking visitors
+to an unverified account.

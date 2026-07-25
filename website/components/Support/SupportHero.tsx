@@ -16,7 +16,7 @@ export function SupportHero() {
         transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 min-w-0 lg:pt-5"
       >
-        <span className="inline-flex items-center gap-2 rounded-xl border-2 border-ink bg-yellow px-4 py-2.5 text-[0.7rem] font-black uppercase tracking-[-0.01em] shadow-brutal-sm sm:px-5 sm:text-xs">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border-2 border-ink bg-yellow px-3 py-2.5 text-[0.61rem] font-black uppercase tracking-[-0.01em] shadow-brutal-sm min-[360px]:gap-2 min-[360px]:px-4 min-[360px]:text-[0.7rem] sm:px-5 sm:text-xs">
           <Heart
             aria-hidden="true"
             className="size-4 fill-pink"
@@ -71,7 +71,7 @@ export function SupportHero() {
               </span>
             </div>
 
-            <div className="halftone relative grid min-h-[350px] place-items-center overflow-hidden bg-yellow/80 px-4 pb-4 pt-5 sm:min-h-[390px] lg:min-h-[430px]">
+            <div className="halftone relative grid min-h-[320px] place-items-center overflow-hidden bg-yellow/80 px-4 pb-4 pt-5 min-[380px]:min-h-[350px] sm:min-h-[390px] lg:min-h-[430px]">
               <div className="absolute inset-x-[15%] bottom-5 h-6 rounded-[50%] bg-orange/30" />
               <motion.div
                 animate={{ y: [0, -9, 0], rotate: [0, 0.45, 0] }}
@@ -86,7 +86,7 @@ export function SupportHero() {
                   src={duckyCoffee}
                   alt="Ducky, the official pixel-art mascot, happily holding a coffee"
                   sizes="(max-width: 639px) 82vw, (max-width: 1023px) 48vw, (max-width: 1279px) 38vw, 32vw"
-                  className="h-auto max-h-[330px] w-[94%] object-contain drop-shadow-[0_12px_0_rgba(17,17,17,0.08)] sm:max-h-[365px] lg:max-h-[400px]"
+                  className="h-auto w-auto max-h-[330px] max-w-[94%] object-contain drop-shadow-[0_12px_0_rgba(17,17,17,0.08)] sm:max-h-[365px] lg:max-h-[400px]"
                   unoptimized
                 />
               </motion.div>

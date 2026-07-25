@@ -29,14 +29,18 @@ export function FAQItem({
         aria-expanded={isOpen}
         aria-controls={panelId}
         onClick={() => setIsOpen((open) => !open)}
-        className="group flex min-h-[118px] w-full items-center gap-4 rounded-[16px] p-4 text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-orange/35 sm:p-5"
+        className="group flex min-h-[104px] w-full items-center gap-3 rounded-[16px] p-3 text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-orange/35 min-[380px]:min-h-[112px] min-[380px]:p-4 sm:min-h-[118px] sm:gap-4 sm:p-5"
       >
         <span
-          className={`grid size-16 shrink-0 place-items-center rounded-[15px] border-[3px] border-ink shadow-brutal-sm ${color}`}
+          className={`grid size-14 shrink-0 place-items-center rounded-[14px] border-[3px] border-ink shadow-brutal-sm min-[380px]:size-[60px] sm:size-16 sm:rounded-[15px] ${color}`}
         >
-          <Icon aria-hidden="true" className="size-8" strokeWidth={2.35} />
+          <Icon
+            aria-hidden="true"
+            className="size-7 min-[380px]:size-[30px] sm:size-8"
+            strokeWidth={2.35}
+          />
         </span>
-        <span className="min-w-0 flex-1 text-base font-black leading-snug tracking-[-0.025em] sm:text-lg">
+        <span className="min-w-0 flex-1 text-[0.95rem] font-black leading-snug tracking-[-0.025em] min-[380px]:text-base sm:text-lg">
           {question}
         </span>
         <ChevronDown
@@ -61,7 +65,7 @@ export function FAQItem({
             role="region"
             aria-labelledby={buttonId}
             aria-hidden={!isOpen}
-            className="px-5 pb-5 pl-[100px] text-sm font-semibold leading-[1.7] text-ink/74 sm:pl-[108px] sm:text-[0.95rem]"
+            className="px-4 pb-4 text-[0.82rem] font-semibold leading-[1.7] text-ink/74 sm:px-5 sm:pb-5 sm:pl-[108px] sm:text-[0.95rem]"
           >
             {answer}
           </div>

@@ -32,7 +32,7 @@ export function MascotWindow() {
           </span>
         </div>
 
-        <div className="halftone relative grid min-h-[440px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-3 pt-8 sm:min-h-[500px] lg:min-h-[540px]">
+        <div className="halftone relative grid min-h-[340px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-3 pt-8 min-[380px]:min-h-[390px] sm:min-h-[500px] lg:min-h-[540px]">
           <div className="absolute inset-x-[13%] bottom-5 h-7 rounded-[50%] bg-orange/35 blur-[1px]" />
           <motion.div
             animate={{ y: [0, -10, 0], rotate: [0, 0.6, 0] }}
@@ -48,7 +48,7 @@ export function MascotWindow() {
               alt="Ducky, the official pixel-art desktop companion mascot"
               priority
               sizes="(max-width: 1024px) 74vw, 36vw"
-              className="h-auto max-h-[430px] w-[92%] object-contain drop-shadow-[0_16px_0_rgba(17,17,17,0.08)] sm:w-[88%] xl:max-h-[470px]"
+              className="h-auto w-auto max-h-[430px] max-w-[92%] object-contain drop-shadow-[0_16px_0_rgba(17,17,17,0.08)] sm:max-w-[88%] xl:max-h-[470px]"
               unoptimized
             />
           </motion.div>
@@ -84,7 +84,7 @@ export function MascotWindow() {
         />
       </motion.div>
 
-      <div className="relative z-20 mt-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 xl:absolute xl:right-0 xl:top-[7%] xl:mt-0 xl:w-[32%] xl:grid-cols-1 xl:gap-4">
+      <div className="relative z-20 mt-4 grid min-w-0 grid-cols-1 gap-3 min-[540px]:grid-cols-3 xl:absolute xl:right-0 xl:top-[7%] xl:mt-0 xl:w-[32%] xl:grid-cols-1 xl:gap-4">
         <FloatingCard
           title="AI Chat"
           description="Chat with multiple top AI models."

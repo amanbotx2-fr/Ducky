@@ -33,7 +33,7 @@ export function FeaturesMascotPanel() {
           </span>
         </div>
 
-        <div className="halftone relative grid min-h-[430px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-6 pt-8 sm:min-h-[500px] min-[1240px]:min-h-[550px]">
+        <div className="halftone relative grid min-h-[350px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-6 pt-8 min-[380px]:min-h-[400px] sm:min-h-[500px] min-[1240px]:min-h-[550px]">
           <div className="absolute inset-x-[14%] bottom-7 h-6 rounded-[50%] bg-orange/35" />
           <motion.div
             animate={{ y: [0, -10, 0], rotate: [0, 0.5, 0] }}
@@ -44,7 +44,7 @@ export function FeaturesMascotPanel() {
               src={mascot}
               alt="Ducky, the official pixel-art desktop companion mascot"
               sizes="(max-width: 767px) 82vw, (max-width: 1239px) 420px, 29vw"
-              className="h-auto max-h-[400px] w-[88%] object-contain drop-shadow-[0_14px_0_rgba(17,17,17,0.08)] min-[1240px]:max-h-[450px] min-[1240px]:w-[94%]"
+              className="h-auto w-auto max-h-[400px] max-w-[88%] object-contain drop-shadow-[0_14px_0_rgba(17,17,17,0.08)] min-[1240px]:max-h-[450px] min-[1240px]:max-w-[94%]"
               unoptimized
             />
           </motion.div>
@@ -69,7 +69,7 @@ export function FeaturesMascotPanel() {
       </motion.span>
       <span
         aria-hidden="true"
-        className="absolute -right-3 top-[22%] size-4 rotate-45 rounded-[3px] border-2 border-ink bg-orange"
+        className="absolute -right-3 top-[22%] hidden size-4 rotate-45 rounded-[3px] border-2 border-ink bg-orange sm:block"
       />
       <Sparkles
         aria-hidden="true"

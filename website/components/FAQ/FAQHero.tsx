@@ -92,7 +92,7 @@ export function FAQHero() {
             </span>
           </div>
 
-          <div className="halftone relative grid min-h-[390px] place-items-center overflow-hidden bg-yellow/80 px-4 pb-4 pt-6 sm:min-h-[450px]">
+          <div className="halftone relative grid min-h-[350px] place-items-center overflow-hidden bg-yellow/80 px-4 pb-4 pt-6 min-[380px]:min-h-[390px] sm:min-h-[450px]">
             <div className="absolute inset-x-[13%] bottom-5 h-6 rounded-[50%] bg-orange/30" />
             <motion.div
               animate={{ y: [0, -9, 0], rotate: [0, 0.45, 0] }}
@@ -107,7 +107,7 @@ export function FAQHero() {
                 src={duckyFaq}
                 alt="Ducky, the official pixel-art mascot, reading an FAQ book"
                 sizes="(max-width: 639px) 78vw, (max-width: 1023px) 460px, 34vw"
-                className="h-auto max-h-[350px] w-[88%] object-contain drop-shadow-[0_12px_0_rgba(17,17,17,0.08)] sm:max-h-[405px]"
+                className="h-auto w-auto max-h-[350px] max-w-[88%] object-contain drop-shadow-[0_12px_0_rgba(17,17,17,0.08)] sm:max-h-[405px]"
                 unoptimized
               />
             </motion.div>

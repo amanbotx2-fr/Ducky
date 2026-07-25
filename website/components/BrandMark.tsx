@@ -35,7 +35,7 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
           Ducky
         </span>
         <span
-          className={`mt-1.5 block truncate font-extrabold uppercase tracking-[-0.025em] text-orange ${
+          className={`mt-1.5 block truncate font-extrabold uppercase leading-tight tracking-[-0.025em] text-orange ${
             compact
               ? "text-[0.58rem]"
               : "hidden text-[0.69rem] min-[460px]:block"

@@ -7,7 +7,6 @@ import {
   Diamond,
   MonitorCog,
   Search,
-  Sparkles,
   Star,
   StickyNote,
   Timer,
@@ -96,7 +95,6 @@ export function FeaturesSection() {
               className="relative z-10 mx-auto max-w-[850px] text-center"
             >
               <span className="inline-flex items-center gap-2 rounded-xl border-2 border-ink bg-yellow px-4 py-2 text-[0.7rem] font-black uppercase tracking-[-0.01em] shadow-brutal-sm sm:text-xs">
-                <Sparkles aria-hidden="true" className="size-4" strokeWidth={2.7} />
                 What Ducky can do
               </span>
               <h2

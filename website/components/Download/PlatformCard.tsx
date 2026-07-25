@@ -42,14 +42,14 @@ export function PlatformCard({
         delay: index * 0.07,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group flex min-h-[330px] min-w-0 flex-col rounded-[20px] border-[3px] border-ink bg-cream p-5 shadow-brutal-lg sm:p-6"
+      className="group flex min-h-[300px] min-w-0 flex-col rounded-[20px] border-[3px] border-ink bg-cream p-4 shadow-brutal-lg min-[360px]:p-5 sm:min-h-[330px] sm:p-6"
     >
       <div className="flex min-w-0 items-start gap-4">
         <span
           aria-hidden="true"
-          className={`grid size-[72px] shrink-0 place-items-center rounded-[17px] border-[3px] border-ink shadow-brutal-sm transition-transform duration-300 group-hover:-rotate-2 ${iconColor}`}
+          className={`grid size-16 shrink-0 place-items-center rounded-[15px] border-[3px] border-ink shadow-brutal-sm transition-transform duration-300 group-hover:-rotate-2 min-[360px]:size-[72px] min-[360px]:rounded-[17px] ${iconColor}`}
         >
-          <Icon className="size-9" strokeWidth={2.35} />
+          <Icon className="size-8 min-[360px]:size-9" strokeWidth={2.35} />
         </span>
 
         <div className="min-w-0 pt-1">

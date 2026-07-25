@@ -27,8 +27,8 @@ export function LinuxInstallCard() {
         </div>
       </div>
 
-      <pre className="min-w-0 overflow-x-auto rounded-[12px] border-2 border-ink bg-ink px-4 py-3 text-[0.72rem] font-bold leading-[1.8] text-cream shadow-brutal-sm sm:text-xs">
-        <code>{`chmod +x ${appImageName}
+      <pre className="min-w-0 overflow-hidden rounded-[12px] border-2 border-ink bg-ink px-4 py-3 text-[0.72rem] font-bold leading-[1.8] text-cream shadow-brutal-sm sm:overflow-x-auto sm:text-xs">
+        <code className="block whitespace-pre-wrap break-all sm:whitespace-pre sm:break-normal">{`chmod +x ${appImageName}
 ./${appImageName}`}</code>
       </pre>
 
@@ -46,7 +46,7 @@ export function LinuxInstallCard() {
         </p>
         <a
           href={releaseAssets.linux}
-          className="mt-3 inline-flex rounded-lg text-xs font-black underline decoration-2 underline-offset-4 outline-none focus-visible:ring-4 focus-visible:ring-orange/35"
+          className="mt-2 inline-flex min-h-11 items-center rounded-lg text-xs font-black underline decoration-2 underline-offset-4 outline-none focus-visible:ring-4 focus-visible:ring-orange/35"
         >
           Download the AppImage
         </a>

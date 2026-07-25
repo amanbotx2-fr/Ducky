@@ -32,7 +32,7 @@ export function DownloadMascotWindow() {
           </span>
         </div>
 
-        <div className="halftone relative grid min-h-[390px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-5 pt-7 sm:min-h-[430px]">
+        <div className="halftone relative grid min-h-[340px] place-items-center overflow-hidden bg-yellow/80 px-5 pb-5 pt-7 min-[380px]:min-h-[370px] sm:min-h-[430px]">
           <div className="absolute inset-x-[14%] bottom-6 h-6 rounded-[50%] bg-orange/35" />
           <motion.div
             animate={{ y: [0, -9, 0], rotate: [0, 0.5, 0] }}
@@ -43,7 +43,7 @@ export function DownloadMascotWindow() {
               src={mascot}
               alt="Ducky, the official pixel-art desktop companion mascot"
               sizes="(max-width: 767px) 82vw, 430px"
-              className="h-auto max-h-[360px] w-[92%] object-contain drop-shadow-[0_14px_0_rgba(17,17,17,0.08)] sm:max-h-[390px]"
+              className="h-auto w-auto max-h-[360px] max-w-[92%] object-contain drop-shadow-[0_14px_0_rgba(17,17,17,0.08)] sm:max-h-[390px]"
               unoptimized
             />
           </motion.div>

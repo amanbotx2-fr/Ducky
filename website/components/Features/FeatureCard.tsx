@@ -83,21 +83,24 @@ export function FeatureCard({
         delay: index * 0.07,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group relative flex min-h-[252px] min-w-0 flex-col rounded-[19px] border-[3px] border-ink bg-cream p-5 shadow-brutal-lg outline-none focus-visible:ring-4 focus-visible:ring-orange/35 sm:min-h-[264px]"
+      className="group relative flex min-h-[236px] min-w-0 flex-col rounded-[19px] border-[3px] border-ink bg-cream p-4 shadow-brutal-lg outline-none focus-visible:ring-4 focus-visible:ring-orange/35 min-[360px]:min-h-[252px] min-[360px]:p-5 sm:min-h-[264px]"
     >
       <div className="flex min-w-0 items-start gap-4">
         <motion.span
           aria-hidden="true"
-          className={`grid size-[68px] shrink-0 place-items-center rounded-[16px] border-[3px] border-ink shadow-brutal-sm transition-transform duration-300 group-hover:-rotate-2 group-focus-visible:-rotate-2 sm:size-[74px] ${styles.icon}`}
+          className={`grid size-[60px] shrink-0 place-items-center rounded-[14px] border-[3px] border-ink shadow-brutal-sm transition-transform duration-300 group-hover:-rotate-2 group-focus-visible:-rotate-2 min-[360px]:size-[68px] min-[360px]:rounded-[16px] sm:size-[74px] ${styles.icon}`}
         >
-          <Icon className="size-8 sm:size-9" strokeWidth={2.35} />
+          <Icon
+            className="size-7 min-[360px]:size-8 sm:size-9"
+            strokeWidth={2.35}
+          />
         </motion.span>
 
         <span className="min-w-0">
-          <h3 className="text-lg font-black leading-tight tracking-[-0.035em]">
+          <h3 className="text-base font-black leading-tight tracking-[-0.035em] min-[360px]:text-lg">
             {title}
           </h3>
-          <p className="mt-2 text-[0.78rem] font-semibold leading-[1.65] text-ink/80 sm:text-[0.82rem]">
+          <p className="mt-2 text-[0.76rem] font-semibold leading-[1.65] text-ink/80 min-[360px]:text-[0.78rem] sm:text-[0.82rem]">
             {description}
           </p>
         </span>

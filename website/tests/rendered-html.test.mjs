@@ -46,6 +46,10 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   assert.match(html, /Download for macOS/);
   assert.match(html, /Download for Windows/);
   assert.match(html, /Download AppImage/);
+  assert.equal(
+    (html.match(/data-platform-icon="apple"/g) ?? []).length,
+    3,
+  );
   assert.match(html, /Ducky-1\.1\.0-universal\.dmg/);
   assert.match(html, /Ducky-Setup-1\.1\.0-x64\.exe/);
   assert.match(html, /Ducky-1\.1\.0-x86_64\.AppImage/);
@@ -59,10 +63,10 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   assert.match(html, /Buy Ducky a Coffee\./);
   assert.match(html, /Fuel/);
   assert.match(html, /more features\./);
-  assert.match(html, /Choose a way to support Ducky/);
+  assert.match(html, /Support Ducky/);
   assert.match(html, /Buy Me a Coffee/);
-  assert.match(html, /GitHub Sponsors/);
-  assert.match(html, /Support via UPI/);
+  assert.doesNotMatch(html, /GitHub Sponsors/);
+  assert.doesNotMatch(html, /Support via UPI/);
   assert.match(html, /Open Source Forever/);
   assert.match(html, /Thanks a latte!/);
   assert.match(html, /Still curious\?/);
@@ -91,6 +95,7 @@ test("keeps the landing page scoped to the requested sections", async () => {
     navbar,
     mascotWindow,
     heroButtons,
+    appleLogoIcon,
     featureStrip,
     featuresSection,
     featureCard,
@@ -123,6 +128,10 @@ test("keeps the landing page scoped to the requested sections", async () => {
     ),
     readFile(
       new URL("../components/Hero/HeroButtons.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/icons/AppleLogoIcon.tsx", import.meta.url),
       "utf8",
     ),
     readFile(
@@ -234,10 +243,19 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(navbar, /backdrop-blur-\[14px\]/);
   assert.match(navbar, /rgba\(255,106,61,0\.90\)/);
   assert.doesNotMatch(navbar, /rgba\(255,249,239,0\.97\)/);
+  assert.match(navbar, /grid-cols-2/);
+  assert.match(navbar, /min-h-11/);
+  assert.match(navbar, /min-\[1400px\]:!hidden/);
+  assert.doesNotMatch(navbar, /overflow-x-auto/);
   assert.match(navbar, /aria-current=/);
   assert.match(navbar, /href="#download"/);
   assert.match(navbar, /https:\/\/github\.com\/amanbotx2-fr\/Ducky/);
   assert.match(heroButtons, /releases\/latest/);
+  assert.match(heroButtons, /AppleLogoIcon/);
+  assert.doesNotMatch(heroButtons, /import \{[^}]*\bApple\b[^}]*\}/);
+  assert.match(appleLogoIcon, /viewBox="0 0 24 24"/);
+  assert.match(appleLogoIcon, /fill="#111111"/);
+  assert.match(appleLogoIcon, /data-platform-icon="apple"/);
   assert.doesNotMatch(heroButtons, /id="download"/);
   assert.match(mascotWindow, /brandAssets/);
   assert.match(brandAssets, /mascot pic\/master\.png/);
@@ -260,8 +278,14 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(platformDownloads, /releaseAssets\.macos/);
   assert.match(platformDownloads, /releaseAssets\.windows/);
   assert.match(platformDownloads, /releaseAssets\.linux/);
+  assert.match(platformDownloads, /AppleLogoIcon/);
+  assert.doesNotMatch(platformDownloads, /import \{[^}]*\bApple\b[^}]*\}/);
+  assert.match(platformDownloads, /lg:grid-cols-3/);
   assert.match(installationHelp, /Gatekeeper/);
   assert.match(installationHelp, /SmartScreen/);
+  assert.match(installationHelp, /AppleLogoIcon/);
+  assert.doesNotMatch(installationHelp, /import \{[^}]*\bApple\b[^}]*\}/);
+  assert.match(installationHelp, /lg:grid-cols-2/);
   assert.match(supportSection, /id="support"/);
   assert.match(supportSection, /SupportHero/);
   assert.match(supportSection, /SupportCards/);
@@ -269,8 +293,9 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(supportHero, /duckyCoffee/);
   assert.match(supportHero, /Thanks a latte|SupportSpeechBubble/);
   assert.match(supportCards, /NEXT_PUBLIC_BUY_ME_A_COFFEE_URL/);
-  assert.match(supportCards, /NEXT_PUBLIC_GITHUB_SPONSORS_URL/);
-  assert.match(supportCards, /NEXT_PUBLIC_UPI_SUPPORT_URL/);
+  assert.doesNotMatch(supportCards, /NEXT_PUBLIC_GITHUB_SPONSORS_URL/);
+  assert.doesNotMatch(supportCards, /NEXT_PUBLIC_UPI_SUPPORT_URL/);
+  assert.match(supportCards, /md:grid-cols-\[minmax\(0,2fr\)_minmax\(220px,1fr\)\]/);
   assert.match(supportCards, /aria-disabled="true"/);
   assert.match(supportBenefits, /CapabilityStrip/);
   assert.match(supportBenefits, /Open Source Forever/);
@@ -303,6 +328,8 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.doesNotMatch(faqSection, /Coming soon/i);
   assert.match(globals, /scroll-behavior:\s*smooth/);
   assert.match(globals, /\.landing-section-anchor/);
+  assert.match(globals, /scroll-margin-top:\s*14\.75rem/);
+  assert.match(globals, /\.navbar-fixed-frame/);
   assert.match(
     globals,
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior:\s*auto/,

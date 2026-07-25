@@ -1,5 +1,6 @@
-import { Apple, CircleHelp, Lightbulb, Monitor } from "lucide-react";
+import { CircleHelp, Lightbulb, Monitor } from "lucide-react";
 import { motion } from "framer-motion";
+import { AppleLogoIcon } from "../icons/AppleLogoIcon";
 import {
   MacSecurityIllustration,
   WindowsSecurityIllustration,
@@ -96,10 +97,10 @@ export function InstallationHelp() {
         </p>
       </motion.header>
 
-      <div className="mt-7 grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="mt-7 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
         <InstallationGuideCard
           title="macOS — Open Anyway"
-          icon={Apple}
+          icon={AppleLogoIcon}
           steps={macSteps}
           illustration={<MacSecurityIllustration />}
           noteColor="bg-purple/14"

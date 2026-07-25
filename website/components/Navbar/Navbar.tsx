@@ -130,10 +130,10 @@ export function Navbar() {
     <>
       <div
         aria-hidden="true"
-        className="h-[108px] sm:h-[122px] min-[1400px]:h-[62px]"
+        className="h-[170px] sm:h-[122px] min-[1400px]:h-[62px]"
       />
 
-      <div className="pointer-events-none fixed inset-x-0 top-[31px] z-50 sm:top-[43px] lg:top-[51px]">
+      <div className="navbar-fixed-frame pointer-events-none fixed inset-x-0 top-[31px] z-50 sm:top-[43px] lg:top-[51px]">
         <motion.header
           initial={false}
           animate={{ opacity: 1, y: 0 }}
@@ -170,7 +170,7 @@ export function Navbar() {
                     href={item.href}
                     onClick={() => selectSection(item.href)}
                     aria-current={isActive ? "location" : undefined}
-                    className={`group flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-extrabold transition-colors duration-200 hover:bg-[#FFE7AE] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
+                    className={`group flex min-h-11 items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-extrabold transition-colors duration-200 hover:bg-[#FFE7AE] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
                       isActive ? "bg-[#FFE7AE]" : ""
                     } ${
                       index !== navigation.length - 1
@@ -228,7 +228,7 @@ export function Navbar() {
 
           <nav
             aria-label="Mobile navigation"
-            className="scrollbar-none mt-4 flex w-full min-w-0 snap-x gap-2 overflow-x-auto pb-1 min-[1400px]:hidden"
+            className="mt-4 grid w-full min-w-0 grid-cols-2 gap-2 pb-1 sm:flex min-[1400px]:!hidden"
           >
             {navigation.map((item) => {
               const sectionId = item.href.slice(1) as SectionId;
@@ -240,7 +240,7 @@ export function Navbar() {
                   href={item.href}
                   onClick={() => selectSection(item.href)}
                   aria-current={isActive ? "location" : undefined}
-                  className={`flex h-10 shrink-0 snap-start items-center gap-2 rounded-[11px] border-2 border-ink px-3.5 text-xs font-extrabold transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
+                  className={`flex min-h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border-2 border-ink px-2.5 text-[0.7rem] font-extrabold transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 sm:w-auto sm:px-3.5 sm:text-xs ${
                     isScrolled
                       ? `${
                           isActive

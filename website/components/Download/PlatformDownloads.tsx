@@ -1,5 +1,6 @@
-import { Apple, AppWindow, TerminalSquare } from "lucide-react";
+import { AppWindow, TerminalSquare } from "lucide-react";
 import { releaseAssets } from "../../lib/releaseAssets";
+import { AppleLogoIcon } from "../icons/AppleLogoIcon";
 import { PlatformCard, type PlatformDownload } from "./PlatformCard";
 
 const platformDownloads: PlatformDownload[] = [
@@ -9,7 +10,7 @@ const platformDownloads: PlatformDownload[] = [
     detail: "Intel and Apple Silicon",
     buttonLabel: "Download for macOS",
     href: releaseAssets.macos,
-    icon: Apple,
+    icon: AppleLogoIcon,
     iconColor: "bg-purple",
     chips: ["Apple Silicon", "Intel x64"],
     rotation: -0.18,
@@ -45,7 +46,7 @@ export function PlatformDownloads() {
         Choose your Ducky download
       </h3>
 
-      <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {platformDownloads.map((platform, index) => (
           <PlatformCard key={platform.title} {...platform} index={index} />
         ))}

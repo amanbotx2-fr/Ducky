@@ -1,5 +1,6 @@
-import { Apple, Download, MonitorDown } from "lucide-react";
+import { Download, MonitorDown } from "lucide-react";
 import { motion } from "framer-motion";
+import { AppleLogoIcon } from "../icons/AppleLogoIcon";
 
 const releaseUrl = "https://github.com/amanbotx2-fr/Ducky/releases/latest";
 
@@ -7,7 +8,7 @@ const downloads = [
   {
     label: "Download for macOS",
     shortLabel: "macOS",
-    icon: Apple,
+    icon: AppleLogoIcon,
     tone: "bg-orange",
   },
   {
