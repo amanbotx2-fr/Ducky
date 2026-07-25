@@ -2,13 +2,13 @@
 
 import { Download, Star } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "../BrandMark";
 
 const navigation = [
   { label: "Features", href: "#features", color: "bg-purple" },
   { label: "Download", href: "#download", color: "bg-orange" },
-  { label: "Roadmap", href: "#roadmap", color: "bg-yellow" },
+  { label: "Buy Me a Coffee", href: "#support", color: "bg-yellow" },
   { label: "FAQ", href: "#faq", color: "bg-purple" },
 ] as const;
 
@@ -17,45 +17,109 @@ type SectionId = (typeof navigation)[number]["href"] extends `#${infer Id}`
   : never;
 
 const repositoryUrl = "https://github.com/amanbotx2-fr/Ducky";
+const scrollThreshold = 20;
+
+const subscribeToScrolledState = (onStoreChange: () => void) => {
+  let wasScrolled = window.scrollY > scrollThreshold;
+
+  const handleScroll = () => {
+    const isScrolled = window.scrollY > scrollThreshold;
+
+    if (isScrolled !== wasScrolled) {
+      wasScrolled = isScrolled;
+      onStoreChange();
+    }
+  };
+
+  window.addEventListener("scroll", handleScroll, { passive: true });
+
+  return () => window.removeEventListener("scroll", handleScroll);
+};
+
+const getScrolledSnapshot = () => window.scrollY > scrollThreshold;
+const getServerScrolledSnapshot = () => false;
 
 export function Navbar() {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
+  const isScrolled = useSyncExternalStore(
+    subscribeToScrolledState,
+    getScrolledSnapshot,
+    getServerScrolledSnapshot,
+  );
 
   useEffect(() => {
-    const sectionEntries = new Map<Element, IntersectionObserverEntry>();
     const sections = navigation
       .map(({ href }) => document.getElementById(href.slice(1)))
       .filter((section): section is HTMLElement => section !== null);
+    const intersectingSections = new Set<HTMLElement>();
+    const activationRatio = 0.34;
+
+    const updateActiveSection = () => {
+      const activationY = window.innerHeight * activationRatio;
+      const candidates = [...intersectingSections].sort(
+        (first, second) =>
+          Math.abs(first.getBoundingClientRect().top - activationY) -
+          Math.abs(second.getBoundingClientRect().top - activationY),
+      );
+      const intersectingSection = candidates[0];
+
+      if (intersectingSection) {
+        setActiveSection(intersectingSection.id as SectionId);
+        return;
+      }
+
+      const sectionAtActivationLine = sections.find((section) => {
+        const bounds = section.getBoundingClientRect();
+        return bounds.top <= activationY && bounds.bottom >= activationY;
+      });
+
+      if (sectionAtActivationLine) {
+        setActiveSection(sectionAtActivationLine.id as SectionId);
+        return;
+      }
+
+      const firstSection = sections[0];
+      const lastSection = sections[sections.length - 1];
+
+      if (
+        firstSection &&
+        firstSection.getBoundingClientRect().top > activationY
+      ) {
+        setActiveSection(null);
+      } else if (
+        lastSection &&
+        lastSection.getBoundingClientRect().bottom < activationY
+      ) {
+        setActiveSection(lastSection.id as SectionId);
+      }
+    };
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => sectionEntries.set(entry.target, entry));
+        entries.forEach((entry) => {
+          const section = entry.target as HTMLElement;
 
-        const visibleSections = [...sectionEntries.values()]
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (first, second) =>
-              Math.abs(first.boundingClientRect.top - window.innerHeight * 0.63) -
-              Math.abs(second.boundingClientRect.top - window.innerHeight * 0.63),
-          );
+          if (entry.isIntersecting) {
+            intersectingSections.add(section);
+          } else {
+            intersectingSections.delete(section);
+          }
+        });
 
-        const currentSection = visibleSections[0]?.target.id as
-          | SectionId
-          | undefined;
-
-        if (currentSection) {
-          setActiveSection(currentSection);
-        }
+        updateActiveSection();
       },
       {
-        rootMargin: "-58% 0px -32% 0px",
+        rootMargin: "-31% 0px -63% 0px",
         threshold: 0,
       },
     );
 
     sections.forEach((section) => observer.observe(section));
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      intersectingSections.clear();
+    };
   }, []);
 
   const selectSection = (href: `#${SectionId}`) => {
@@ -74,14 +138,27 @@ export function Navbar() {
           initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="navbar-enter pointer-events-auto mx-auto w-[calc(100%-62px)] max-w-[1376px] rounded-[18px] bg-cream sm:w-[calc(100%-94px)] lg:w-[calc(100%-118px)] xl:w-[calc(100%-134px)]"
+          data-scrolled={isScrolled}
+          className="navbar-enter pointer-events-auto mx-auto w-[calc(100%-62px)] max-w-[1376px] sm:w-[calc(100%-94px)] lg:w-[calc(100%-118px)] xl:w-[calc(100%-134px)]"
         >
           <div className="flex items-center justify-between gap-4">
-            <BrandMark />
+            <div
+              className={`shrink-0 rounded-xl transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out ${
+                isScrolled
+                  ? "bg-[rgba(255,239,205,0.88)] shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)]"
+                  : "bg-transparent shadow-none"
+              }`}
+            >
+              <BrandMark />
+            </div>
 
             <nav
               aria-label="Primary navigation"
-              className="hidden items-center rounded-[15px] border-2 border-ink bg-cream px-2 py-1.5 shadow-brutal-sm min-[1400px]:flex"
+              className={`hidden items-center rounded-[15px] border-2 border-ink px-2 py-1.5 transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out min-[1400px]:flex ${
+                isScrolled
+                  ? "bg-[rgba(255,239,205,0.88)] shadow-[0_8px_24px_rgba(0,0,0,0.18),3px_3px_0_#111] backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)]"
+                  : "bg-[#FFD98A] shadow-brutal-sm"
+              }`}
             >
               {navigation.map((item, index) => {
                 const sectionId = item.href.slice(1) as SectionId;
@@ -93,8 +170,8 @@ export function Navbar() {
                     href={item.href}
                     onClick={() => selectSection(item.href)}
                     aria-current={isActive ? "location" : undefined}
-                    className={`group flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-extrabold transition-colors duration-200 hover:bg-yellow/30 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
-                      isActive ? "bg-yellow/55" : ""
+                    className={`group flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-extrabold transition-colors duration-200 hover:bg-[#FFE7AE] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
+                      isActive ? "bg-[#FFE7AE]" : ""
                     } ${
                       index !== navigation.length - 1
                         ? "after:ml-2 after:h-6 after:w-px after:bg-ink/35"
@@ -116,7 +193,11 @@ export function Navbar() {
                 href={repositoryUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden h-12 items-center gap-2 rounded-xl border-2 border-ink bg-cream px-4 text-sm font-black shadow-brutal-sm transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow/45 lg:flex"
+                className={`hidden h-12 items-center gap-2 rounded-xl border-2 border-ink px-4 text-sm font-black transition-[transform,background-color,box-shadow,backdrop-filter] duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow/45 lg:flex ${
+                  isScrolled
+                    ? "bg-[rgba(255,239,205,0.88)] shadow-[0_8px_24px_rgba(0,0,0,0.18),3px_3px_0_#111] backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)]"
+                    : "bg-cream shadow-brutal-sm"
+                }`}
                 aria-label="Star Ducky on GitHub"
               >
                 <Star
@@ -129,7 +210,11 @@ export function Navbar() {
               <a
                 href="#download"
                 onClick={() => selectSection("#download")}
-                className="flex h-12 items-center gap-2 rounded-xl border-2 border-ink bg-orange px-3.5 text-sm font-black shadow-brutal transition-transform hover:-translate-y-1 hover:shadow-brutal-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/30 sm:px-5"
+                className={`flex h-12 items-center gap-2 rounded-xl border-2 border-ink px-3.5 text-sm font-black transition-[transform,background-color,box-shadow,backdrop-filter] duration-300 ease-out hover:-translate-y-1 hover:shadow-brutal-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/30 sm:px-5 ${
+                  isScrolled
+                    ? "bg-[rgba(255,106,61,0.90)] shadow-[0_8px_24px_rgba(0,0,0,0.18),5px_5px_0_#111] backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)]"
+                    : "bg-orange shadow-brutal"
+                }`}
               >
                 <span className="hidden min-[460px]:inline">Download Now</span>
                 <Download
@@ -155,8 +240,16 @@ export function Navbar() {
                   href={item.href}
                   onClick={() => selectSection(item.href)}
                   aria-current={isActive ? "location" : undefined}
-                  className={`flex h-10 shrink-0 snap-start items-center gap-2 rounded-[11px] border-2 border-ink px-3.5 text-xs font-extrabold shadow-brutal-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
-                    isActive ? "bg-yellow" : "bg-cream"
+                  className={`flex h-10 shrink-0 snap-start items-center gap-2 rounded-[11px] border-2 border-ink px-3.5 text-xs font-extrabold transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange/25 ${
+                    isScrolled
+                      ? `${
+                          isActive
+                            ? "bg-[rgba(255,231,174,0.92)]"
+                            : "bg-[rgba(255,239,205,0.88)]"
+                        } shadow-[0_8px_24px_rgba(0,0,0,0.18),3px_3px_0_#111] backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)]`
+                      : `${
+                          isActive ? "bg-[#FFE7AE]" : "bg-[#FFD98A]"
+                        } shadow-brutal-sm`
                   }`}
                 >
                   <span

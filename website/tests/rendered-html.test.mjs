@@ -56,12 +56,29 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   assert.match(html, /Still need help\?/);
   assert.match(html, /Download with confidence\./);
   assert.match(html, /I(?:&apos;|&#x27;|')ll be waiting\./);
-  assert.match(html, /Roadmap/);
-  assert.match(html, /Frequently Asked Questions/);
-  assert.match(html, /Coming soon\./);
+  assert.match(html, /Buy Ducky a Coffee\./);
+  assert.match(html, /Fuel/);
+  assert.match(html, /more features\./);
+  assert.match(html, /Choose a way to support Ducky/);
+  assert.match(html, /Buy Me a Coffee/);
+  assert.match(html, /GitHub Sponsors/);
+  assert.match(html, /Support via UPI/);
+  assert.match(html, /Open Source Forever/);
+  assert.match(html, /Thanks a latte!/);
+  assert.match(html, /Still curious\?/);
+  assert.match(html, /We(?:&apos;|&#x27;|')ve got you\./);
+  assert.match(html, /Ask away!/);
+  assert.match(html, /Is Ducky really free\?/);
+  assert.match(html, /Does Ducky collect my data\?/);
+  assert.match(html, /Which AI providers are supported\?/);
+  assert.match(html, /Why does Windows show SmartScreen\?/);
+  assert.match(html, /Can I contribute\?/);
+  assert.match(html, /Ready to bring Ducky/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /Coming soon\./);
   assert.match(html, /id="features"/);
   assert.match(html, /id="download"/);
-  assert.match(html, /id="roadmap"/);
+  assert.match(html, /id="support"/);
   assert.match(html, /id="faq"/);
   assert.match(html, /official pixel-art desktop companion mascot/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/i);
@@ -80,7 +97,16 @@ test("keeps the landing page scoped to the requested sections", async () => {
     downloadSection,
     platformDownloads,
     installationHelp,
-    futureSections,
+    supportSection,
+    supportHero,
+    supportCards,
+    supportBenefits,
+    faqSection,
+    faqHero,
+    faqAccordion,
+    faqItem,
+    helpCards,
+    finalCta,
     globals,
     releaseAssets,
     brandAssets,
@@ -124,7 +150,43 @@ test("keeps the landing page scoped to the requested sections", async () => {
       "utf8",
     ),
     readFile(
-      new URL("../components/ComingSoon/FutureSections.tsx", import.meta.url),
+      new URL("../components/Support/SupportSection.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/Support/SupportHero.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/Support/SupportCards.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/Support/SupportBenefits.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/FAQSection.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/FAQHero.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/FAQAccordion.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/FAQItem.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/HelpCards.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/FAQ/FinalCTA.tsx", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -135,22 +197,43 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(page, /<Hero \/>/);
   assert.match(page, /<FeaturesSection \/>/);
   assert.match(page, /<DownloadSection \/>/);
-  assert.match(page, /<FutureSections \/>/);
+  assert.match(page, /<SupportSection \/>/);
+  assert.match(page, /<FaqSection \/>/);
   assert.ok(page.indexOf("<Hero />") < page.indexOf("<FeaturesSection />"));
   assert.ok(
     page.indexOf("<FeaturesSection />") < page.indexOf("<DownloadSection />"),
   );
   assert.ok(
-    page.indexOf("<DownloadSection />") < page.indexOf("<FutureSections />"),
+    page.indexOf("<DownloadSection />") < page.indexOf("<SupportSection />"),
+  );
+  assert.ok(
+    page.indexOf("<SupportSection />") < page.indexOf("<FaqSection />"),
   );
   assert.doesNotMatch(page, /<section|<footer/i);
   assert.match(hero, /<Navbar \/>/);
   assert.match(hero, /<MascotWindow \/>/);
   assert.match(hero, /<FeatureStrip \/>/);
   assert.ok(navbar.indexOf('label: "Features"') < navbar.indexOf('label: "Download"'));
-  assert.ok(navbar.indexOf('label: "Download"') < navbar.indexOf('label: "Roadmap"'));
-  assert.ok(navbar.indexOf('label: "Roadmap"') < navbar.indexOf('label: "FAQ"'));
+  assert.ok(
+    navbar.indexOf('label: "Download"') <
+      navbar.indexOf('label: "Buy Me a Coffee"'),
+  );
+  assert.ok(
+    navbar.indexOf('label: "Buy Me a Coffee"') <
+      navbar.indexOf('label: "FAQ"'),
+  );
   assert.match(navbar, /new IntersectionObserver/);
+  assert.match(navbar, /intersectingSections/);
+  assert.match(navbar, /activationRatio = 0\.34/);
+  assert.match(navbar, /getBoundingClientRect/);
+  assert.match(navbar, /rootMargin: "-31% 0px -63% 0px"/);
+  assert.doesNotMatch(navbar, /Map<Element, IntersectionObserverEntry>/);
+  assert.match(navbar, /scrollThreshold = 20/);
+  assert.match(navbar, /useSyncExternalStore/);
+  assert.match(navbar, /rgba\(255,239,205,0\.88\)/);
+  assert.match(navbar, /backdrop-blur-\[14px\]/);
+  assert.match(navbar, /rgba\(255,106,61,0\.90\)/);
+  assert.doesNotMatch(navbar, /rgba\(255,249,239,0\.97\)/);
   assert.match(navbar, /aria-current=/);
   assert.match(navbar, /href="#download"/);
   assert.match(navbar, /https:\/\/github\.com\/amanbotx2-fr\/Ducky/);
@@ -158,6 +241,8 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.doesNotMatch(heroButtons, /id="download"/);
   assert.match(mascotWindow, /brandAssets/);
   assert.match(brandAssets, /mascot pic\/master\.png/);
+  assert.match(brandAssets, /assets\/support\/ducky-coffee\.png/);
+  assert.match(brandAssets, /assets\/faq\/ducky-faq\.png/);
   assert.match(featureStrip, /Notification Sounds/);
   assert.doesNotMatch(featureStrip, /id="features"/);
   assert.doesNotMatch(featureStrip, /Eye Tracking/i);
@@ -177,9 +262,45 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(platformDownloads, /releaseAssets\.linux/);
   assert.match(installationHelp, /Gatekeeper/);
   assert.match(installationHelp, /SmartScreen/);
-  assert.match(futureSections, /id="roadmap"/);
-  assert.match(futureSections, /id="faq"/);
-  assert.match(futureSections, /Frequently Asked Questions/);
+  assert.match(supportSection, /id="support"/);
+  assert.match(supportSection, /SupportHero/);
+  assert.match(supportSection, /SupportCards/);
+  assert.match(supportSection, /SupportBenefits/);
+  assert.match(supportHero, /duckyCoffee/);
+  assert.match(supportHero, /Thanks a latte|SupportSpeechBubble/);
+  assert.match(supportCards, /NEXT_PUBLIC_BUY_ME_A_COFFEE_URL/);
+  assert.match(supportCards, /NEXT_PUBLIC_GITHUB_SPONSORS_URL/);
+  assert.match(supportCards, /NEXT_PUBLIC_UPI_SUPPORT_URL/);
+  assert.match(supportCards, /aria-disabled="true"/);
+  assert.match(supportBenefits, /CapabilityStrip/);
+  assert.match(supportBenefits, /Open Source Forever/);
+  assert.match(faqSection, /id="faq"/);
+  assert.match(faqSection, /FAQHero/);
+  assert.match(faqSection, /FAQAccordion/);
+  assert.match(faqSection, /HelpCards/);
+  assert.match(faqSection, /FinalCTA/);
+  assert.match(faqHero, /duckyFaq/);
+  assert.match(faqHero, /Ask away!/);
+  assert.match(faqHero, /Privacy First/);
+  assert.match(faqAccordion, /Is Ducky really free\?/);
+  assert.match(faqAccordion, /Does Ducky collect my data\?/);
+  assert.match(faqAccordion, /OpenAI-compatible endpoints/);
+  assert.match(faqAccordion, /Can I contribute\?/);
+  assert.match(faqItem, /aria-expanded=/);
+  assert.match(faqItem, /aria-controls=/);
+  assert.match(faqItem, /aria-hidden=\{!isOpen\}/);
+  assert.match(faqItem, /role="region"/);
+  assert.match(faqItem, /duration-\[225ms\]/);
+  assert.match(faqItem, /grid-rows-\[0fr\]/);
+  assert.match(faqItem, /focus-visible:ring/);
+  assert.match(helpCards, /Documentation/);
+  assert.match(helpCards, /GitHub Issues/);
+  assert.match(helpCards, /NEXT_PUBLIC_BUY_ME_A_COFFEE_URL/);
+  assert.match(finalCta, /Ready to bring Ducky/);
+  assert.match(finalCta, /href: "#download"/);
+  assert.match(finalCta, /supportLinks\.repository/);
+  assert.match(finalCta, /NEXT_PUBLIC_BUY_ME_A_COFFEE_URL/);
+  assert.doesNotMatch(faqSection, /Coming soon/i);
   assert.match(globals, /scroll-behavior:\s*smooth/);
   assert.match(globals, /\.landing-section-anchor/);
   assert.match(
