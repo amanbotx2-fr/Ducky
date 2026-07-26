@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Task 2.1 — Companion window
-- Next task: Task 2.2 — Transparent window
+- Last completed task: Task 2.2 — Transparent window
+- Next task: Task 2.3 — Always on top
 - Blockers: None for Phase 2
 
 ## Completed Tasks
@@ -311,3 +311,46 @@
 **Next task**
 
 - Task 2.2 — Transparent window.
+
+### Task 2.2 — Transparent window
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/src/desktop/windows/companion.rs` — enabled native window and
+  WebView transparency and disabled the operating-system window shadow.
+- `src-tauri/Cargo.toml` — enabled Tauri's required
+  `macos-private-api` feature for transparent WKWebView backgrounds.
+- `src-tauri/tauri.conf.json` — enabled `app.macOSPrivateApi`, which Tauri
+  requires for transparent windows on macOS.
+- `docs/migrating/progress.md` — recorded Task 2.2.
+
+**Validation performed**
+
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri build --debug --bundles app --no-sign`: passed and produced a
+  debug `Ducky.app` bundle.
+- `npm run tauri:dev`: passed; the transparent companion launched without a
+  native runtime error and was then stopped manually.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Platform note**
+
+- Tauri's documented transparent-background implementation uses a macOS
+  private API and is incompatible with Mac App Store submission. Ducky's
+  current GitHub distribution target is unaffected.
+- Native screenshot inspection was attempted against the generated debug app,
+  but the Mac was locked. Visual comparison remains an explicit Phase 2 exit
+  gate; code and runtime acceptance for Task 2.2 are complete.
+
+**Blockers**
+
+- None for Task 2.3.
+
+**Next task**
+
+- Task 2.3 — Always on top.
