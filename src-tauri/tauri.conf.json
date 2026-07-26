@@ -12,9 +12,22 @@
   "app": {
     "windows": [
       {
+        "label": "companion",
         "title": "Ducky",
-        "width": 800,
-        "height": 600,
+        "url": "index.html",
+        "width": 220,
+        "height": 220,
+        "resizable": false,
+        "fullscreen": false
+      },
+      {
+        "label": "preferences",
+        "title": "Ducky Preferences",
+        "url": "preferences.html",
+        "width": 640,
+        "height": 650,
+        "minWidth": 520,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false
       }

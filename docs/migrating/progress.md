@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 1 — Create Tauri Workspace
-- Last completed task: Task 1.1 — Initialize Tauri v2
-- Next task: Task 1.2 — Configure two windows
+- Last completed task: Task 1.2 — Configure two windows
+- Next task: Task 1.3 — Capabilities
 - Blockers: None for Phase 1
 
 ## Completed Tasks
@@ -182,3 +182,36 @@
 **Next task**
 
 - Task 1.2 — Configure two windows.
+
+### Task 1.2 — Configure two windows
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/tauri.conf.json` — replaced the generated unnamed window with
+  named `companion` and `preferences` windows, connected to the existing
+  `index.html` and `preferences.html` renderer entries. The dimensions and
+  minimum Preferences size use the existing Electron values; Phase 2 remains
+  responsible for companion visual and native behavior parity.
+- `docs/migrating/progress.md` — recorded Task 1.2.
+
+**Validation performed**
+
+- Parsed `tauri.conf.json` and asserted the exact `companion`/`index.html` and
+  `preferences`/`preferences.html` label-route pairs.
+- `npm run tauri:dev`: Tauri consumed the two-window configuration, launched
+  successfully, and remained running without renderer-load errors; it was
+  then stopped manually.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 1.3 — Capabilities.
