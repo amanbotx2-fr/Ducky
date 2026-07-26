@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Task 1.3 — Capabilities
-- Next task: Task 2.1 — Companion window
+- Last completed task: Task 2.1 — Companion window
+- Next task: Task 2.2 — Transparent window
 - Blockers: None for Phase 2
 
 ## Completed Tasks
@@ -268,3 +268,46 @@
 **Next task**
 
 - Task 2.1 — Companion window.
+
+### Task 2.1 — Companion window
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/src/desktop/mod.rs` — added the native desktop module boundary
+  from the approved migration architecture.
+- `src-tauri/src/desktop/windows/mod.rs` — added the window module boundary.
+- `src-tauri/src/desktop/windows/companion.rs` — created the named companion
+  WebviewWindow from Rust with the existing `220 × 220` logical content size,
+  `index.html` renderer, Ducky title, frameless chrome, fixed size, disabled
+  maximize/minimize/fullscreen startup state, and taskbar exclusion.
+- `src-tauri/src/lib.rs` — creates the companion during Tauri setup.
+- `src-tauri/tauri.conf.json` — leaves the Preferences window declarative and
+  removes the duplicate declarative companion definition.
+- `docs/migrating/progress.md` — recorded Task 2.1.
+
+**Validation performed**
+
+- `cargo fmt`: applied.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run tauri:dev`: passed; the programmatic companion builder completed
+  and the Tauri application remained running until stopped manually.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Scope boundary**
+
+- Transparency, shadow removal, always-on-top behavior, work-area positioning,
+  dragging, dynamic height, and cursor streaming remain intentionally deferred
+  to Tasks 2.2–2.7.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 2.2 — Transparent window.
