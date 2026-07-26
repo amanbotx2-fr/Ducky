@@ -12,6 +12,13 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
       console.error('[tauri] Unable to move companion window.', error);
     });
   },
+  setCompanionContentHeight: (height: number) => {
+    void invoke('set_companion_content_height', { height }).catch(
+      (error: unknown) => {
+        console.error('[tauri] Unable to resize companion window.', error);
+      },
+    );
+  },
 });
 
 /**

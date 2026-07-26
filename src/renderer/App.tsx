@@ -732,7 +732,9 @@ export function App() {
   );
 
   const handleContentHeightChange = useCallback((height: number): void => {
-    desktopBridge.getCompanionBridge()?.setCompanionContentHeight(height);
+    desktopBridge
+      .getCompanionWindowBridge()
+      ?.setCompanionContentHeight(height);
   }, []);
 
   const handleReminderDismiss = useCallback((): void => {

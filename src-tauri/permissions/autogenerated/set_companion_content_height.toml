@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-companion-content-height"
+description = "Enables the set_companion_content_height command without any pre-configured scope."
+commands.allow = ["set_companion_content_height"]
+
+[[permission]]
+identifier = "deny-set-companion-content-height"
+description = "Denies the set_companion_content_height command without any pre-configured scope."
+commands.deny = ["set_companion_content_height"]

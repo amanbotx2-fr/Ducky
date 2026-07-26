@@ -4,6 +4,7 @@ use tauri::{LogicalPosition, Runtime, WebviewWindow};
 use crate::desktop::windows::companion;
 
 const MAX_ABSOLUTE_WINDOW_COORDINATE: f64 = 100_000.0;
+const MAX_COMPANION_CONTENT_HEIGHT: f64 = 10_000.0;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub(crate) struct ScreenPoint {
@@ -16,6 +17,7 @@ pub(crate) struct ScreenPoint {
 pub(crate) enum CompanionCommandError {
     UnauthorizedWindow,
     InvalidPosition,
+    InvalidContentHeight,
     WindowOperationFailed,
 }
 
@@ -33,6 +35,23 @@ pub(crate) fn move_companion_window<R: Runtime>(
     companion::move_to(&window, position).map_err(|_| CompanionCommandError::WindowOperationFailed)
 }
 
+#[tauri::command]
+pub(crate) fn set_companion_content_height<R: Runtime>(
+    window: WebviewWindow<R>,
+    height: f64,
+) -> Result<(), CompanionCommandError> {
+    if window.label() != companion::LABEL {
+        return Err(CompanionCommandError::UnauthorizedWindow);
+    }
+
+    if !is_valid_content_height(height) {
+        return Err(CompanionCommandError::InvalidContentHeight);
+    }
+
+    companion::set_content_height(&window, height)
+        .map_err(|_| CompanionCommandError::WindowOperationFailed)
+}
+
 fn normalize_position(position: ScreenPoint) -> Option<LogicalPosition<i32>> {
     if !is_valid_coordinate(position.x) || !is_valid_coordinate(position.y) {
         return None;
@@ -46,6 +65,10 @@ fn normalize_position(position: ScreenPoint) -> Option<LogicalPosition<i32>> {
 
 fn is_valid_coordinate(value: f64) -> bool {
     value.is_finite() && value.abs() <= MAX_ABSOLUTE_WINDOW_COORDINATE
+}
+
+fn is_valid_content_height(value: f64) -> bool {
+    value.is_finite() && value > 0.0 && value <= MAX_COMPANION_CONTENT_HEIGHT
 }
 
 fn round_like_javascript(value: f64) -> i32 {
@@ -92,6 +115,17 @@ mod tests {
             },
         ] {
             assert_eq!(normalize_position(point), None);
+        }
+    }
+
+    #[test]
+    fn accepts_only_finite_bounded_positive_content_heights() {
+        for height in [f64::NAN, f64::INFINITY, -1.0, 0.0, 10_000.1] {
+            assert!(!is_valid_content_height(height));
+        }
+
+        for height in [0.1, 220.0, 10_000.0] {
+            assert!(is_valid_content_height(height));
         }
     }
 }
