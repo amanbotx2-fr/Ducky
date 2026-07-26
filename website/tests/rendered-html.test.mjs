@@ -159,6 +159,7 @@ test("server-renders the complete one-page Ducky landing page", async () => {
 
 test("keeps the landing page scoped to the requested sections", async () => {
   const [
+    layout,
     page,
     hero,
     navbar,
@@ -192,6 +193,7 @@ test("keeps the landing page scoped to the requested sections", async () => {
     linuxRoute,
     brandAssets,
   ] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Hero/Hero.tsx", import.meta.url), "utf8"),
     readFile(
@@ -304,6 +306,8 @@ test("keeps the landing page scoped to the requested sections", async () => {
     readFile(new URL("../lib/brandAssets.ts", import.meta.url), "utf8"),
   ]);
 
+  assert.match(layout, /from "@vercel\/analytics\/next"/);
+  assert.match(layout, /<Analytics \/>/);
   assert.match(page, /<Hero \/>/);
   assert.match(page, /<FeaturesSection \/>/);
   assert.match(page, /<DownloadSection \/>/);
