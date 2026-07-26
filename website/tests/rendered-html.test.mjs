@@ -8,6 +8,7 @@ import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
 import { encode } from "next-auth/jwt";
 import { isAllowedGitHubUsername } from "../lib/auth/authorization.ts";
+import { createDownloadRedirect } from "../lib/downloads/downloadFlow.ts";
 import { getDownloadRequestMetadata } from "../lib/downloads/requestMetadata.ts";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -144,6 +145,30 @@ async function render(pathname = "/", init = {}) {
   });
 }
 
+function assertGlobalSecurityHeaders(response) {
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(
+    response.headers.get("referrer-policy"),
+    "strict-origin-when-cross-origin",
+  );
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+
+  const permissionsPolicy = response.headers.get("permissions-policy") ?? "";
+  assert.match(permissionsPolicy, /camera=\(\)/);
+  assert.match(permissionsPolicy, /microphone=\(\)/);
+  assert.match(permissionsPolicy, /geolocation=\(\)/);
+  assert.match(permissionsPolicy, /payment=\(\)/);
+
+  const csp =
+    response.headers.get("content-security-policy-report-only") ?? "";
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /form-action 'self'/);
+  assert.match(csp, /script-src[^;]*https:\/\/va\.vercel-scripts\.com/);
+  assert.match(csp, /connect-src[^;]*https:\/\/vitals\.vercel-insights\.com/);
+}
+
 async function createAuthCookie(githubUsername) {
   const token = await encode({
     secret: testAuthSecret,
@@ -156,6 +181,55 @@ async function createAuthCookie(githubUsername) {
   });
 
   return `authjs.session-token=${token}`;
+}
+
+async function createTestDownloadFlow({
+  recordDownload,
+  trackingTimeoutMs = 25,
+}) {
+  let backgroundTask;
+  const trackingFailures = [];
+  const downloadUrl =
+    "https://github.com/amanbotx2-fr/Ducky/releases/download/v1.1.0/" +
+    "Ducky-Setup-1.1.0-x64.exe";
+
+  const response = await createDownloadRedirect(
+    new Request("https://ducky.example/download/windows"),
+    "windows",
+    {
+      async resolveLatestReleaseAsset() {
+        return {
+          releaseTag: "v1.1.0",
+          asset: {
+            id: 42,
+            name: "Ducky-Setup-1.1.0-x64.exe",
+            downloadUrl,
+          },
+        };
+      },
+      getDownloadRequestMetadata,
+      recordDownload,
+      scheduleAfterResponse(task) {
+        backgroundTask = task;
+      },
+      createRedirect(url) {
+        return Response.redirect(url, 302);
+      },
+      logTrackingFailure(message, context) {
+        trackingFailures.push({ message, context });
+      },
+      trackingTimeoutMs,
+    },
+  );
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), downloadUrl);
+  assert.equal(typeof backgroundTask, "function");
+
+  return {
+    backgroundTask,
+    trackingFailures,
+  };
 }
 
 test("extracts privacy-conscious download request metadata", () => {
@@ -214,6 +288,59 @@ test("extracts privacy-conscious download request metadata", () => {
   });
 });
 
+test("redirects immediately and records successful analytics after the response", async () => {
+  const recordedEvents = [];
+  const flow = await createTestDownloadFlow({
+    async recordDownload(event) {
+      recordedEvents.push(event);
+    },
+  });
+
+  assert.equal(recordedEvents.length, 0);
+  await flow.backgroundTask();
+
+  assert.equal(recordedEvents.length, 1);
+  assert.equal(recordedEvents[0].platform, "windows");
+  assert.equal(recordedEvents[0].releaseTag, "v1.1.0");
+  assert.equal(flow.trackingFailures.length, 0);
+});
+
+test("keeps the redirect successful when background analytics fails", async () => {
+  const flow = await createTestDownloadFlow({
+    async recordDownload() {
+      throw new Error("simulated Supabase failure");
+    },
+  });
+
+  await flow.backgroundTask();
+
+  assert.equal(flow.trackingFailures.length, 1);
+  assert.equal(flow.trackingFailures[0].context.platform, "windows");
+  assert.equal(flow.trackingFailures[0].context.version, "v1.1.0");
+  assert.match(
+    flow.trackingFailures[0].context.error.message,
+    /simulated Supabase failure/,
+  );
+});
+
+test("times out hanging analytics without affecting the redirect", async () => {
+  const flow = await createTestDownloadFlow({
+    recordDownload() {
+      return new Promise(() => {});
+    },
+    trackingTimeoutMs: 20,
+  });
+
+  await flow.backgroundTask();
+
+  assert.equal(flow.trackingFailures.length, 1);
+  assert.equal(
+    flow.trackingFailures[0].context.error.name,
+    "DownloadTrackingTimeoutError",
+  );
+  assert.match(flow.trackingFailures[0].context.error.message, /20ms/);
+});
+
 test("authorizes only configured GitHub usernames", () => {
   assert.equal(isAllowedGitHubUsername("amanbotx2-fr"), true);
   assert.equal(isAllowedGitHubUsername("AMANBOTX2-FR"), true);
@@ -225,6 +352,7 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assertGlobalSecurityHeaders(response);
 
   const html = await response.text();
   assert.match(html, /<title>Ducky — Your Desktop\. Your Buddy\.<\/title>/i);
@@ -299,6 +427,7 @@ test("server-renders analytics data through the shared Supabase configuration", 
   });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assertGlobalSecurityHeaders(response);
 
   const html = await response.text();
   assert.match(html, /<title>Download Analytics — Ducky<\/title>/i);
@@ -332,6 +461,7 @@ test("redirects unauthenticated admin requests to the GitHub login flow", async 
   });
 
   assert.equal(response.status, 307);
+  assertGlobalSecurityHeaders(response);
   const location = response.headers.get("location");
   assert.ok(location);
 
@@ -352,6 +482,7 @@ test("returns the 403 page for authenticated GitHub users outside the allowlist"
   });
 
   assert.equal(response.status, 403);
+  assertGlobalSecurityHeaders(response);
   const html = await response.text();
   assert.match(html, /403 Unauthorized — Ducky/);
   assert.match(html, /Unauthorized/);
@@ -364,11 +495,25 @@ test("renders the server-side GitHub login page", async () => {
   );
 
   assert.equal(response.status, 200);
+  assertGlobalSecurityHeaders(response);
   const html = await response.text();
   assert.match(html, /Sign in to analytics/);
   assert.match(html, /Continue with GitHub/);
   assert.match(html, /name="callbackUrl" value="\/admin\/analytics"/);
   assert.doesNotMatch(html, /GITHUB_SECRET|AUTH_SECRET|access_token/i);
+});
+
+test("serves the Auth.js GitHub provider with global security headers", async () => {
+  const response = await fetch(new URL("/api/auth/providers", serverOrigin));
+
+  assert.equal(response.status, 200);
+  assertGlobalSecurityHeaders(response);
+
+  const providers = await response.json();
+  assert.deepEqual(Object.keys(providers), ["github"]);
+  assert.equal(providers.github.id, "github");
+  assert.equal(providers.github.type, "oauth");
+  assert.match(providers.github.callbackUrl, /\/api\/auth\/callback\/github$/);
 });
 
 test("uses one shared server-only Supabase client for tracking and analytics", async () => {
@@ -501,6 +646,7 @@ test("keeps the landing page scoped to the requested sections", async () => {
     githubRelease,
     requestMetadata,
     downloadTracker,
+    downloadFlow,
     routeHandler,
     macRoute,
     windowsRoute,
@@ -607,6 +753,10 @@ test("keeps the landing page scoped to the requested sections", async () => {
     ),
     readFile(
       new URL("../lib/downloads/downloadTracker.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../lib/downloads/downloadFlow.ts", import.meta.url),
       "utf8",
     ),
     readFile(
@@ -806,9 +956,15 @@ test("keeps the landing page scoped to the requested sections", async () => {
   );
   assert.doesNotMatch(downloadTracker, /created_at/);
   assert.match(routeHandler, /recordDownload/);
-  assert.match(routeHandler, /getDownloadRequestMetadata\(request\)/);
+  assert.match(routeHandler, /scheduleAfterResponse:\s*after/);
+  assert.doesNotMatch(routeHandler, /await recordDownload/);
   assert.match(routeHandler, /status: 302/);
   assert.match(routeHandler, /resolveLatestReleaseAsset/);
+  assert.match(downloadFlow, /getDownloadRequestMetadata\(request\)/);
+  assert.match(downloadFlow, /downloadTrackingTimeoutMs = 400/);
+  assert.match(downloadFlow, /Promise\.race/);
+  assert.match(downloadFlow, /scheduleAfterResponse/);
+  assert.match(downloadFlow, /createRedirect\(asset\.downloadUrl\)/);
   assert.match(macRoute, /handleDownloadRequest\(request, "mac"\)/);
   assert.match(
     windowsRoute,

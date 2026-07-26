@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { createDownloadRedirect } from "./downloadFlow";
 import { recordDownload } from "./downloadTracker";
 import {
   resolveLatestReleaseAsset,
@@ -11,22 +12,21 @@ export async function handleDownloadRequest(
   platform: DownloadPlatform,
 ): Promise<NextResponse> {
   try {
-    const { releaseTag, asset } =
-      await resolveLatestReleaseAsset(platform);
-    const metadata = getDownloadRequestMetadata(request);
-
-    await recordDownload({
-      platform,
-      releaseTag,
-      ...metadata,
-      assetName: asset.name,
-      occurredAt: new Date().toISOString(),
-    });
-
-    return NextResponse.redirect(asset.downloadUrl, {
-      status: 302,
-      headers: {
-        "Cache-Control": "no-store",
+    return await createDownloadRedirect(request, platform, {
+      resolveLatestReleaseAsset,
+      getDownloadRequestMetadata,
+      recordDownload,
+      scheduleAfterResponse: after,
+      createRedirect(downloadUrl) {
+        return NextResponse.redirect(downloadUrl, {
+          status: 302,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        });
+      },
+      logTrackingFailure(message, context) {
+        console.error(message, context);
       },
     });
   } catch (error) {
