@@ -4,7 +4,9 @@
   "description": "Least-privilege capability for the companion window.",
   "windows": ["companion"],
   "permissions": [
+    "allow-get-cursor-position",
     "allow-move-companion-window",
-    "allow-set-companion-content-height"
+    "allow-set-companion-content-height",
+    "allow-stream-cursor-positions"
   ]
 }

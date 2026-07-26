@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stream-cursor-positions"
+description = "Enables the stream_cursor_positions command without any pre-configured scope."
+commands.allow = ["stream_cursor_positions"]
+
+[[permission]]
+identifier = "deny-stream-cursor-positions"
+description = "Denies the stream_cursor_positions command without any pre-configured scope."
+commands.deny = ["stream_cursor_positions"]

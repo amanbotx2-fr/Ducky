@@ -312,9 +312,10 @@ export function PsyDuck({
   }, [onAnimationControllerChange]);
 
   useEffect(() => {
-    const companionBridge = desktopBridge.getCompanionBridge();
+    const companionWindowBridge =
+      desktopBridge.getCompanionWindowBridge();
 
-    if (companionBridge === undefined || !eyeTrackingEnabled) {
+    if (companionWindowBridge === undefined || !eyeTrackingEnabled) {
       eyesRef.current?.style.setProperty('--pupil-x', '0px');
       eyesRef.current?.style.setProperty('--pupil-y', '0px');
       return;
@@ -322,8 +323,8 @@ export function PsyDuck({
 
     const tracker = new EyeTracker({
       cursorSource: {
-        getCurrentPosition: companionBridge.getCursorPosition,
-        subscribe: companionBridge.onCursorPosition,
+        getCurrentPosition: companionWindowBridge.getCursorPosition,
+        subscribe: companionWindowBridge.onCursorPosition,
       },
       getEyeOrigin: () => {
         const stageBounds = stageRef.current?.getBoundingClientRect();

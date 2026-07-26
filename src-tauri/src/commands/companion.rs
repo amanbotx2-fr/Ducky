@@ -1,15 +1,40 @@
+use std::{
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    thread,
+    time::Duration,
+};
+
 use serde::{Deserialize, Serialize};
-use tauri::{LogicalPosition, Runtime, WebviewWindow};
+use tauri::{ipc::Channel, LogicalPosition, PhysicalPosition, Runtime, State, WebviewWindow};
 
 use crate::desktop::windows::companion;
 
 const MAX_ABSOLUTE_WINDOW_COORDINATE: f64 = 100_000.0;
 const MAX_COMPANION_CONTENT_HEIGHT: f64 = 10_000.0;
+const CURSOR_SAMPLE_INTERVAL: Duration = Duration::from_nanos(1_000_000_000 / 30);
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub(crate) struct ScreenPoint {
     x: f64,
     y: f64,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct CursorStreamState {
+    generation: Arc<AtomicU64>,
+}
+
+impl CursorStreamState {
+    fn begin(&self) -> u64 {
+        self.generation.fetch_add(1, Ordering::AcqRel) + 1
+    }
+
+    fn is_current(&self, generation: u64) -> bool {
+        self.generation.load(Ordering::Acquire) == generation
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
@@ -18,7 +43,16 @@ pub(crate) enum CompanionCommandError {
     UnauthorizedWindow,
     InvalidPosition,
     InvalidContentHeight,
+    CursorUnavailable,
     WindowOperationFailed,
+}
+
+#[tauri::command]
+pub(crate) fn get_cursor_position<R: Runtime>(
+    window: WebviewWindow<R>,
+) -> Result<ScreenPoint, CompanionCommandError> {
+    authorize_companion(&window)?;
+    logical_cursor_position(&window).map_err(|_| CompanionCommandError::CursorUnavailable)
 }
 
 #[tauri::command]
@@ -26,9 +60,7 @@ pub(crate) fn move_companion_window<R: Runtime>(
     window: WebviewWindow<R>,
     position: ScreenPoint,
 ) -> Result<(), CompanionCommandError> {
-    if window.label() != companion::LABEL {
-        return Err(CompanionCommandError::UnauthorizedWindow);
-    }
+    authorize_companion(&window)?;
 
     let position = normalize_position(position).ok_or(CompanionCommandError::InvalidPosition)?;
 
@@ -40,9 +72,7 @@ pub(crate) fn set_companion_content_height<R: Runtime>(
     window: WebviewWindow<R>,
     height: f64,
 ) -> Result<(), CompanionCommandError> {
-    if window.label() != companion::LABEL {
-        return Err(CompanionCommandError::UnauthorizedWindow);
-    }
+    authorize_companion(&window)?;
 
     if !is_valid_content_height(height) {
         return Err(CompanionCommandError::InvalidContentHeight);
@@ -50,6 +80,79 @@ pub(crate) fn set_companion_content_height<R: Runtime>(
 
     companion::set_content_height(&window, height)
         .map_err(|_| CompanionCommandError::WindowOperationFailed)
+}
+
+#[tauri::command]
+pub(crate) fn stream_cursor_positions<R: Runtime>(
+    window: WebviewWindow<R>,
+    on_position: Channel<ScreenPoint>,
+    state: State<'_, CursorStreamState>,
+) -> Result<(), CompanionCommandError> {
+    authorize_companion(&window)?;
+
+    let stream_state = state.inner().clone();
+    let generation = stream_state.begin();
+
+    thread::Builder::new()
+        .name("ducky-cursor-stream".into())
+        .spawn(move || {
+            run_cursor_stream(window, on_position, stream_state, generation);
+        })
+        .map_err(|_| CompanionCommandError::WindowOperationFailed)?;
+
+    Ok(())
+}
+
+fn authorize_companion<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), CompanionCommandError> {
+    if window.label() == companion::LABEL {
+        Ok(())
+    } else {
+        Err(CompanionCommandError::UnauthorizedWindow)
+    }
+}
+
+fn run_cursor_stream<R: Runtime>(
+    window: WebviewWindow<R>,
+    on_position: Channel<ScreenPoint>,
+    state: CursorStreamState,
+    generation: u64,
+) {
+    let mut last_position = None;
+
+    while state.is_current(generation) {
+        let Ok(position) = logical_cursor_position(&window) else {
+            break;
+        };
+
+        if last_position != Some(position) {
+            if on_position.send(position).is_err() {
+                break;
+            }
+
+            last_position = Some(position);
+        }
+
+        thread::sleep(CURSOR_SAMPLE_INTERVAL);
+    }
+}
+
+fn logical_cursor_position<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<ScreenPoint> {
+    let physical_position = window.cursor_position()?;
+    let scale_factor = window.scale_factor()?;
+
+    Ok(cursor_position_for_scale(physical_position, scale_factor))
+}
+
+fn cursor_position_for_scale(
+    physical_position: PhysicalPosition<f64>,
+    scale_factor: f64,
+) -> ScreenPoint {
+    let logical_position = physical_position.to_logical::<f64>(scale_factor);
+
+    ScreenPoint {
+        x: logical_position.x,
+        y: logical_position.y,
+    }
 }
 
 fn normalize_position(position: ScreenPoint) -> Option<LogicalPosition<i32>> {
@@ -127,5 +230,26 @@ mod tests {
         for height in [0.1, 220.0, 10_000.0] {
             assert!(is_valid_content_height(height));
         }
+    }
+
+    #[test]
+    fn converts_cursor_coordinates_to_the_window_logical_scale() {
+        assert_eq!(
+            cursor_position_for_scale(PhysicalPosition::new(-640.0, 512.0), 2.0,),
+            ScreenPoint {
+                x: -320.0,
+                y: 256.0,
+            },
+        );
+    }
+
+    #[test]
+    fn newer_cursor_stream_generation_supersedes_the_previous_one() {
+        let state = CursorStreamState::default();
+        let first = state.begin();
+        let second = state.begin();
+
+        assert!(!state.is_current(first));
+        assert!(state.is_current(second));
     }
 }
