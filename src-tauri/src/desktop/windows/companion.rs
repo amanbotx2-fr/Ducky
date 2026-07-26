@@ -13,6 +13,8 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
         .transparent(true)
         .decorations(false)
         .shadow(false)
+        .always_on_top(true)
+        .visible_on_all_workspaces(true)
         .resizable(false)
         .maximizable(false)
         .minimizable(false)

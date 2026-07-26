@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Task 2.2 — Transparent window
-- Next task: Task 2.3 — Always on top
+- Last completed task: Task 2.3 — Always on top
+- Next task: Task 2.4 — Positioning
 - Blockers: None for Phase 2
 
 ## Completed Tasks
@@ -354,3 +354,41 @@
 **Next task**
 
 - Task 2.3 — Always on top.
+
+### Task 2.3 — Always on top
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/src/desktop/windows/companion.rs` — enabled the existing default
+  always-on-top behavior and visibility across workspaces/virtual desktops.
+  On macOS, Tauri/Tao applies `CanJoinAllSpaces` without
+  `FullScreenAuxiliary`, matching Electron's
+  `visibleOnFullScreen: false` intent.
+- `docs/migrating/progress.md` — recorded Task 2.3.
+
+**Validation performed**
+
+- `cargo fmt`: applied.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run tauri:dev`: passed; the companion launched with the native window
+  flags and was then stopped manually.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Scope boundary**
+
+- The initial value remains `true`, matching current Electron defaults.
+  Settings-driven updates will be wired when the corresponding IPC/bridge
+  command is migrated; Task 2.3 does not duplicate settings persistence.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 2.4 — Positioning.
