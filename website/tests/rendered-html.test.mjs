@@ -2,17 +2,22 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { createServer as createHttpServer } from "node:http";
+import { createServer as createTcpServer } from "node:net";
 import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
+import { encode } from "next-auth/jwt";
+import { isAllowedGitHubUsername } from "../lib/auth/authorization.ts";
 import { getDownloadRequestMetadata } from "../lib/downloads/requestMetadata.ts";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+const testAuthSecret = "ducky-test-auth-secret-at-least-32-characters";
 let nextServer;
 let serverOrigin;
+let supabaseServer;
 
 async function getAvailablePort() {
-  const server = createServer();
+  const server = createTcpServer();
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
 
@@ -54,14 +59,58 @@ async function waitForServer(origin, output) {
 
 before(async () => {
   const port = await getAvailablePort();
+  const supabasePort = await getAvailablePort();
   const output = [];
+  const supabaseOrigin = `http://127.0.0.1:${supabasePort}`;
+  const serverEnvironment = {
+    ...process.env,
+    NODE_ENV: "production",
+    AUTH_SECRET: testAuthSecret,
+    GITHUB_ID: "test-github-client-id",
+    GITHUB_SECRET: "test-github-client-secret",
+    SUPABASE_URL: supabaseOrigin,
+    SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+  };
+
+  supabaseServer = createHttpServer((request, response) => {
+    if (
+      request.method === "POST" &&
+      request.url === "/rest/v1/rpc/get_download_analytics_overview"
+    ) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          totalDownloads: 128,
+          downloadsToday: 7,
+          downloadsThisWeek: 31,
+          downloadsThisMonth: 82,
+          platforms: {
+            mac: 64,
+            windows: 48,
+            linux: 16,
+          },
+          releases: [
+            { version: "v1.1.0", downloads: 91 },
+            { version: "v1.0.0", downloads: 37 },
+          ],
+        }),
+      );
+      return;
+    }
+
+    response.writeHead(404);
+    response.end();
+  });
+  supabaseServer.listen(supabasePort, "127.0.0.1");
+  await once(supabaseServer, "listening");
+
   serverOrigin = `http://127.0.0.1:${port}`;
   nextServer = spawn(
     process.execPath,
     ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)],
     {
       cwd: projectRoot,
-      env: { ...process.env, NODE_ENV: "production" },
+      env: serverEnvironment,
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -71,21 +120,42 @@ before(async () => {
 });
 
 after(async () => {
-  if (!nextServer || nextServer.exitCode !== null) {
-    return;
+  if (nextServer && nextServer.exitCode === null) {
+    nextServer.kill("SIGTERM");
+    await Promise.race([
+      once(nextServer, "exit"),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]);
   }
 
-  nextServer.kill("SIGTERM");
-  await Promise.race([
-    once(nextServer, "exit"),
-    new Promise((resolve) => setTimeout(resolve, 5_000)),
-  ]);
+  if (supabaseServer?.listening) {
+    supabaseServer.close();
+    await once(supabaseServer, "close");
+  }
 });
 
-async function render(pathname = "/") {
+async function render(pathname = "/", init = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("accept", "text/html");
+
   return fetch(new URL(pathname, serverOrigin), {
-    headers: { accept: "text/html" },
+    ...init,
+    headers,
   });
+}
+
+async function createAuthCookie(githubUsername) {
+  const token = await encode({
+    secret: testAuthSecret,
+    salt: "authjs.session-token",
+    token: {
+      name: githubUsername,
+      sub: `github-${githubUsername}`,
+      githubUsername,
+    },
+  });
+
+  return `authjs.session-token=${token}`;
 }
 
 test("extracts privacy-conscious download request metadata", () => {
@@ -142,6 +212,13 @@ test("extracts privacy-conscious download request metadata", () => {
     referrer: null,
     country: null,
   });
+});
+
+test("authorizes only configured GitHub usernames", () => {
+  assert.equal(isAllowedGitHubUsername("amanbotx2-fr"), true);
+  assert.equal(isAllowedGitHubUsername("AMANBOTX2-FR"), true);
+  assert.equal(isAllowedGitHubUsername("another-maintainer"), false);
+  assert.equal(isAllowedGitHubUsername(undefined), false);
 });
 
 test("server-renders the complete one-page Ducky landing page", async () => {
@@ -212,6 +289,185 @@ test("server-renders the complete one-page Ducky landing page", async () => {
   assert.match(html, /id="faq"/);
   assert.match(html, /official pixel-art desktop companion mascot/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|Starter Project/i);
+});
+
+test("server-renders analytics data through the shared Supabase configuration", async () => {
+  const response = await render("/admin/analytics", {
+    headers: {
+      cookie: await createAuthCookie("amanbotx2-fr"),
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /<title>Download Analytics — Ducky<\/title>/i);
+  assert.match(html, /Internal analytics/);
+  assert.match(html, /Download analytics\./);
+  assert.match(html, /At a glance\./);
+  assert.match(html, />Overview</);
+  assert.match(html, /Total Downloads/);
+  assert.match(html, /Downloads Today/);
+  assert.match(html, /Downloads This Week/);
+  assert.match(html, /Downloads This Month/);
+  assert.match(html, /Platform Breakdown/);
+  assert.match(html, /macOS/);
+  assert.match(html, /Windows/);
+  assert.match(html, /Linux/);
+  assert.match(html, /Release Breakdown/);
+  assert.match(html, />128</);
+  assert.match(html, />64</);
+  assert.match(html, /v1\.1\.0/);
+  assert.match(html, />91</);
+  assert.doesNotMatch(html, /Analytics temporarily unavailable/);
+  assert.doesNotMatch(html, /Release data unavailable/);
+  assert.match(html, /No visitor data included/);
+  assert.match(html, /name="robots" content="noindex, nofollow"/i);
+  assert.doesNotMatch(html, /Recent Downloads|Visitors|<canvas/i);
+});
+
+test("redirects unauthenticated admin requests to the GitHub login flow", async () => {
+  const response = await render("/admin/analytics?period=month", {
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 307);
+  const location = response.headers.get("location");
+  assert.ok(location);
+
+  const loginUrl = new URL(location, serverOrigin);
+  assert.equal(loginUrl.pathname, "/login");
+  assert.equal(
+    loginUrl.searchParams.get("callbackUrl"),
+    "/admin/analytics?period=month",
+  );
+});
+
+test("returns the 403 page for authenticated GitHub users outside the allowlist", async () => {
+  const response = await render("/admin/analytics", {
+    headers: {
+      cookie: await createAuthCookie("another-maintainer"),
+    },
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 403);
+  const html = await response.text();
+  assert.match(html, /403 Unauthorized — Ducky/);
+  assert.match(html, /Unauthorized/);
+  assert.match(html, /not approved to access/);
+});
+
+test("renders the server-side GitHub login page", async () => {
+  const response = await render(
+    "/login?callbackUrl=%2Fadmin%2Fanalytics",
+  );
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Sign in to analytics/);
+  assert.match(html, /Continue with GitHub/);
+  assert.match(html, /name="callbackUrl" value="\/admin\/analytics"/);
+  assert.doesNotMatch(html, /GITHUB_SECRET|AUTH_SECRET|access_token/i);
+});
+
+test("uses one shared server-only Supabase client for tracking and analytics", async () => {
+  const [page, queries, tracker, serverClient, migration] = await Promise.all([
+    readFile(new URL("../app/admin/analytics/page.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../lib/analytics/downloadAnalytics.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../lib/downloads/downloadTracker.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../lib/supabase/server.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../../supabase/migrations/20260726_003_download_analytics_overview.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(page, /dynamic = "force-dynamic"/);
+  assert.match(page, /getDownloadAnalyticsOverview\(\)/);
+  assert.match(page, /robots:\s*\{[\s\S]*index: false/);
+  assert.match(queries, /^import "server-only";/);
+  assert.equal((queries.match(/\.rpc\(/g) ?? []).length, 1);
+  assert.match(queries, /getServerSupabaseClient\(\)\.rpc/);
+  assert.doesNotMatch(queries, /\.from\("downloads"\)/);
+  assert.doesNotMatch(queries, /createClient|process\.env/);
+  assert.match(tracker, /getServerSupabaseClient\(\)\.from\("downloads"\)/);
+  assert.doesNotMatch(tracker, /createClient|process\.env/);
+  assert.match(serverClient, /^import "server-only";/);
+  assert.equal((serverClient.match(/createClient\(/g) ?? []).length, 1);
+  assert.match(serverClient, /process\.env\.SUPABASE_URL/);
+  assert.match(serverClient, /process\.env\.SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(migration, /get_download_analytics_overview/);
+  assert.match(migration, /count\(\*\) filter/);
+  assert.match(migration, /group by coalesce/);
+  assert.match(migration, /coalesce\([\s\S]*'\[\]'::jsonb/);
+  assert.match(migration, /'releases', releases\.items/);
+  assert.match(migration, /grant execute[\s\S]*to service_role/);
+  assert.doesNotMatch(migration, /drop table|delete from|truncate/i);
+});
+
+test("protects every admin route with Auth.js GitHub authorization", async () => {
+  const [
+    authConfig,
+    proxy,
+    adminLayout,
+    authorization,
+    unauthorizedResponse,
+    authRoute,
+    signOut,
+  ] =
+    await Promise.all([
+      readFile(new URL("../auth.ts", import.meta.url), "utf8"),
+      readFile(new URL("../proxy.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/admin/layout.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../lib/auth/authorization.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../lib/auth/unauthorizedResponse.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/api/auth/[...nextauth]/route.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL("../components/Auth/SignOutButton.tsx", import.meta.url),
+        "utf8",
+      ),
+    ]);
+
+  assert.match(authConfig, /from "next-auth"/);
+  assert.match(authConfig, /from "next-auth\/providers\/github"/);
+  assert.match(authConfig, /process\.env\.AUTH_SECRET/);
+  assert.match(authConfig, /process\.env\.GITHUB_ID/);
+  assert.match(authConfig, /process\.env\.GITHUB_SECRET/);
+  assert.match(authConfig, /githubUsername: profile\.login/);
+  assert.doesNotMatch(authConfig, /access_token|refresh_token/);
+  assert.match(proxy, /matcher: \["\/admin\/:path\*"\]/);
+  assert.match(proxy, /NextResponse\.redirect\(loginUrl\)/);
+  assert.match(proxy, /createUnauthorizedResponse\(\)/);
+  assert.match(unauthorizedResponse, /status: 403/);
+  assert.match(unauthorizedResponse, /"Cache-Control": "no-store"/);
+  assert.match(adminLayout, /await auth\(\)/);
+  assert.match(adminLayout, /isAllowedGitHubUsername/);
+  assert.match(authorization, /allowedGitHubUsernames = \["amanbotx2-fr"\]/);
+  assert.match(authRoute, /export const \{ GET, POST \} = handlers/);
+  assert.match(signOut, /await signOut\(\{ redirectTo: "\/" \}\)/);
+  assert.doesNotMatch(proxy, /SUPABASE|download|githubRelease/);
 });
 
 test("keeps the landing page scoped to the requested sections", async () => {

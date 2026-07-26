@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getServerSupabaseClient } from "../supabase/server";
 
 export type DownloadEvent = {
   platform: "mac" | "windows" | "linux";
@@ -17,34 +17,9 @@ export interface DownloadTracker {
   record(event: DownloadEvent): Promise<void>;
 }
 
-let supabaseClient: SupabaseClient | undefined;
-
-function getSupabaseClient(): SupabaseClient {
-  if (supabaseClient) {
-    return supabaseClient;
-  }
-
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase download tracking is not configured");
-  }
-
-  supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
-    },
-  });
-
-  return supabaseClient;
-}
-
 class SupabaseDownloadTracker implements DownloadTracker {
   async record(event: DownloadEvent): Promise<void> {
-    const { error } = await getSupabaseClient().from("downloads").insert({
+    const { error } = await getServerSupabaseClient().from("downloads").insert({
       platform: event.platform,
       version: event.releaseTag,
       browser: event.browser,
