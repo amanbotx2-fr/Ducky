@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
+import { getDownloadRequestMetadata } from "../lib/downloads/requestMetadata.ts";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 let nextServer;
@@ -87,6 +88,62 @@ async function render(pathname = "/") {
   });
 }
 
+test("extracts privacy-conscious download request metadata", () => {
+  const edgeRequest = new Request(
+    "https://ducky.example/download/windows",
+    {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36 " +
+          "Edg/126.0.0.0",
+        referer: "https://www.google.com/search?q=ducky#result",
+        "x-vercel-ip-country": "in",
+      },
+    },
+  );
+
+  assert.deepEqual(getDownloadRequestMetadata(edgeRequest), {
+    browser: "Edge",
+    operatingSystem: "Windows",
+    referrer: "google.com",
+    country: "IN",
+  });
+
+  const iosRequest = new Request("https://ducky.example/download/mac", {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " +
+        "AppleWebKit/605.1.15 CriOS/126.0.0.0 Mobile/15E148 Safari/604.1",
+    },
+  });
+
+  assert.deepEqual(getDownloadRequestMetadata(iosRequest), {
+    browser: "Chrome",
+    operatingSystem: "iOS",
+    referrer: null,
+    country: null,
+  });
+
+  const unknownRequest = new Request(
+    "https://ducky.example/download/linux",
+    {
+      headers: {
+        "user-agent": "unknown-client",
+        referer: "not a valid URL",
+        "x-vercel-ip-country": "India",
+      },
+    },
+  );
+
+  assert.deepEqual(getDownloadRequestMetadata(unknownRequest), {
+    browser: null,
+    operatingSystem: null,
+    referrer: null,
+    country: null,
+  });
+});
+
 test("server-renders the complete one-page Ducky landing page", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -159,6 +216,7 @@ test("server-renders the complete one-page Ducky landing page", async () => {
 
 test("keeps the landing page scoped to the requested sections", async () => {
   const [
+    layout,
     page,
     hero,
     navbar,
@@ -185,13 +243,16 @@ test("keeps the landing page scoped to the requested sections", async () => {
     globals,
     siteLinks,
     githubRelease,
+    requestMetadata,
     downloadTracker,
     routeHandler,
     macRoute,
     windowsRoute,
     linuxRoute,
+    metadataMigration,
     brandAssets,
   ] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Hero/Hero.tsx", import.meta.url), "utf8"),
     readFile(
@@ -285,6 +346,10 @@ test("keeps the landing page scoped to the requested sections", async () => {
       "utf8",
     ),
     readFile(
+      new URL("../lib/downloads/requestMetadata.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
       new URL("../lib/downloads/downloadTracker.ts", import.meta.url),
       "utf8",
     ),
@@ -301,9 +366,18 @@ test("keeps the landing page scoped to the requested sections", async () => {
       new URL("../app/download/linux/route.ts", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "../../supabase/migrations/20260726_002_download_event_metadata.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
     readFile(new URL("../lib/brandAssets.ts", import.meta.url), "utf8"),
   ]);
 
+  assert.match(layout, /from "@vercel\/analytics\/next"/);
+  assert.match(layout, /<Analytics \/>/);
   assert.match(page, /<Hero \/>/);
   assert.match(page, /<FeaturesSection \/>/);
   assert.match(page, /<DownloadSection \/>/);
@@ -454,16 +528,40 @@ test("keeps the landing page scoped to the requested sections", async () => {
   assert.match(githubRelease, /\.dmg/);
   assert.match(githubRelease, /\.exe/);
   assert.match(githubRelease, /\.appimage/);
+  assert.match(requestMetadata, /x-vercel-ip-country/);
+  assert.match(requestMetadata, /normalizeReferrer/);
+  assert.doesNotMatch(requestMetadata, /x-forwarded-for|x-real-ip/);
   assert.match(downloadTracker, /interface DownloadTracker/);
   assert.match(downloadTracker, /class SupabaseDownloadTracker/);
   assert.match(downloadTracker, /from\("downloads"\)\.insert/);
   assert.match(downloadTracker, /platform: event\.platform/);
   assert.match(downloadTracker, /version: event\.releaseTag/);
+  assert.match(downloadTracker, /browser: event\.browser/);
+  assert.match(
+    downloadTracker,
+    /operating_system: event\.operatingSystem/,
+  );
+  assert.match(downloadTracker, /referrer: event\.referrer/);
+  assert.match(downloadTracker, /country: event\.country/);
+  assert.match(downloadTracker, /asset_name: event\.assetName/);
+  assert.match(
+    downloadTracker,
+    /try\s*\{[\s\S]*await tracker\.record\(event\)[\s\S]*catch/,
+  );
   assert.doesNotMatch(downloadTracker, /created_at/);
   assert.match(routeHandler, /recordDownload/);
+  assert.match(routeHandler, /getDownloadRequestMetadata\(request\)/);
   assert.match(routeHandler, /status: 302/);
   assert.match(routeHandler, /resolveLatestReleaseAsset/);
-  assert.match(macRoute, /handleDownloadRequest\("mac"\)/);
-  assert.match(windowsRoute, /handleDownloadRequest\("windows"\)/);
-  assert.match(linuxRoute, /handleDownloadRequest\("linux"\)/);
+  assert.match(macRoute, /handleDownloadRequest\(request, "mac"\)/);
+  assert.match(
+    windowsRoute,
+    /handleDownloadRequest\(request, "windows"\)/,
+  );
+  assert.match(linuxRoute, /handleDownloadRequest\(request, "linux"\)/);
+  assert.match(metadataMigration, /add column if not exists browser text/);
+  assert.match(metadataMigration, /operating_system text/);
+  assert.match(metadataMigration, /referrer text/);
+  assert.match(metadataMigration, /country text/);
+  assert.match(metadataMigration, /asset_name text/);
 });

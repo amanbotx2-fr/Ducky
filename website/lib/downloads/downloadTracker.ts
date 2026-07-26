@@ -5,6 +5,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export type DownloadEvent = {
   platform: "mac" | "windows" | "linux";
   releaseTag: string;
+  browser: string | null;
+  operatingSystem: string | null;
+  referrer: string | null;
+  country: string | null;
   assetName: string;
   occurredAt: string;
 };
@@ -43,6 +47,11 @@ class SupabaseDownloadTracker implements DownloadTracker {
     const { error } = await getSupabaseClient().from("downloads").insert({
       platform: event.platform,
       version: event.releaseTag,
+      browser: event.browser,
+      operating_system: event.operatingSystem,
+      referrer: event.referrer,
+      country: event.country,
+      asset_name: event.assetName,
     });
 
     if (error) {
