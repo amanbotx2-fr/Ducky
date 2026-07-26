@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Task 2.3 — Always on top
-- Next task: Task 2.4 — Positioning
+- Last completed task: Task 2.4 — Positioning
+- Next task: Task 2.5 — Dragging
 - Blockers: None for Phase 2
 
 ## Completed Tasks
@@ -392,3 +392,46 @@
 **Next task**
 
 - Task 2.4 — Positioning.
+
+### Task 2.4 — Positioning
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/src/desktop/windows/companion.rs` — placed the companion at the
+  bottom-right of the primary display work area with the existing 24-logical-
+  pixel margin. The implementation converts the margin through the monitor
+  scale factor, preserves negative virtual-desktop coordinates, clamps the
+  initial height to the usable display height, and keeps the window hidden
+  until positioning is complete.
+- `docs/migrating/progress.md` — recorded Task 2.4.
+
+**Validation performed**
+
+- Added four focused Rust tests for standard placement, negative monitor
+  coordinates, Retina scaling, and the existing Electron small-work-area
+  formula.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (4 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run tauri:dev`: passed; primary-monitor lookup, initial sizing,
+  positioning, and window display completed without a native runtime error.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Scope boundary**
+
+- This task covers initial placement only. Drag-time positioning and dynamic
+  height anchoring remain Tasks 2.5 and 2.6.
+- Native visual comparison remains part of the Phase 2 exit gate because the
+  current Mac session is locked.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 2.5 — Dragging.
