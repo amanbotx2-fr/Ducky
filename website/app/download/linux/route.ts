@@ -1,5 +1,5 @@
 import { handleDownloadRequest } from "../../../lib/downloads/routeHandler";
 
-export async function GET() {
-  return handleDownloadRequest("linux");
+export async function GET(request: Request) {
+  return handleDownloadRequest(request, "linux");
 }

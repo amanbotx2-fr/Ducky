@@ -4,17 +4,21 @@ import {
   resolveLatestReleaseAsset,
   type DownloadPlatform,
 } from "./githubRelease";
+import { getDownloadRequestMetadata } from "./requestMetadata";
 
 export async function handleDownloadRequest(
+  request: Request,
   platform: DownloadPlatform,
 ): Promise<NextResponse> {
   try {
     const { releaseTag, asset } =
       await resolveLatestReleaseAsset(platform);
+    const metadata = getDownloadRequestMetadata(request);
 
     await recordDownload({
       platform,
       releaseTag,
+      ...metadata,
       assetName: asset.name,
       occurredAt: new Date().toISOString(),
     });
