@@ -1,6 +1,6 @@
 use tauri::{
-    App, LogicalSize, Monitor, PhysicalPosition, PhysicalRect, PhysicalSize, Runtime, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder,
+    App, LogicalPosition, LogicalSize, Monitor, PhysicalPosition, PhysicalRect, PhysicalSize,
+    Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 
 pub const LABEL: &str = "companion";
@@ -40,6 +40,13 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
     window.show()?;
 
     Ok(window)
+}
+
+pub fn move_to<R: Runtime>(
+    window: &WebviewWindow<R>,
+    position: LogicalPosition<i32>,
+) -> tauri::Result<()> {
+    window.set_position(position)
 }
 
 fn companion_height_for(monitor: &Monitor) -> f64 {

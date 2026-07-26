@@ -382,17 +382,18 @@ export function PsyDuck({
   }, []);
 
   useEffect(() => {
-    const companionBridge = desktopBridge.getCompanionBridge();
+    const companionWindowBridge =
+      desktopBridge.getCompanionWindowBridge();
     const stage = stageRef.current;
 
-    if (companionBridge === undefined || stage === null) {
+    if (companionWindowBridge === undefined || stage === null) {
       return;
     }
 
     const dragController = new DragController({
       surface: stage,
       getWindowPosition: () => ({ x: window.screenX, y: window.screenY }),
-      moveWindow: companionBridge.moveWindow,
+      moveWindow: companionWindowBridge.moveWindow,
       onDraggingChange: (isDragging) => {
         draggingRef.current = isDragging;
         setDragging(isDragging);

@@ -3,5 +3,5 @@
   "identifier": "companion",
   "description": "Least-privilege capability for the companion window.",
   "windows": ["companion"],
-  "permissions": []
+  "permissions": ["allow-move-companion-window"]
 }

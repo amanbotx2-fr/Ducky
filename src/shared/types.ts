@@ -34,6 +34,11 @@ export interface ScreenPoint {
 }
 
 export type CursorPositionListener = (position: ScreenPoint) => void;
+
+export interface CompanionWindowBridge {
+  readonly moveWindow: (position: ScreenPoint) => void;
+}
+
 export type RuntimeSettingsChangeListener = (
   settings: RuntimeSettings,
 ) => void;
@@ -77,11 +82,10 @@ export type AIConnectionTestResult =
       readonly diagnostics?: AIProviderHttpDiagnostics;
     };
 
-export interface CompanionBridge {
+export interface CompanionBridge extends CompanionWindowBridge {
   readonly platform: string;
   readonly getCursorPosition: () => Promise<ScreenPoint>;
   readonly onCursorPosition: (listener: CursorPositionListener) => () => void;
-  readonly moveWindow: (position: ScreenPoint) => void;
   readonly setCompanionContentHeight: (height: number) => void;
   readonly showCompanionContextMenu: () => void;
   readonly getRuntimeSettings: () => Promise<RuntimeSettings>;

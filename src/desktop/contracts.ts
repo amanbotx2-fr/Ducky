@@ -1,5 +1,6 @@
 import type {
   CompanionBridge,
+  CompanionWindowBridge,
   PreferencesBridge,
 } from '../shared/types';
 
@@ -9,6 +10,8 @@ import type {
  */
 export interface DesktopBridge {
   readonly getCompanionBridge: () => CompanionBridge | undefined;
+  readonly getCompanionWindowBridge: () =>
+    | CompanionWindowBridge
+    | undefined;
   readonly getPreferencesBridge: () => PreferencesBridge | undefined;
 }
-
