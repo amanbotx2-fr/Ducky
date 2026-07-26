@@ -25,10 +25,14 @@
     "dist:win": "npm run build && npm run clean:artifacts && electron-builder --win",
     "dist:linux": "npm run build && npm run clean:artifacts && electron-builder --linux",
     "release:verify": "node scripts/verify-release-artifacts.mjs",
-    "start": "electron ."
+    "start": "electron .",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
+    "@tauri-apps/api": "^2.11.1",
     "electron-updater": "^6.8.9",
     "ollama": "^0.6.3",
     "openai": "^6.48.0",
@@ -36,6 +40,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

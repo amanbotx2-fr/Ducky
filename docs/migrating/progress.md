@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 1 — Create Tauri Workspace
-- Last completed task: Task 0.3 — Move renderer to DesktopBridge
-- Next task: Task 1.1 — Initialize Tauri v2
+- Last completed task: Task 1.1 — Initialize Tauri v2
+- Next task: Task 1.2 — Configure two windows
 - Blockers: None for Phase 1
 
 ## Completed Tasks
@@ -127,3 +127,58 @@
 **Next task**
 
 - Task 1.1 — Initialize Tauri v2.
+
+### Task 1.1 — Initialize Tauri v2
+
+**Status:** Complete
+
+**Files changed**
+
+- `package.json` — added the Tauri v2 API/CLI dependencies and additive
+  `tauri`, `tauri:dev`, and `tauri:build` scripts while preserving every
+  Electron script.
+- `package-lock.json` — locked the Tauri JavaScript dependencies.
+- `src-tauri/Cargo.toml` — created the Rust package with Ducky's existing
+  version and product metadata.
+- `src-tauri/Cargo.lock` — locked the initial Rust dependency graph.
+- `src-tauri/build.rs` — added the standard Tauri build entry point.
+- `src-tauri/tauri.conf.json` — connected Tauri to the existing Vite dev
+  server and renderer output without changing `vite.config.ts`.
+- `src-tauri/src/lib.rs` and `src-tauri/src/main.rs` — added the minimal Tauri
+  application entry points.
+- `src-tauri/icons/` — generated Tauri platform icon variants from Ducky's
+  existing `assets/icons/icon.png`.
+- `src-tauri/capabilities/default.json` — retained the generated temporary
+  single-window capability; Task 1.3 will replace it with separate,
+  least-privilege companion and Preferences capabilities.
+- `src-tauri/.gitignore` — excluded generated Rust target and Tauri schema
+  output.
+- `docs/migrating/progress.md` — recorded Task 1.1.
+
+**Validation performed**
+
+- Installed the stable Rust toolchain required by Tauri:
+  `rustc 1.97.1` / `cargo 1.97.1`.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run dev:renderer`: Vite started on `127.0.0.1:5187`; both
+  `index.html` and `preferences.html` returned successfully.
+- `npm run tauri:dev`: Tauri compiled, launched the development binary, and
+  used the existing Vite server successfully; it was then stopped manually.
+- Confirmed no existing Electron source or configuration file was modified.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Environment note**
+
+- The first Rust link attempt exhausted the machine's remaining disk space.
+  Only generated project artifacts and the rebuildable npm cache were cleared;
+  the subsequent Cargo build passed. This is not a repository blocker.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 1.2 — Configure two windows.
