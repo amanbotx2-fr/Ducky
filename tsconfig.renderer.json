@@ -11,6 +11,7 @@
     "isolatedModules": true
   },
   "include": [
+    "src/desktop/**/*.ts",
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/engine/**/*.ts",

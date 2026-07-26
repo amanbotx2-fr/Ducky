@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 0 — Repository Preparation
-- Last completed task: Task 0.1 — Verify repository state
-- Next task: Task 0.2 — Create DesktopBridge abstraction
+- Last completed task: Task 0.2 — Create DesktopBridge abstraction
+- Next task: Task 0.3 — Move renderer to DesktopBridge
 - Blockers: None for Phase 0
 
 ## Completed Tasks
@@ -45,3 +45,33 @@
 
 - Task 0.2 — Create DesktopBridge abstraction.
 
+### Task 0.2 — Create DesktopBridge abstraction
+
+**Status:** Complete
+
+**Files changed**
+
+- `src/desktop/contracts.ts` — added the runtime-neutral bridge contract.
+- `src/desktop/electronBridge.ts` — adapted the existing role-specific preload
+  APIs without importing Electron into renderer code.
+- `src/desktop/DesktopBridge.ts` — added the renderer-facing integration
+  boundary.
+- `tsconfig.renderer.json` — included the new desktop bridge modules in
+  renderer type-checking.
+- `docs/migrating/progress.md` — recorded Task 0.2.
+
+**Validation performed**
+
+- Confirmed `src/renderer/` and `src/desktop/` contain no direct imports from
+  the `electron` package.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 0.3 — Move renderer to DesktopBridge.
