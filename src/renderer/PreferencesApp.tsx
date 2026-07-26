@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import type { AIProviderHttpDiagnostics } from '../ai/AIProvider';
+import { desktopBridge } from '../desktop/DesktopBridge';
 import {
   createModelReference,
   recordRecentModel,
@@ -381,7 +382,7 @@ export function PreferencesApp() {
       return;
     }
 
-    const preferencesBridge = window.psyduckPreferences;
+    const preferencesBridge = desktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setConnectionStatus({
@@ -427,7 +428,7 @@ export function PreferencesApp() {
       return;
     }
 
-    const preferencesBridge = window.psyduckPreferences;
+    const preferencesBridge = desktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setModelLoadingStatus({

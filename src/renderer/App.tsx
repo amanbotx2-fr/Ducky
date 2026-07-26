@@ -6,6 +6,7 @@ import {
   type BehaviorId,
 } from '../engine/BehaviorEngine';
 import { WaterReminder } from '../engine/WaterReminder';
+import { desktopBridge } from '../desktop/DesktopBridge';
 import {
   PERSONALITY_TRIGGERS,
   personalityService,
@@ -469,7 +470,7 @@ export function App() {
         variant: 'conversation',
       });
 
-      const request = window.psyduck?.askAI({
+      const request = desktopBridge.getCompanionBridge()?.askAI({
         prompt: normalizedPrompt,
         history,
       });
@@ -530,7 +531,7 @@ export function App() {
 
   const handleCustomPomodoroStart = useCallback(
     async (durationMinutes: number): Promise<void> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -544,7 +545,9 @@ export function App() {
 
   const handleCustomPomodoroPanelAfterClose = useCallback((): void => {
     setCustomPomodoroPanelPresent(false);
-    window.psyduck?.notifyCustomPomodoroPanelClosed();
+    desktopBridge
+      .getCompanionBridge()
+      ?.notifyCustomPomodoroPanelClosed();
   }, []);
 
   const handleUserNamePanelDismiss = useCallback(
@@ -556,7 +559,7 @@ export function App() {
 
   const handleUserNameSave = useCallback(
     async (name: string): Promise<void> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -582,7 +585,7 @@ export function App() {
 
   const handleStickyMessageSave = useCallback(
     async (message: string): Promise<void> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -617,7 +620,7 @@ export function App() {
 
   const handleReminderSave = useCallback(
     async (input: CreateReminderInput): Promise<void> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -668,7 +671,7 @@ export function App() {
 
   const handleReminderManagerLoad = useCallback(
     async (): Promise<readonly Reminder[]> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -681,7 +684,7 @@ export function App() {
 
   const handleReminderManagerDelete = useCallback(
     async (id: string): Promise<boolean> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -717,7 +720,7 @@ export function App() {
 
   const handleDailyPlannerLoad = useCallback(
     async (): Promise<DailyPlannerBriefing> => {
-      const bridge = window.psyduck;
+      const bridge = desktopBridge.getCompanionBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -729,7 +732,7 @@ export function App() {
   );
 
   const handleContentHeightChange = useCallback((height: number): void => {
-    window.psyduck?.setCompanionContentHeight(height);
+    desktopBridge.getCompanionBridge()?.setCompanionContentHeight(height);
   }, []);
 
   const handleReminderDismiss = useCallback((): void => {
@@ -793,7 +796,7 @@ export function App() {
   }, [speechBubble.show]);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -824,7 +827,7 @@ export function App() {
   }, [showPomodoroCompletion]);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -840,7 +843,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -857,7 +860,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -871,7 +874,7 @@ export function App() {
   }, [openReminderManager]);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -885,7 +888,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -899,7 +902,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;

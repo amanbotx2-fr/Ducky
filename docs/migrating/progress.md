@@ -4,10 +4,10 @@
 
 ## Current Status
 
-- Active phase: Phase 0 — Repository Preparation
-- Last completed task: Task 0.2 — Create DesktopBridge abstraction
-- Next task: Task 0.3 — Move renderer to DesktopBridge
-- Blockers: None for Phase 0
+- Active phase: Phase 1 — Create Tauri Workspace
+- Last completed task: Task 0.3 — Move renderer to DesktopBridge
+- Next task: Task 1.1 — Initialize Tauri v2
+- Blockers: None for Phase 1
 
 ## Completed Tasks
 
@@ -75,3 +75,55 @@
 **Next task**
 
 - Task 0.3 — Move renderer to DesktopBridge.
+
+### Task 0.3 — Move renderer to DesktopBridge
+
+**Status:** Complete
+
+**Files changed**
+
+- `src/renderer/App.tsx` — routed companion orchestration through
+  `DesktopBridge`.
+- `src/renderer/PreferencesApp.tsx` — routed AI Preferences operations
+  through `DesktopBridge`.
+- `src/renderer/components/PsyDuck.tsx` — routed cursor, context-menu, and
+  drag operations through `DesktopBridge`.
+- `src/renderer/hooks/usePomodoroState.ts` — routed Pomodoro snapshots and
+  subscriptions through `DesktopBridge`.
+- `src/renderer/hooks/usePreferencesSettings.ts` — routed Preferences
+  snapshots and mutations through `DesktopBridge`.
+- `src/renderer/hooks/useReminderNotifications.ts` — routed reminder events
+  and snooze creation through `DesktopBridge`.
+- `src/renderer/hooks/useRuntimeSettings.ts` — routed runtime settings through
+  `DesktopBridge`.
+- `src/renderer/hooks/useUpdateStatus.ts` — routed updater operations through
+  `DesktopBridge`.
+- `src/desktop/electron-globals.d.ts` — moved Electron preload global types
+  behind the Electron adapter boundary.
+- `src/renderer/vite-env.d.ts` — retained only Vite's renderer declaration.
+- `docs/migrating/progress.md` — recorded Task 0.3 and Phase 0 completion.
+
+**Validation performed**
+
+- Confirmed there are no `window.psyduck` or
+  `window.psyduckPreferences` references under `src/renderer/`.
+- Confirmed `src/renderer/` contains no direct Electron or Tauri imports.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+- Packaged-output Electron smoke launch: the companion started without bridge
+  errors; the process was then stopped manually.
+
+**Phase 0 exit criteria**
+
+- Renderer code no longer depends directly on Electron APIs.
+- Electron remains the active runtime through the isolated adapter.
+- Existing behavior and build paths remain intact.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 1.1 — Initialize Tauri v2.

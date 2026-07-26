@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
+import { desktopBridge } from '../../desktop/DesktopBridge';
 import {
   AnimationEngine,
   type PlayAnimationOptions,
@@ -311,9 +312,9 @@ export function PsyDuck({
   }, [onAnimationControllerChange]);
 
   useEffect(() => {
-    const desktopBridge = window.psyduck;
+    const companionBridge = desktopBridge.getCompanionBridge();
 
-    if (desktopBridge === undefined || !eyeTrackingEnabled) {
+    if (companionBridge === undefined || !eyeTrackingEnabled) {
       eyesRef.current?.style.setProperty('--pupil-x', '0px');
       eyesRef.current?.style.setProperty('--pupil-y', '0px');
       return;
@@ -321,8 +322,8 @@ export function PsyDuck({
 
     const tracker = new EyeTracker({
       cursorSource: {
-        getCurrentPosition: desktopBridge.getCursorPosition,
-        subscribe: desktopBridge.onCursorPosition,
+        getCurrentPosition: companionBridge.getCursorPosition,
+        subscribe: companionBridge.onCursorPosition,
       },
       getEyeOrigin: () => {
         const stageBounds = stageRef.current?.getBoundingClientRect();
@@ -368,7 +369,9 @@ export function PsyDuck({
 
     const handleContextMenu = (event: MouseEvent): void => {
       event.preventDefault();
-      window.psyduck?.showCompanionContextMenu();
+      desktopBridge
+        .getCompanionBridge()
+        ?.showCompanionContextMenu();
     };
 
     stage.addEventListener('contextmenu', handleContextMenu);
@@ -379,17 +382,17 @@ export function PsyDuck({
   }, []);
 
   useEffect(() => {
-    const desktopBridge = window.psyduck;
+    const companionBridge = desktopBridge.getCompanionBridge();
     const stage = stageRef.current;
 
-    if (desktopBridge === undefined || stage === null) {
+    if (companionBridge === undefined || stage === null) {
       return;
     }
 
     const dragController = new DragController({
       surface: stage,
       getWindowPosition: () => ({ x: window.screenX, y: window.screenY }),
-      moveWindow: desktopBridge.moveWindow,
+      moveWindow: companionBridge.moveWindow,
       onDraggingChange: (isDragging) => {
         draggingRef.current = isDragging;
         setDragging(isDragging);

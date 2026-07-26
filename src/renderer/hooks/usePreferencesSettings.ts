@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { desktopBridge } from '../../desktop/DesktopBridge';
 import {
   type AiConfigurationUpdate,
   createDefaultPreferencesSettings,
@@ -36,7 +37,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
   useEffect(() => {
     mountedRef.current = true;
-    const preferencesBridge = window.psyduckPreferences;
+    const preferencesBridge = desktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setStatus('error');
@@ -94,7 +95,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
   const update = useCallback(
     async (patch: PreferencesSettingsPatch): Promise<boolean> => {
-      const preferencesBridge = window.psyduckPreferences;
+      const preferencesBridge = desktopBridge.getPreferencesBridge();
 
       if (preferencesBridge === undefined) {
         setStatus('error');
@@ -153,7 +154,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
   const updateAiConfiguration = useCallback(
     async (configuration: AiConfigurationUpdate): Promise<boolean> => {
-      const preferencesBridge = window.psyduckPreferences;
+      const preferencesBridge = desktopBridge.getPreferencesBridge();
 
       if (preferencesBridge === undefined) {
         setStatus('error');

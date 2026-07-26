@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { desktopBridge } from '../../desktop/DesktopBridge';
 import {
   createIdlePomodoroState,
   type PomodoroState,
@@ -9,11 +10,13 @@ const INITIAL_STATE = createIdlePomodoroState();
 
 export const usePomodoroState = (): PomodoroState => {
   const [state, setState] = useState<PomodoroState>(
-    () => window.psyduck?.getPomodoroState() ?? INITIAL_STATE,
+    () =>
+      desktopBridge.getCompanionBridge()?.getPomodoroState() ??
+      INITIAL_STATE,
   );
 
   useEffect(() => {
-    const bridge = window.psyduck;
+    const bridge = desktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { desktopBridge } from '../../desktop/DesktopBridge';
 import type { UpdateStatus } from '../../shared/updates';
 
 export interface UpdateStatusController {
@@ -15,7 +16,7 @@ export function useUpdateStatus(): UpdateStatusController {
 
   useEffect(() => {
     mountedRef.current = true;
-    const preferencesBridge = window.psyduckPreferences;
+    const preferencesBridge = desktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setUpdateStatus({
@@ -61,7 +62,7 @@ export function useUpdateStatus(): UpdateStatusController {
   }, []);
 
   const checkForUpdates = useCallback(async (): Promise<void> => {
-    const preferencesBridge = window.psyduckPreferences;
+    const preferencesBridge = desktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setUpdateStatus({
