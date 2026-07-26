@@ -4,10 +4,10 @@
 
 ## Current Status
 
-- Active phase: Phase 1 — Create Tauri Workspace
-- Last completed task: Task 1.2 — Configure two windows
-- Next task: Task 1.3 — Capabilities
-- Blockers: None for Phase 1
+- Active phase: Phase 2 — Desktop Window Migration
+- Last completed task: Task 1.3 — Capabilities
+- Next task: Task 2.1 — Companion window
+- Blockers: None for Phase 2
 
 ## Completed Tasks
 
@@ -215,3 +215,56 @@
 **Next task**
 
 - Task 1.3 — Capabilities.
+
+### Task 1.3 — Capabilities
+
+**Status:** Complete
+
+**Files changed**
+
+- `src-tauri/capabilities/companion.json` — added an exact-label,
+  local-only capability for the companion window.
+- `src-tauri/capabilities/preferences.json` — added an exact-label,
+  local-only capability for the Preferences window.
+- `src-tauri/capabilities/default.json` — removed the generated shared
+  capability.
+- `src-tauri/tauri.conf.json` — explicitly enabled only the two named
+  capabilities.
+- `docs/migrating/progress.md` — recorded Task 1.3 and Phase 1 completion.
+
+**Security boundary**
+
+- Each window appears in exactly one capability.
+- Neither capability uses a wildcard label or remote URL.
+- No filesystem, HTTP, shell, process, or other plugin permission is granted.
+- The permission arrays are intentionally empty until later tasks introduce a
+  proven renderer API requirement.
+
+**Validation performed**
+
+- Parsed both capability files and asserted their identifiers, exact window
+  labels, empty permission sets, and absence of remote configuration.
+- Confirmed no wildcard or filesystem/HTTP/shell/process permission appears in
+  `src-tauri/capabilities/`.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed, including Tauri
+  capability schema validation.
+- `npm run tauri:dev`: passed; the Tauri shell launched under the new
+  capability boundary and was then stopped manually.
+- `cargo fmt --check`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed, confirming Electron remains buildable.
+
+**Phase 1 exit criteria**
+
+- Tauri launches successfully with both renderer windows.
+- The two renderer roles have separate deny-by-default capabilities.
+- Electron still type-checks, passes all tests, and builds.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 2.1 — Companion window.

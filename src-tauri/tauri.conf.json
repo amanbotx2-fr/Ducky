@@ -33,7 +33,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["companion", "preferences"]
     }
   },
   "bundle": {
