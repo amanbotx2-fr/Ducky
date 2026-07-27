@@ -923,6 +923,7 @@ checksum = "f678cf4a922c215c63e0de95eb1ff08a958a81d47e485cf9da1e27bf6305cfa5"
 name = "ducky"
 version = "1.1.0"
 dependencies = [
+ "chrono",
  "image",
  "keyring",
  "serde",
@@ -932,6 +933,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tempfile",
  "url",
+ "uuid",
  "zeroize",
 ]
 

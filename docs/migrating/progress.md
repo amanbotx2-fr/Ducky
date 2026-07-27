@@ -3109,3 +3109,71 @@ unstarted.
 **Next task**
 
 - Task 7.2 — Create Native Reminder Engine. Do not begin automatically.
+
+### Task 7.2 — Native Reminder Engine Core
+
+**Status:** Engine core complete; native settings registration and startup
+restoration continue in Task 7.3 before Task 7.2's runtime acceptance is
+closed.
+
+**Implementation summary**
+
+- Added the exact Electron reminder schema to the Rust domain, including
+  one-time, fixed interval, daily, weekly, and calendar-month recurrence.
+  No `enabled` field or new reminder capability was introduced.
+- Migrated `ReminderService` semantics to Rust: serialized mutations, strict
+  validation, UUID generation, stable sorting, CRUD, one-time completion, and
+  recurring occurrence advancement.
+- Migrated `ReminderScheduler` as a runtime-owned singleton with one native
+  worker, a 60-second wall-clock validation bound, 24-hour overdue recovery,
+  deterministic due ordering, persistence-failure retry behavior, and
+  duplicate-delivery suppression.
+- Kept scheduling independent of the renderer and modeled persistence and
+  fired-event delivery behind narrow native traits. The concrete native
+  settings repository and Tauri event sink are intentionally connected by the
+  following Phase 7 milestones, not replaced by browser timers or native OS
+  notifications.
+
+**Files changed**
+
+- `src-tauri/src/domain/reminders/mod.rs` — exact reminder model, service,
+  recurrence engine, scheduler, native interfaces, and focused regression
+  tests.
+- `src-tauri/src/domain/mod.rs` — registers the reminder domain.
+- `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` — add direct `chrono`
+  calendar/time support and UUID generation dependencies already present in
+  the native dependency graph.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed.
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (59 tests, including four reminder engine tests).
+- `cargo build`: passed. The unregistered engine reports expected dead-code
+  warnings until the settings/runtime integration milestone.
+- `npx tauri permission list`: passed; the native-only engine adds no renderer
+  permission.
+- Electron production-output smoke launch: passed through the unchanged
+  Electron reminder implementation.
+- `npm run tauri:dev`: passed; Tauri compiled, launched, and remained alive.
+  Existing development custom-protocol fallback warnings were unchanged.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  macOS application bundle.
+
+**Manual verification**
+
+- Runtime reminder behavior is not yet exposed in this core-only milestone.
+  Manual CRUD, fired-widget, persistence, and restart checks remain deferred
+  until the concrete repository, commands, and event delivery are connected.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 7.3 — connect the exact reminder schema to the native settings store,
+  register/start/stop the scheduler, and restore reminders on startup. Do not
+  begin Task 7.4 until persistence acceptance passes.
