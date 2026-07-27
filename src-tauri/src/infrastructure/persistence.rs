@@ -185,6 +185,22 @@ mod tests {
         SettingsStore::new(directory.join("settings.json"))
     }
 
+    fn stored_reminder(id: &str) -> crate::domain::reminders::Reminder {
+        serde_json::from_value(json!({
+            "id": id,
+            "title": "Persisted reminder",
+            "message": "",
+            "scheduledAt": "2030-01-01T09:00:00.000Z",
+            "recurrence": { "type": "none" },
+            "lastTriggeredAt": null,
+            "nextOccurrence": "2030-01-01T09:00:00.000Z",
+            "completed": false,
+            "createdAt": "2029-12-31T09:00:00.000Z",
+            "updatedAt": "2029-12-31T09:00:00.000Z"
+        }))
+        .expect("stored reminder")
+    }
+
     #[test]
     fn missing_store_materializes_and_restores_defaults() {
         let directory = tempdir().expect("temporary directory");
@@ -199,13 +215,13 @@ mod tests {
     }
 
     #[test]
-    fn saved_settings_round_trip_without_losing_deferred_data() {
+    fn saved_settings_round_trip_without_losing_reminders() {
         let directory = tempdir().expect("temporary directory");
         let store = store_in(directory.path());
         let mut settings = SettingsDocument::default();
         settings.general.always_on_top = false;
         settings.notification_sounds.volume = 25;
-        settings.reminders.push(json!({ "id": "phase-seven" }));
+        settings.reminders.push(stored_reminder("phase-seven"));
         settings.credential = Some(json!({
             "version": 1,
             "ciphertext": "dGVzdA=="

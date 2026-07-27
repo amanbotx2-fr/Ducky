@@ -1,13 +1,17 @@
 use std::{
+    collections::HashSet,
     net::IpAddr,
-    sync::{Mutex, PoisonError, RwLock},
+    sync::{Arc, Mutex, PoisonError, RwLock},
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use url::Url;
 
-use crate::infrastructure::persistence::SettingsStore;
+use crate::{
+    domain::reminders::{Reminder, ReminderRepository, ReminderRepositoryError},
+    infrastructure::persistence::SettingsStore,
+};
 
 const DEFAULT_USER_NAME: &str = "Friend";
 const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
@@ -26,7 +30,7 @@ pub(crate) struct SettingsDocument {
     #[serde(default)]
     pub(crate) sticky_message: Option<String>,
     #[serde(default)]
-    pub(crate) reminders: Vec<Value>,
+    pub(crate) reminders: Vec<Reminder>,
     pub(crate) general: GeneralSettings,
     pub(crate) water: WaterSettings,
     #[serde(default)]
@@ -82,10 +86,18 @@ impl SettingsDocument {
             )?;
         }
 
-        if !self.reminders.iter().all(Value::is_object) {
-            return Err(SettingsValidationError::new(
-                "reminders must contain objects",
-            ));
+        let mut reminder_ids = HashSet::new();
+
+        for reminder in &mut self.reminders {
+            reminder
+                .validate_and_canonicalize()
+                .map_err(|error| SettingsValidationError::new(error.to_string()))?;
+
+            if !reminder_ids.insert(reminder.id.clone()) {
+                return Err(SettingsValidationError::new(
+                    "reminders must have unique IDs",
+                ));
+            }
         }
 
         self.water.validate()?;
@@ -141,19 +153,19 @@ impl SettingsDocument {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct SettingsState {
     pub(crate) store: SettingsStore,
-    pub(crate) settings: RwLock<SettingsDocument>,
-    mutation_lock: Mutex<()>,
+    pub(crate) settings: Arc<RwLock<SettingsDocument>>,
+    mutation_lock: Arc<Mutex<()>>,
 }
 
 impl SettingsState {
     pub(crate) fn new(store: SettingsStore, settings: SettingsDocument) -> Self {
         Self {
             store,
-            settings: RwLock::new(settings),
-            mutation_lock: Mutex::new(()),
+            settings: Arc::new(RwLock::new(settings)),
+            mutation_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -237,6 +249,17 @@ impl SettingsState {
         })
     }
 
+    pub(crate) fn replace_reminders(
+        &self,
+        reminders: Vec<Reminder>,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        self.persist_update(move |settings| {
+            let mut next = settings.clone();
+            next.reminders = reminders;
+            next
+        })
+    }
+
     fn persist_update(
         &self,
         update: impl FnOnce(&SettingsDocument) -> SettingsDocument,
@@ -265,6 +288,20 @@ impl SettingsState {
             settings: next,
             changed: true,
         })
+    }
+}
+
+impl ReminderRepository for SettingsState {
+    fn list(&self) -> Result<Vec<Reminder>, ReminderRepositoryError> {
+        self.snapshot()
+            .map(|settings| settings.reminders)
+            .map_err(|error| ReminderRepositoryError::new(error.to_string()))
+    }
+
+    fn save(&self, reminders: &[Reminder]) -> Result<(), ReminderRepositoryError> {
+        self.replace_reminders(reminders.to_vec())
+            .map(|_| ())
+            .map_err(|error| ReminderRepositoryError::new(error.to_string()))
     }
 }
 
@@ -725,6 +762,22 @@ mod tests {
 
     use super::*;
 
+    fn stored_reminder(id: &str) -> Reminder {
+        serde_json::from_value(json!({
+            "id": id,
+            "title": "Native reminder",
+            "message": "",
+            "scheduledAt": "2030-01-01T09:00:00.000Z",
+            "recurrence": { "type": "none" },
+            "lastTriggeredAt": null,
+            "nextOccurrence": "2030-01-01T09:00:00.000Z",
+            "completed": false,
+            "createdAt": "2029-12-31T09:00:00.000Z",
+            "updatedAt": "2029-12-31T09:00:00.000Z"
+        }))
+        .expect("stored reminder")
+    }
+
     #[test]
     fn defaults_match_the_electron_settings_contract() {
         let defaults = SettingsDocument::default();
@@ -820,23 +873,52 @@ mod tests {
     }
 
     #[test]
-    fn deferred_data_is_preserved_without_becoming_renderer_state() {
+    fn reminder_data_is_typed_and_stays_out_of_renderer_state() {
         let credential = json!({
             "version": 1,
             "ciphertext": "dGVzdA=="
         });
-        let reminder = json!({
-            "id": "deferred-reminder"
-        });
+        let reminder = stored_reminder("typed-reminder");
         let mut settings = SettingsDocument::default();
         settings.credential = Some(credential.clone());
         settings.reminders.push(reminder.clone());
 
-        settings.validate().expect("opaque deferred data is valid");
+        settings.validate().expect("typed reminder data is valid");
         let serialized = serde_json::to_value(&settings).expect("settings serialize");
 
         assert_eq!(serialized["credential"], credential);
-        assert_eq!(serialized["reminders"][0], reminder);
+        assert_eq!(
+            serialized["reminders"][0],
+            serde_json::to_value(reminder).expect("reminder serialize")
+        );
+    }
+
+    #[test]
+    fn reminder_repository_persists_atomically_across_shared_state_clones() {
+        let directory = tempdir().expect("temporary directory");
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        store
+            .save(&SettingsDocument::default())
+            .expect("initial settings save");
+        let state = SettingsState::new(store.clone(), SettingsDocument::default());
+        let repository = state.clone();
+        let reminder = stored_reminder("persisted-reminder");
+
+        ReminderRepository::save(&repository, std::slice::from_ref(&reminder))
+            .expect("reminder save");
+
+        assert_eq!(state.snapshot().unwrap().reminders, [reminder.clone()]);
+        assert_eq!(store.load().unwrap().reminders, [reminder]);
+        assert!(!directory.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn settings_reject_duplicate_reminder_ids() {
+        let reminder = serde_json::to_value(stored_reminder("duplicate")).unwrap();
+        let mut value = serde_json::to_value(SettingsDocument::default()).unwrap();
+        value["reminders"] = json!([reminder.clone(), reminder]);
+
+        assert!(SettingsDocument::parse(value).is_err());
     }
 
     #[test]

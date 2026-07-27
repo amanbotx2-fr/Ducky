@@ -1,6 +1,7 @@
-use tauri::{AppHandle, RunEvent, Runtime};
+use tauri::{AppHandle, Manager, RunEvent, Runtime};
 
 use super::{menus, tray, windows::companion};
+use crate::domain::reminders::ReminderRuntime;
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     match event {
@@ -8,7 +9,17 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
             api.prevent_exit();
         }
         RunEvent::Exit => {
+            if let Some(reminders) = app.try_state::<ReminderRuntime>() {
+                if let Err(error) = reminders.stop() {
+                    eprintln!("[reminder-scheduler] shutdown_failed: {error}");
+                }
+            }
             tray::destroy(app);
+        }
+        RunEvent::Resumed => {
+            if let Some(reminders) = app.try_state::<ReminderRuntime>() {
+                reminders.resynchronize();
+            }
         }
         RunEvent::MenuEvent(event) => {
             if let Err(error) = menus::handle_menu_event(app, &event) {

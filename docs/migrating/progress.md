@@ -3177,3 +3177,82 @@ closed.
 - Task 7.3 — connect the exact reminder schema to the native settings store,
   register/start/stop the scheduler, and restore reminders on startup. Do not
   begin Task 7.4 until persistence acceptance passes.
+
+### Tasks 7.2–7.3 — Reminder Runtime Registration and Persistence
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Replaced the native settings document's deferred reminder JSON with the
+  exact typed Electron reminder schema. Stored records retain the Electron
+  compatibility defaults for omitted legacy `recurrence`,
+  `lastTriggeredAt`, and `nextOccurrence` fields, while malformed, unknown,
+  or duplicate records are rejected.
+- Implemented the reminder repository on the existing shared
+  `SettingsState`. Reminder writes use the established mutation mutex,
+  validation pass, same-directory temporary file, owner-only permissions, and
+  atomic rename before the shared snapshot changes.
+- Made cloned native settings handles share the same locks and snapshot so the
+  scheduler, commands, and existing settings commands cannot diverge or lose
+  concurrent mutations.
+- Registered one `ReminderRuntime` during Tauri setup. It restores the typed
+  reminder list from native settings, starts exactly one scheduler worker
+  before renderer initialization, resynchronizes on native resume, and joins
+  cleanly during application exit.
+- Added a bounded native pending-delivery queue as the scheduler sink. This
+  preserves reminders that become due before renderer event delivery is
+  connected in Task 7.5; it does not add an OS notification or alter the
+  existing React notification contract.
+
+**Files changed**
+
+- `src-tauri/src/domain/reminders/mod.rs` — Electron-compatible stored reminder
+  parsing, pending delivery queue, and registered reminder runtime.
+- `src-tauri/src/domain/settings/mod.rs` — typed reminder settings,
+  clone-shared state locks, atomic reminder repository, and persistence/schema
+  tests.
+- `src-tauri/src/infrastructure/persistence.rs` — typed reminder round-trip
+  coverage.
+- `src-tauri/src/app_state.rs` — constructs, starts, and manages the singleton
+  reminder runtime from the shared settings repository.
+- `src-tauri/src/desktop/lifecycle.rs` — native resume resynchronization and
+  clean scheduler shutdown.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (134 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (62 tests, including legacy schema defaults, duplicate
+  rejection, shared-state atomic persistence, and settings round trips).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed; runtime-owned scheduling and persistence
+  require no renderer permission.
+- Electron production-output smoke launch: passed through the unchanged
+  Electron reminder service, scheduler, persistence, and renderer.
+- `npm run tauri:dev`: passed. The app loaded native settings, registered the
+  singleton scheduler, launched, and remained alive without reminder or
+  permission errors. Existing development custom-protocol fallback warnings
+  were unchanged.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  macOS application bundle.
+
+**Manual verification**
+
+- Tauri startup and shutdown were exercised with the runtime registered.
+- End-to-end reminder creation/restart verification remains intentionally
+  pending until Task 7.4 exposes the existing CRUD bridge. Atomic save/reload
+  and startup schema restoration are covered by focused native tests in this
+  milestone.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 7.4 — expose only the existing reminder CRUD contract through the
+  companion-scoped DesktopBridge. Do not begin Task 7.5 until command
+  acceptance passes.

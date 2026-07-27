@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     sync::{Arc, Condvar, Mutex, PoisonError},
     thread::{self, JoinHandle},
     time::Duration,
@@ -9,7 +9,7 @@ use std::{
 use chrono::{
     DateTime, Datelike, Days, Local, LocalResult, Months, NaiveDateTime, TimeZone, Timelike, Utc,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 pub(crate) const CLOCK_VALIDATION_INTERVAL: Duration = Duration::from_secs(60);
@@ -72,7 +72,7 @@ impl ReminderRecurrence {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Reminder {
     pub(crate) id: String,
@@ -85,6 +85,96 @@ pub(crate) struct Reminder {
     pub(crate) completed: bool,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredReminder {
+    id: String,
+    title: String,
+    message: String,
+    scheduled_at: String,
+    #[serde(default)]
+    recurrence: OptionalStoredField<ReminderRecurrence>,
+    #[serde(default)]
+    last_triggered_at: OptionalStoredField<String>,
+    #[serde(default)]
+    next_occurrence: OptionalStoredField<String>,
+    completed: bool,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Default)]
+enum OptionalStoredField<T> {
+    #[default]
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<'de, T> Deserialize<'de> for OptionalStoredField<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<T>::deserialize(deserializer).map(|value| value.map_or(Self::Null, Self::Value))
+    }
+}
+
+impl<'de> Deserialize<'de> for Reminder {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let stored = StoredReminder::deserialize(deserializer)?;
+        let recurrence = match stored.recurrence {
+            OptionalStoredField::Missing => ReminderRecurrence::None,
+            OptionalStoredField::Value(value) => value,
+            OptionalStoredField::Null => {
+                return Err(D::Error::custom("Reminder recurrence is invalid."));
+            }
+        };
+        let last_triggered_at = match stored.last_triggered_at {
+            OptionalStoredField::Missing | OptionalStoredField::Null => None,
+            OptionalStoredField::Value(value) => Some(value),
+        };
+        let next_occurrence = match stored.next_occurrence {
+            OptionalStoredField::Missing if stored.completed => None,
+            OptionalStoredField::Missing => Some(stored.scheduled_at.clone()),
+            OptionalStoredField::Null => None,
+            OptionalStoredField::Value(value) => Some(value),
+        };
+        let title = stored.title.clone();
+        let message = stored.message.clone();
+        let mut reminder = Self {
+            id: stored.id,
+            title: stored.title,
+            message: stored.message,
+            scheduled_at: stored.scheduled_at,
+            recurrence,
+            last_triggered_at,
+            next_occurrence,
+            completed: stored.completed,
+            created_at: stored.created_at,
+            updated_at: stored.updated_at,
+        };
+
+        reminder
+            .validate_and_canonicalize()
+            .map_err(D::Error::custom)?;
+
+        if reminder.title != title || reminder.message != message {
+            return Err(D::Error::custom(
+                "Stored reminder text must already be normalized.",
+            ));
+        }
+
+        Ok(reminder)
+    }
 }
 
 impl Reminder {
@@ -615,6 +705,33 @@ pub(crate) trait ReminderEventSink: Send + Sync {
 }
 
 #[derive(Debug, Default)]
+pub(crate) struct PendingReminderDeliveries {
+    notifications: Mutex<VecDeque<ReminderFiredNotification>>,
+}
+
+impl PendingReminderDeliveries {
+    pub(crate) fn drain(&self) -> Result<Vec<ReminderFiredNotification>, ReminderSchedulerError> {
+        self.notifications
+            .lock()
+            .map(|mut notifications| notifications.drain(..).collect())
+            .map_err(ReminderSchedulerError::from)
+    }
+}
+
+impl ReminderEventSink for PendingReminderDeliveries {
+    fn emit(&self, notification: ReminderFiredNotification) {
+        match self.notifications.lock() {
+            Ok(mut notifications) => {
+                notifications.push_back(notification);
+            }
+            Err(_) => {
+                eprintln!("[reminder-scheduler] delivery_queue_unavailable");
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 struct SchedulerWake {
     state: Mutex<SchedulerWakeState>,
     changed: Condvar,
@@ -830,6 +947,43 @@ impl Drop for ReminderScheduler {
                 let _ = thread.join();
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ReminderRuntime {
+    pub(crate) service: Arc<ReminderService>,
+    pub(crate) pending_deliveries: Arc<PendingReminderDeliveries>,
+    scheduler: ReminderScheduler,
+}
+
+impl ReminderRuntime {
+    pub(crate) fn new(repository: Arc<dyn ReminderRepository>) -> Self {
+        let service = Arc::new(ReminderService::new(repository));
+        let pending_deliveries = Arc::new(PendingReminderDeliveries::default());
+        let scheduler = ReminderScheduler::new(service.clone(), pending_deliveries.clone());
+
+        Self {
+            service,
+            pending_deliveries,
+            scheduler,
+        }
+    }
+
+    pub(crate) fn start(&self) -> Result<(), ReminderSchedulerError> {
+        self.scheduler.start()
+    }
+
+    pub(crate) fn stop(&self) -> Result<(), ReminderSchedulerError> {
+        self.scheduler.stop()
+    }
+
+    pub(crate) fn resynchronize(&self) {
+        self.scheduler.resynchronize();
+    }
+
+    pub(crate) fn is_running(&self) -> bool {
+        self.scheduler.is_running()
     }
 }
 
@@ -1310,6 +1464,39 @@ mod tests {
             scheduled_at: scheduled_at.to_owned(),
             recurrence: None,
         }
+    }
+
+    #[test]
+    fn stored_reminders_preserve_electron_legacy_defaults() {
+        let reminder = serde_json::from_value::<Reminder>(serde_json::json!({
+            "id": "legacy",
+            "title": "Legacy reminder",
+            "message": "",
+            "scheduledAt": "2030-01-02T12:00:00Z",
+            "completed": false,
+            "createdAt": "2030-01-01T12:00:00Z",
+            "updatedAt": "2030-01-01T12:00:00Z"
+        }))
+        .expect("legacy reminder");
+
+        assert_eq!(reminder.recurrence, ReminderRecurrence::None);
+        assert_eq!(reminder.last_triggered_at, None);
+        assert_eq!(
+            reminder.next_occurrence.as_deref(),
+            Some("2030-01-02T12:00:00.000Z")
+        );
+
+        let invalid_null_recurrence = serde_json::from_value::<Reminder>(serde_json::json!({
+            "id": "invalid",
+            "title": "Invalid reminder",
+            "message": "",
+            "scheduledAt": "2030-01-02T12:00:00Z",
+            "recurrence": null,
+            "completed": false,
+            "createdAt": "2030-01-01T12:00:00Z",
+            "updatedAt": "2030-01-01T12:00:00Z"
+        }));
+        assert!(invalid_null_recurrence.is_err());
     }
 
     #[test]
