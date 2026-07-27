@@ -8,6 +8,7 @@ pub(crate) const PHASE_1_TO_3_COMMANDS: &[&str] = &[
     "move_companion_window",
     "set_companion_content_height",
     "stream_cursor_positions",
+    "stop_cursor_positions",
 ];
 
 #[cfg(test)]
@@ -31,6 +32,7 @@ mod tests {
                 "move_companion_window",
                 "set_companion_content_height",
                 "stream_cursor_positions",
+                "stop_cursor_positions",
             ],
         );
     }

@@ -12,6 +12,7 @@ export const TAURI_COMMANDS = Object.freeze({
   moveCompanionWindow: 'move_companion_window',
   setCompanionContentHeight: 'set_companion_content_height',
   streamCursorPositions: 'stream_cursor_positions',
+  stopCursorPositions: 'stop_cursor_positions',
 } as const);
 
 type TauriCommandName =
@@ -28,6 +29,7 @@ interface TauriCommandArguments {
   readonly stream_cursor_positions: {
     readonly onPosition: Channel<ScreenPoint>;
   };
+  readonly stop_cursor_positions: Record<string, never>;
 }
 
 interface TauriCommandResults {
@@ -35,6 +37,7 @@ interface TauriCommandResults {
   readonly move_companion_window: void;
   readonly set_companion_content_height: void;
   readonly stream_cursor_positions: void;
+  readonly stop_cursor_positions: void;
 }
 
 /**

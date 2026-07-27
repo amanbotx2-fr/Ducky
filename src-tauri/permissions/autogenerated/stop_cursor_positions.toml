@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-cursor-positions"
+description = "Enables the stop_cursor_positions command without any pre-configured scope."
+commands.allow = ["stop_cursor_positions"]
+
+[[permission]]
+identifier = "deny-stop-cursor-positions"
+description = "Denies the stop_cursor_positions command without any pre-configured scope."
+commands.deny = ["stop_cursor_positions"]

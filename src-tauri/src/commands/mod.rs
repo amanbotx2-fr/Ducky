@@ -15,6 +15,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             companion::get_cursor_position,
             companion::move_companion_window,
             companion::set_companion_content_height,
-            companion::stream_cursor_positions
+            companion::stream_cursor_positions,
+            companion::stop_cursor_positions
         ])
 }

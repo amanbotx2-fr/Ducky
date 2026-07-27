@@ -32,6 +32,10 @@ impl CursorStreamState {
         self.generation.fetch_add(1, Ordering::AcqRel) + 1
     }
 
+    fn stop(&self) {
+        self.generation.fetch_add(1, Ordering::AcqRel);
+    }
+
     fn is_current(&self, generation: u64) -> bool {
         self.generation.load(Ordering::Acquire) == generation
     }
@@ -99,6 +103,17 @@ pub(crate) fn stream_cursor_positions<R: Runtime>(
             run_cursor_stream(window, on_position, stream_state, generation);
         })
         .map_err(|_| CompanionCommandError::WindowOperationFailed)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn stop_cursor_positions<R: Runtime>(
+    window: WebviewWindow<R>,
+    state: State<'_, CursorStreamState>,
+) -> Result<(), CompanionCommandError> {
+    authorize_companion(&window)?;
+    state.stop();
 
     Ok(())
 }
@@ -251,5 +266,15 @@ mod tests {
 
         assert!(!state.is_current(first));
         assert!(state.is_current(second));
+    }
+
+    #[test]
+    fn stopping_cursor_stream_invalidates_the_active_generation() {
+        let state = CursorStreamState::default();
+        let active = state.begin();
+
+        state.stop();
+
+        assert!(!state.is_current(active));
     }
 }
