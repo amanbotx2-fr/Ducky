@@ -6,13 +6,69 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.14 — Rate Limiting & Cancellation
-- Next task: Task 9.15 — Permissions
+- Last completed task: Task 9.15 — Permissions
+- Next task: Phase 9 final manual parity verification
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.15 — Permissions
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Audited the complete native AI surface and confirmed it consists of exactly
+  four application commands: Companion-only `ask_ai` plus Preferences-only
+  `update_ai_configuration`, `list_ai_models`, and `test_ai_connection`.
+- Confirmed every command is independently authorized again in Rust after
+  Tauri capability evaluation, and every generated permission contains one
+  exact allow/deny pair with no scope wildcard.
+- Confirmed neither renderer receives HTTP, filesystem, shell, process,
+  notification, menu, tray, event-emission, provider SDK, streaming, explicit
+  cancellation, health, or latency authority.
+- Added a focused regression test that locks the Phase 9 command surface to the
+  existing whole-response contract and rejects future streaming/cancellation
+  permission drift.
+
+**Files changed**
+
+- `tests/tauri-ipc-authorization.test.cjs` — exact AI command-surface and
+  no-streaming/no-cancellation regression coverage.
+- `docs/migrating/progress.md` — recorded Task 9.15.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (141 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (111 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed and resolved all four exact AI
+  permissions with no AI plugin permission.
+- Electron production-output smoke launch: passed with Electron IPC
+  authorization unchanged.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed both runtimes launch with no permission-resolution failure.
+- The authorization suite verified exact role grants, local-only capability
+  scope, no wildcard webviews, no remote capabilities, no broad core default,
+  and no renderer network or mutation plugin.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Phase 9 final manual parity verification.
 
 ### Task 9.14 — Rate Limiting & Cancellation
 

@@ -53,6 +53,12 @@ const eventPermissions = [
   'core:event:allow-listen',
   'core:event:allow-unlisten',
 ];
+const aiCommandPermissions = [
+  'allow-ask-ai',
+  'allow-update-ai-configuration',
+  'allow-list-ai-models',
+  'allow-test-ai-connection',
+];
 
 const readJson = async (target) =>
   JSON.parse(await readFile(target, 'utf8'));
@@ -189,5 +195,46 @@ describe('Tauri IPC authorization', () => {
         new RegExp(`commands.deny = \\["${commandName}"\\]`),
       );
     }
+  });
+
+  it('exposes only the exact final-response AI command surface', async () => {
+    const companion = await readCapability('companion');
+    const preferences = await readCapability('preferences');
+    const grantedAiPermissions = [
+      ...companion.permissions,
+      ...preferences.permissions,
+    ].filter((permission) =>
+      aiCommandPermissions.includes(permission),
+    );
+    const tauriCommands = await readFile(
+      path.join(projectRoot, 'src', 'desktop', 'tauriCommands.ts'),
+      'utf8',
+    );
+
+    assert.deepEqual(grantedAiPermissions, aiCommandPermissions);
+    assert.equal(
+      companion.permissions.includes('allow-ask-ai'),
+      true,
+    );
+    assert.deepEqual(
+      preferences.permissions.filter((permission) =>
+        aiCommandPermissions.includes(permission),
+      ),
+      aiCommandPermissions.slice(1),
+    );
+    assert.match(tauriCommands, /askAI: 'ask_ai'/);
+    assert.match(
+      tauriCommands,
+      /updateAiConfiguration: 'update_ai_configuration'/,
+    );
+    assert.match(tauriCommands, /listAIModels: 'list_ai_models'/);
+    assert.match(
+      tauriCommands,
+      /testAIConnection: 'test_ai_connection'/,
+    );
+    assert.doesNotMatch(
+      tauriCommands,
+      /stream[_A-Z-]?ai|cancel[_A-Z-]?ai|provider[_A-Z-]?health|latency/i,
+    );
   });
 });
