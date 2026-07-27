@@ -27,6 +27,17 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
       console.error('[tauri] Unable to resize companion window.', error);
     });
   },
+  showCompanionContextMenu: () => {
+    void dispatchTauriCommand(
+      TAURI_COMMANDS.showCompanionContextMenu,
+      {},
+    ).catch((error: unknown) => {
+      console.error(
+        '[tauri] Unable to show companion context menu.',
+        error,
+      );
+    });
+  },
 });
 
 /**

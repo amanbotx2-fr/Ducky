@@ -42,6 +42,7 @@ export interface CompanionWindowBridge {
   ) => () => void;
   readonly moveWindow: (position: ScreenPoint) => void;
   readonly setCompanionContentHeight: (height: number) => void;
+  readonly showCompanionContextMenu: () => void;
 }
 
 export type RuntimeSettingsChangeListener = (
@@ -89,7 +90,6 @@ export type AIConnectionTestResult =
 
 export interface CompanionBridge extends CompanionWindowBridge {
   readonly platform: string;
-  readonly showCompanionContextMenu: () => void;
   readonly getRuntimeSettings: () => Promise<RuntimeSettings>;
   readonly updateUserName: (name: string) => Promise<string>;
   readonly updateStickyMessage: (

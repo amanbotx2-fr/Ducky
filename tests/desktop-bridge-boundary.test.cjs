@@ -123,4 +123,20 @@ describe('DesktopBridge renderer boundary', () => {
       /export const (?:runtime)?desktopBridge\b/,
     );
   });
+
+  it('dispatches companion context menus through the narrow window bridge', async () => {
+    const source = await readFile(
+      path.join(sourceRoot, 'renderer', 'components', 'PsyDuck.tsx'),
+      'utf8',
+    );
+
+    assert.match(
+      source,
+      /getCompanionWindowBridge\(\)[\s\S]*showCompanionContextMenu\(\)/,
+    );
+    assert.doesNotMatch(
+      source,
+      /getCompanionBridge\(\)[\s\S]{0,100}showCompanionContextMenu\(\)/,
+    );
+  });
 });

@@ -16,6 +16,7 @@ const expectedCommandPermissions = [
   'allow-get-cursor-position',
   'allow-move-companion-window',
   'allow-set-companion-content-height',
+  'allow-show-companion-context-menu',
   'allow-stream-cursor-positions',
   'allow-stop-cursor-positions',
 ];
@@ -92,6 +93,8 @@ describe('Tauri IPC authorization', () => {
       'process:',
       'clipboard:',
       'global-shortcut:',
+      'menu:',
+      'tray:',
     ];
 
     for (const role of ['companion', 'preferences']) {

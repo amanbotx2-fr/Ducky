@@ -13,7 +13,8 @@ use tauri::{ipc::Channel, LogicalPosition, PhysicalPosition, Runtime, State, Web
 use crate::{
     authorization::{
         authorize_command, CommandAuthorization, GET_CURSOR_POSITION, MOVE_COMPANION_WINDOW,
-        SET_COMPANION_CONTENT_HEIGHT, STOP_CURSOR_POSITIONS, STREAM_CURSOR_POSITIONS,
+        SET_COMPANION_CONTENT_HEIGHT, SHOW_COMPANION_CONTEXT_MENU, STOP_CURSOR_POSITIONS,
+        STREAM_CURSOR_POSITIONS,
     },
     desktop::windows::companion,
 };
@@ -89,6 +90,16 @@ pub(crate) fn set_companion_content_height<R: Runtime>(
     }
 
     companion::set_content_height(&window, height)
+        .map_err(|_| CompanionCommandError::WindowOperationFailed)
+}
+
+#[tauri::command]
+pub(crate) fn show_companion_context_menu<R: Runtime>(
+    window: WebviewWindow<R>,
+) -> Result<(), CompanionCommandError> {
+    authorize(&window, SHOW_COMPANION_CONTEXT_MENU)?;
+
+    crate::desktop::menus::show_companion_context_menu(&window)
         .map_err(|_| CompanionCommandError::WindowOperationFailed)
 }
 

@@ -58,16 +58,19 @@ pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
     CommandAuthorization::companion_only("move_companion_window");
 pub(crate) const SET_COMPANION_CONTENT_HEIGHT: CommandAuthorization =
     CommandAuthorization::companion_only("set_companion_content_height");
+pub(crate) const SHOW_COMPANION_CONTEXT_MENU: CommandAuthorization =
+    CommandAuthorization::companion_only("show_companion_context_menu");
 pub(crate) const STREAM_CURSOR_POSITIONS: CommandAuthorization =
     CommandAuthorization::companion_only("stream_cursor_positions");
 pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
     CommandAuthorization::companion_only("stop_cursor_positions");
 
 #[cfg(test)]
-pub(crate) const PHASE_1_TO_3_COMMANDS: &[CommandAuthorization] = &[
+pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CURSOR_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
+    SHOW_COMPANION_CONTEXT_MENU,
     STREAM_CURSOR_POSITIONS,
     STOP_CURSOR_POSITIONS,
 ];
@@ -75,10 +78,11 @@ pub(crate) const PHASE_1_TO_3_COMMANDS: &[CommandAuthorization] = &[
 // Consumed by build.rs through a path module; retained here as the single
 // source for generated application-command permissions.
 #[allow(dead_code)]
-pub(crate) const PHASE_1_TO_3_COMMAND_NAMES: &[&str] = &[
+pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CURSOR_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
+    SHOW_COMPANION_CONTEXT_MENU.name(),
     STREAM_CURSOR_POSITIONS.name(),
     STOP_CURSOR_POSITIONS.name(),
 ];
@@ -111,12 +115,12 @@ mod tests {
 
     #[test]
     fn command_manifest_is_unique_and_matches_the_completed_scope() {
-        let names = PHASE_1_TO_3_COMMANDS
+        let names = MIGRATED_COMMANDS
             .iter()
             .map(|command| command.name())
             .collect::<Vec<_>>();
 
-        assert_eq!(names, PHASE_1_TO_3_COMMAND_NAMES);
+        assert_eq!(names, MIGRATED_COMMAND_NAMES);
         assert_eq!(
             names.iter().copied().collect::<HashSet<_>>().len(),
             names.len(),
@@ -127,6 +131,7 @@ mod tests {
                 "get_cursor_position",
                 "move_companion_window",
                 "set_companion_content_height",
+                "show_companion_context_menu",
                 "stream_cursor_positions",
                 "stop_cursor_positions",
             ],
@@ -134,8 +139,8 @@ mod tests {
     }
 
     #[test]
-    fn phase_one_to_three_commands_are_companion_only() {
-        for command in PHASE_1_TO_3_COMMANDS {
+    fn migrated_commands_are_companion_only() {
+        for command in MIGRATED_COMMANDS {
             assert_eq!(command.allowed_roles(), [RendererRole::Companion]);
             assert_eq!(
                 authorize_command(COMPANION_LABEL, *command),

@@ -1,6 +1,6 @@
 use tauri::{
     menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, SubmenuBuilder},
-    App, AppHandle, Runtime,
+    App, AppHandle, Manager, Runtime, WebviewWindow,
 };
 
 use super::windows::{companion, preferences};
@@ -15,7 +15,7 @@ const APP_DESCRIPTION: &str = "Desktop AI Companion";
 const APP_COPYRIGHT: &str = "Copyright © 2026 Aman";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TrayMenuEntry {
+enum StaticMenuEntry {
     Action {
         id: &'static str,
         label: &'static str,
@@ -24,22 +24,39 @@ enum TrayMenuEntry {
     Separator,
 }
 
-const TRAY_MENU_ENTRIES: [TrayMenuEntry; 6] = [
-    TrayMenuEntry::Action {
+const TRAY_MENU_ENTRIES: [StaticMenuEntry; 6] = [
+    StaticMenuEntry::Action {
         id: SHOW_COMPANION_ID,
         label: "Show Ducky",
     },
-    TrayMenuEntry::Action {
+    StaticMenuEntry::Action {
         id: SHOW_PREFERENCES_ID,
         label: "Preferences…",
     },
-    TrayMenuEntry::About,
-    TrayMenuEntry::Separator,
-    TrayMenuEntry::Action {
+    StaticMenuEntry::About,
+    StaticMenuEntry::Separator,
+    StaticMenuEntry::Action {
         id: RESTART_ID,
         label: "Restart",
     },
-    TrayMenuEntry::Action {
+    StaticMenuEntry::Action {
+        id: QUIT_ID,
+        label: "Quit",
+    },
+];
+
+const COMPANION_CONTEXT_MENU_ENTRIES: [StaticMenuEntry; 5] = [
+    StaticMenuEntry::Action {
+        id: SHOW_PREFERENCES_ID,
+        label: "Preferences…",
+    },
+    StaticMenuEntry::About,
+    StaticMenuEntry::Separator,
+    StaticMenuEntry::Action {
+        id: RESTART_ID,
+        label: "Restart",
+    },
+    StaticMenuEntry::Action {
         id: QUIT_ID,
         label: "Quit",
     },
@@ -54,22 +71,40 @@ enum NativeMenuAction {
 }
 
 pub fn create_tray_menu<R: Runtime>(app: &App<R>) -> tauri::Result<Menu<R>> {
-    let menu = Menu::new(app)?;
+    create_static_menu(app, &TRAY_MENU_ENTRIES)
+}
 
-    for entry in TRAY_MENU_ENTRIES {
+pub fn show_companion_context_menu<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<()> {
+    let menu = create_static_menu(window, &COMPANION_CONTEXT_MENU_ENTRIES)?;
+    window.popup_menu(&menu)
+}
+
+fn create_static_menu<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    entries: &[StaticMenuEntry],
+) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(manager)?;
+
+    for entry in entries {
         match entry {
-            TrayMenuEntry::Action { id, label } => {
-                menu.append(&MenuItem::with_id(app, id, label, true, None::<&str>)?)?;
-            }
-            TrayMenuEntry::About => {
-                menu.append(&PredefinedMenuItem::about(
-                    app,
-                    Some("About Ducky"),
-                    Some(about_metadata(app)),
+            StaticMenuEntry::Action { id, label } => {
+                menu.append(&MenuItem::with_id(
+                    manager,
+                    *id,
+                    *label,
+                    true,
+                    None::<&str>,
                 )?)?;
             }
-            TrayMenuEntry::Separator => {
-                menu.append(&PredefinedMenuItem::separator(app)?)?;
+            StaticMenuEntry::About => {
+                menu.append(&PredefinedMenuItem::about(
+                    manager,
+                    Some("About Ducky"),
+                    Some(about_metadata(manager)),
+                )?)?;
+            }
+            StaticMenuEntry::Separator => {
+                menu.append(&PredefinedMenuItem::separator(manager)?)?;
             }
         }
     }
@@ -143,10 +178,10 @@ fn action_for_id(id: &str) -> Option<NativeMenuAction> {
     }
 }
 
-fn about_metadata<R: Runtime>(app: &App<R>) -> AboutMetadata<'static> {
+fn about_metadata<R: Runtime, M: Manager<R>>(manager: &M) -> AboutMetadata<'static> {
     AboutMetadata {
         name: Some(APP_NAME.to_string()),
-        version: Some(app.package_info().version.to_string()),
+        version: Some(manager.package_info().version.to_string()),
         comments: Some(APP_DESCRIPTION.to_string()),
         copyright: Some(APP_COPYRIGHT.to_string()),
         credits: Some("Built with Tauri".to_string()),
@@ -157,8 +192,8 @@ fn about_metadata<R: Runtime>(app: &App<R>) -> AboutMetadata<'static> {
 #[cfg(test)]
 mod tests {
     use super::{
-        action_for_id, NativeMenuAction, TrayMenuEntry, QUIT_ID, RESTART_ID, SHOW_COMPANION_ID,
-        SHOW_PREFERENCES_ID, TRAY_MENU_ENTRIES,
+        action_for_id, NativeMenuAction, StaticMenuEntry, COMPANION_CONTEXT_MENU_ENTRIES, QUIT_ID,
+        RESTART_ID, SHOW_COMPANION_ID, SHOW_PREFERENCES_ID, TRAY_MENU_ENTRIES,
     };
 
     #[test]
@@ -166,21 +201,44 @@ mod tests {
         assert_eq!(
             TRAY_MENU_ENTRIES,
             [
-                TrayMenuEntry::Action {
+                StaticMenuEntry::Action {
                     id: SHOW_COMPANION_ID,
                     label: "Show Ducky",
                 },
-                TrayMenuEntry::Action {
+                StaticMenuEntry::Action {
                     id: SHOW_PREFERENCES_ID,
                     label: "Preferences…",
                 },
-                TrayMenuEntry::About,
-                TrayMenuEntry::Separator,
-                TrayMenuEntry::Action {
+                StaticMenuEntry::About,
+                StaticMenuEntry::Separator,
+                StaticMenuEntry::Action {
                     id: RESTART_ID,
                     label: "Restart",
                 },
-                TrayMenuEntry::Action {
+                StaticMenuEntry::Action {
+                    id: QUIT_ID,
+                    label: "Quit",
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn companion_context_menu_contains_only_the_migrated_static_slice() {
+        assert_eq!(
+            COMPANION_CONTEXT_MENU_ENTRIES,
+            [
+                StaticMenuEntry::Action {
+                    id: SHOW_PREFERENCES_ID,
+                    label: "Preferences…",
+                },
+                StaticMenuEntry::About,
+                StaticMenuEntry::Separator,
+                StaticMenuEntry::Action {
+                    id: RESTART_ID,
+                    label: "Restart",
+                },
+                StaticMenuEntry::Action {
                     id: QUIT_ID,
                     label: "Quit",
                 },

@@ -3,14 +3,15 @@ import { invoke, type Channel } from '@tauri-apps/api/core';
 import type { ScreenPoint } from '../shared/types';
 
 /**
- * Registry for commands whose native behavior is complete in migration
- * Phases 1–3. Later domain commands belong to their owning migration phases
- * and must not be added here as placeholders.
+ * Registry for commands whose native behavior is complete in the migration.
+ * Later domain commands belong to their owning migration phases and must not
+ * be added here as placeholders.
  */
 export const TAURI_COMMANDS = Object.freeze({
   getCursorPosition: 'get_cursor_position',
   moveCompanionWindow: 'move_companion_window',
   setCompanionContentHeight: 'set_companion_content_height',
+  showCompanionContextMenu: 'show_companion_context_menu',
   streamCursorPositions: 'stream_cursor_positions',
   stopCursorPositions: 'stop_cursor_positions',
 } as const);
@@ -26,6 +27,7 @@ interface TauriCommandArguments {
   readonly set_companion_content_height: {
     readonly height: number;
   };
+  readonly show_companion_context_menu: Record<string, never>;
   readonly stream_cursor_positions: {
     readonly onPosition: Channel<ScreenPoint>;
   };
@@ -36,6 +38,7 @@ interface TauriCommandResults {
   readonly get_cursor_position: ScreenPoint;
   readonly move_companion_window: void;
   readonly set_companion_content_height: void;
+  readonly show_companion_context_menu: void;
   readonly stream_cursor_positions: void;
   readonly stop_cursor_positions: void;
 }

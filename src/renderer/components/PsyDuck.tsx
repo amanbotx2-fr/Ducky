@@ -371,7 +371,7 @@ export function PsyDuck({
     const handleContextMenu = (event: MouseEvent): void => {
       event.preventDefault();
       companionDesktopBridge
-        .getCompanionBridge()
+        .getCompanionWindowBridge()
         ?.showCompanionContextMenu();
     };
 
