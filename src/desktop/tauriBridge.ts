@@ -1,4 +1,4 @@
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { Channel } from '@tauri-apps/api/core';
 
 import type {
   CompanionWindowBridge,
@@ -6,6 +6,10 @@ import type {
   ScreenPoint,
 } from '../shared/types';
 import type { DesktopBridge } from './contracts';
+import {
+  dispatchTauriCommand,
+  TAURI_COMMANDS,
+} from './tauriCommands';
 
 const cursorListeners = new Set<CursorPositionListener>();
 let cursorChannel: Channel<ScreenPoint> | null = null;
@@ -26,7 +30,7 @@ const ensureCursorStream = (): void => {
     }
   });
 
-  void invoke('stream_cursor_positions', {
+  void dispatchTauriCommand(TAURI_COMMANDS.streamCursorPositions, {
     onPosition: cursorChannel,
   }).catch((error: unknown) => {
     cursorStreamStarted = false;
@@ -41,7 +45,7 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
       return Promise.resolve({ ...latestCursorPosition });
     }
 
-    return invoke<ScreenPoint>('get_cursor_position');
+    return dispatchTauriCommand(TAURI_COMMANDS.getCursorPosition, {});
   },
   onCursorPosition: (listener: CursorPositionListener) => {
     cursorListeners.add(listener);
@@ -52,16 +56,19 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
     };
   },
   moveWindow: (position: ScreenPoint) => {
-    void invoke('move_companion_window', { position }).catch((error: unknown) => {
+    void dispatchTauriCommand(TAURI_COMMANDS.moveCompanionWindow, {
+      position,
+    }).catch((error: unknown) => {
       console.error('[tauri] Unable to move companion window.', error);
     });
   },
   setCompanionContentHeight: (height: number) => {
-    void invoke('set_companion_content_height', { height }).catch(
-      (error: unknown) => {
-        console.error('[tauri] Unable to resize companion window.', error);
-      },
-    );
+    void dispatchTauriCommand(
+      TAURI_COMMANDS.setCompanionContentHeight,
+      { height },
+    ).catch((error: unknown) => {
+      console.error('[tauri] Unable to resize companion window.', error);
+    });
   },
 });
 

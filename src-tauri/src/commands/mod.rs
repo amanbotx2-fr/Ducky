@@ -1,1 +1,20 @@
 pub(crate) mod companion;
+#[cfg(test)]
+pub(crate) mod manifest;
+
+use tauri::{Builder, Runtime};
+
+/// Registers the complete Tauri command surface available through Phase 3.
+///
+/// Keeping command state and dispatch here prevents the application
+/// composition root from becoming a second command registry.
+pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
+    builder
+        .manage(companion::CursorStreamState::default())
+        .invoke_handler(tauri::generate_handler![
+            companion::get_cursor_position,
+            companion::move_companion_window,
+            companion::set_companion_content_height,
+            companion::stream_cursor_positions
+        ])
+}

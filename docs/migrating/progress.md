@@ -4,12 +4,10 @@
 
 ## Current Status
 
-- Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Phase 2 validation fix — Startup window lifecycle
-- Next task: Remaining Phase 2 visual/input validation
-- Blockers: The macOS startup regression is resolved. Windows/Linux visual
-  validation hosts remain unavailable, so the full Phase 2 exit gate is not
-  yet satisfied and Phase 3 has not started.
+- Active phase: Phase 3 — IPC Migration
+- Last completed task: Task 3.1 — Commands
+- Next task: Task 3.2 — Events
+- Blockers: None. Task 3.2 has not started.
 
 ## Completed Tasks
 
@@ -696,7 +694,12 @@
 
 ## Phase 2 Exit Gate
 
-**Status:** Blocked
+**Status:** Complete
+
+The project owner confirmed on 27 July 2026 that Phase 2 and its manual
+validation gate are complete. The earlier workspace limitation and the checks
+that were outstanding at that time remain below as historical context; no
+additional validation results were produced in this workspace.
 
 All seven implementation tasks are complete, but the source-of-truth exit
 criterion is: “Behavior visually matches Electron.” The architecture report
@@ -722,5 +725,74 @@ Windows or Linux validation host is available in this workspace, and unit,
 build, capability, and launch checks cannot establish cross-platform visual
 parity on their own.
 
-Per the migration execution rules, Phase 3 has not started. Resume with the
-Phase 2 platform visual/input matrix once interactive hosts are available.
+At the time of the original gate review, Phase 3 did not start because these
+checks could not be completed in the workspace. The project owner's later
+Phase 2 completion confirmation supersedes that temporary execution blocker.
+
+## Phase 3 Tasks
+
+### Task 3.1 — Commands
+
+**Status:** Complete
+
+**Scope clarification**
+
+- The project owner clarified that Phase 3 migrates IPC infrastructure only.
+- Task 3.1 includes the Tauri command manifest, registration, dispatch, and
+  only commands required by Phases 1–3.
+- Menus, settings, credentials, reminders, Pomodoro, AI, updater, and their
+  commands remain assigned to their later phases.
+- Existing Electron IPC handlers remain authoritative and unchanged.
+
+**Files changed**
+
+- `src-tauri/src/commands/manifest.rs` — created the reviewed Phase 1–3
+  command manifest and added a uniqueness/exact-scope test.
+- `src-tauri/src/commands/mod.rs` — centralized Tauri command state and
+  handler registration.
+- `src-tauri/src/lib.rs` — delegates command setup to the command registry
+  instead of maintaining a second inline handler list.
+- `src-tauri/build.rs` — builds Tauri application-command permissions from
+  the shared Rust command manifest.
+- `src/desktop/tauriCommands.ts` — added the typed renderer-side command
+  registry and dispatch boundary.
+- `src/desktop/tauriBridge.ts` — routes the migrated companion operations
+  through typed dispatch instead of raw `invoke` strings.
+- `docs/migrating/progress.md` — recorded the accepted scope clarification
+  and Task 3.1 completion.
+
+**Command surface**
+
+- `get_cursor_position`
+- `move_companion_window`
+- `set_companion_content_height`
+- `stream_cursor_positions`
+
+No later-phase commands were registered. Existing exact-label capabilities
+and command-level label checks remain in force. Task 3.2 events were not
+implemented or modified.
+
+**Validation performed**
+
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (13 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission ls`: confirmed allow/deny permissions for exactly the
+  four Phase 1–3 commands.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+- `npm run tauri:dev`: passed. Tauri loaded the centralized application
+  command manifest, launched the companion, and dispatched its cursor/resize
+  operations without command or authority errors. The development transport
+  used Tauri's supported `postMessage` fallback.
+- Electron smoke launch: passed with the existing preload bridge and IPC
+  handlers intact; the process was then stopped manually.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 3.2 — Events.
