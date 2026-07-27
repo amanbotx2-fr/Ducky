@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
+use super::{AiProvider, AiProviderId, AiProviderRegistry, AiRegistryError};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AiRuntimeError {
     Unavailable,
@@ -30,6 +32,8 @@ struct AiRuntimeState {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct AiRuntime {
     state: Arc<Mutex<AiRuntimeState>>,
+    #[allow(dead_code)]
+    providers: AiProviderRegistry,
 }
 
 impl AiRuntime {
@@ -43,6 +47,29 @@ impl AiRuntime {
         } else {
             Ok(())
         }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn register_provider(
+        &self,
+        provider: Arc<dyn AiProvider>,
+    ) -> Result<(), AiRegistryError> {
+        self.providers.register(provider)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn select_provider(&self, id: AiProviderId) -> Result<(), AiRegistryError> {
+        self.providers.select(id)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn active_provider(&self) -> Result<Option<Arc<dyn AiProvider>>, AiRegistryError> {
+        self.providers.active_provider()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn registered_provider_ids(&self) -> Result<Vec<AiProviderId>, AiRegistryError> {
+        self.providers.registered_ids()
     }
 
     pub(crate) fn shutdown(&self) -> Result<(), AiRuntimeError> {

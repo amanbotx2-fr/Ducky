@@ -6,8 +6,8 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.2 — Create Native AI Runtime
-- Next task: Task 9.3 — Provider Registry
+- Last completed task: Task 9.3 — Provider Registry
+- Next task: Task 9.4 — Secret Store Integration
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
@@ -4556,6 +4556,57 @@ the Phase 9 architecture clarification; Task 9.2 has not started.
 
 - Task 9.2 — Create Native AI Runtime. Do not begin without a separate
   implementation instruction.
+
+### Task 9.3 — Provider Registry
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added the native provider abstraction and stable identifiers for OpenAI,
+  Gemini, Claude, Grok, Ollama, and Custom.
+- Added one thread-safe registry with duplicate rejection, provider lookup,
+  active-provider selection, and deterministic provider inventory.
+- Attached the registry to the singleton `AiRuntime`; provider implementations
+  will become runtime-reachable only through this registry.
+- Added focused tests for registration, selection, unknown providers,
+  duplicates, and the complete provider ID contract.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/registry.rs` — provider abstraction, identifiers,
+  registry, and tests.
+- `src-tauri/src/domain/ai/mod.rs` — exported the native registry contract.
+- `src-tauri/src/domain/ai/runtime.rs` — made the registry runtime-owned.
+- `docs/migrating/progress.md` — recorded Task 9.3.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (87 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer permission was added.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed Tauri initialized and remained alive with the registry owned by the
+  native runtime.
+- No renderer, command, provider, lifecycle, or permission error appeared.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.4 — Secret Store Integration.
 
 ### Task 9.2 — Create Native AI Runtime
 
