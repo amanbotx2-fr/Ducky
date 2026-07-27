@@ -6,13 +6,74 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.9 — Ollama Provider
-- Next task: Task 9.10 — Custom Provider
+- Last completed task: Task 9.10 — Custom Provider
+- Next task: Task 9.11 — Final Response Transport
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.10 — Custom Provider
+
+**Status:** Native provider complete. Live endpoint verification and the
+renderer bridge path remain final Phase 9 gates.
+
+**Implementation summary**
+
+- Added the native custom OpenAI-compatible provider with optional bearer
+  authentication, the existing base-URL policy, bounded final responses, model
+  discovery, and connection testing.
+- Preserved Electron's automatic protocol behavior: Chat Completions is tried
+  first, only 404/405/501 endpoint failures fall back to Responses, and the
+  successful protocol is remembered for the configured base URL.
+- Preserved manual-model operation when `/models` is unavailable and the exact
+  connection-test message for that case.
+- Preserved HTTPS for public hosts and restricted cleartext HTTP to loopback or
+  private-LAN literals.
+- Registered Custom through the singleton provider registry and restored its
+  persisted selection.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/custom.rs` — native provider, URL policy, protocol
+  fallback, parsers, and tests.
+- `src-tauri/src/domain/ai/provider.rs` — made the borrowed provider
+  configuration cheaply copyable across the protocol fallback.
+- `src-tauri/src/domain/ai/mod.rs` — exported Custom.
+- `src-tauri/src/app_state.rs` — registered and restored Custom selection.
+- `docs/migrating/progress.md` — recorded Task 9.10.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (99 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer network authority was
+  introduced.
+- Electron production-output smoke launch: passed through the unchanged custom
+  provider.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed native startup with Custom registered and no provider, renderer,
+  credential, or permission error.
+- Live endpoint fallback/authentication checks remain part of final Phase 9
+  verification after the final-response DesktopBridge command exists.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.11 — Final Response Transport.
 
 ### Task 9.9 — Ollama Provider
 

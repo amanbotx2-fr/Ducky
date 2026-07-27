@@ -1,6 +1,7 @@
 // Provider milestones make the registry runtime-reachable incrementally.
 // Keep the completed registry contract compiled and tested between milestones.
 mod claude;
+mod custom;
 mod gemini;
 mod grok;
 mod ollama;
@@ -12,6 +13,7 @@ mod registry;
 mod runtime;
 
 pub(crate) use claude::ClaudeProvider;
+pub(crate) use custom::CustomProvider;
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use grok::GrokProvider;
 pub(crate) use ollama::OllamaProvider;

@@ -8,6 +8,7 @@ pub(crate) const MAXIMUM_RESPONSE_CHARS: usize = 32_768;
 pub(crate) const MAXIMUM_ERROR_CHARS: usize = 512;
 pub(crate) const MAXIMUM_MODELS: usize = 1_024;
 
+#[derive(Clone, Copy)]
 pub(crate) struct AiProviderConfiguration<'a> {
     pub(crate) api_key: Option<&'a str>,
     pub(crate) base_url: &'a str,
