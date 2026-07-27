@@ -1,5 +1,6 @@
 // Provider milestones make the registry runtime-reachable incrementally.
 // Keep the completed registry contract compiled and tested between milestones.
+mod claude;
 mod gemini;
 mod openai;
 #[allow(dead_code)]
@@ -8,6 +9,7 @@ mod provider;
 mod registry;
 mod runtime;
 
+pub(crate) use claude::ClaudeProvider;
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use openai::OpenAiProvider;
 pub(crate) use provider::{

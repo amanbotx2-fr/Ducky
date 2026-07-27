@@ -22,6 +22,7 @@ import {
   AssistantActionResponseProcessor,
   createAssistantActionPrompt,
 } from '../ai/actions';
+import { ClaudeProvider } from '../ai/providers/ClaudeProvider';
 import { GeminiProvider } from '../ai/providers/GeminiProvider';
 import { GrokProvider } from '../ai/providers/GrokProvider';
 import { OllamaProvider } from '../ai/providers/OllamaProvider';
@@ -113,6 +114,7 @@ const POMODORO_FILE_NAME = 'pomodoro.json';
 const API_KEY_PROVIDERS: ReadonlySet<AiProviderSelection> = new Set([
   'openai',
   'gemini',
+  'claude',
   'grok',
   'custom',
 ]);
@@ -222,6 +224,7 @@ const createAIService = (): AIService =>
   new AIService([
     new OpenAIProvider(),
     new GeminiProvider(),
+    new ClaudeProvider(),
     new GrokProvider(),
     new OllamaProvider(),
     new OpenAICompatibleProvider('custom', 'Custom provider', {

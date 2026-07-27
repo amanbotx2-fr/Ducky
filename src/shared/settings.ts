@@ -33,6 +33,10 @@ export const AI_PROVIDER_OPTIONS = [
     label: 'Gemini',
   },
   {
+    id: 'claude',
+    label: 'Claude',
+  },
+  {
     id: 'grok',
     label: 'Grok',
   },

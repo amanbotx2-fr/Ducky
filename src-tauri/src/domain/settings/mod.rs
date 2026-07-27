@@ -551,7 +551,9 @@ impl Default for StoredAiSettings {
 
 impl StoredAiSettings {
     fn validate_and_canonicalize(&mut self) -> Result<(), SettingsValidationError> {
-        if !["", "openai", "gemini", "grok", "ollama", "custom"].contains(&self.provider.as_str()) {
+        if !["", "openai", "gemini", "claude", "grok", "ollama", "custom"]
+            .contains(&self.provider.as_str())
+        {
             return Err(SettingsValidationError::new("ai.provider is not supported"));
         }
 
@@ -732,7 +734,8 @@ fn validate_model_references(
 
     let mut unique = Vec::with_capacity(references.len());
     for mut reference in references.drain(..) {
-        if !["openai", "gemini", "grok", "ollama", "custom"].contains(&reference.provider.as_str())
+        if !["openai", "gemini", "claude", "grok", "ollama", "custom"]
+            .contains(&reference.provider.as_str())
         {
             return Err(SettingsValidationError::new(format!(
                 "{field} contains an unsupported provider"

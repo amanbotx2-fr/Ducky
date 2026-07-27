@@ -6,13 +6,79 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.6 — Gemini Provider
-- Next task: Task 9.7 — Claude Provider
+- Last completed task: Task 9.7 — Claude Provider
+- Next task: Task 9.8 — Grok Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.7 — Claude Provider
+
+**Status:** Native provider complete. Live credential verification and the
+renderer bridge path remain final Phase 9 gates.
+
+**Implementation summary**
+
+- Added the approved Claude provider to the native registry using Anthropic's
+  Messages API and the existing one-final-response contract.
+- Aggregates all text content blocks inside Rust before returning and preserves
+  usage metadata plus the `max_tokens` finish mapping. No renderer streaming,
+  streaming IPC, or explicit cancel API was introduced.
+- Added bounded native response parsing, disabled redirects, a 30-second
+  timeout, model discovery, connection testing, and sanitized provider errors.
+- Added Claude to the shared provider/settings metadata and to Electron's
+  provider registry so the approved provider expansion behaves consistently
+  while Electron remains supported.
+- The Electron provider uses the same final-response behavior and explicitly
+  keeps its streaming method unsupported.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/claude.rs` — native Claude provider and response
+  aggregation test.
+- `src-tauri/src/domain/ai/mod.rs` — exported Claude.
+- `src-tauri/src/app_state.rs` — registered and restored Claude selection.
+- `src-tauri/src/domain/settings/mod.rs` — accepted Claude in the native
+  persisted provider schema.
+- `src/ai/providers/ClaudeProvider.ts` — Electron-parity Claude provider.
+- `src/main/main.ts` — registered Claude and included it in protected API-key
+  synchronization.
+- `src/shared/settings.ts` / `src/shared/modelMetadata.ts` — added the approved
+  provider to shared settings and model presentation metadata.
+- `docs/migrating/progress.md` — recorded Task 9.7.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (92 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer network or streaming
+  permission was introduced.
+- Electron production-output smoke launch: passed through the existing preload
+  and final-response architecture.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed both runtimes start with Claude registered and no renderer,
+  provider, credential, or permission error.
+- Live Claude request/model discovery testing remains part of the final
+  credentialed provider verification after the DesktopBridge commands exist.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.8 — Grok Provider.
 
 ### Task 0.1 — Verify repository state
 
