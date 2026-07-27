@@ -5,9 +5,9 @@
 ## Current Status
 
 - Active phase: Phase 3 — IPC Migration
-- Last completed task: Task 3.3 — Cursor streaming
-- Next task: Task 3.4 — Authorization
-- Blockers: None. Task 3.4 has not started.
+- Last completed task: Task 3.4 — Authorization
+- Next task: Task 3.5 — DesktopBridge → Tauri
+- Blockers: None. Task 3.5 has not started.
 
 ## Completed Tasks
 
@@ -939,3 +939,85 @@ or Electron event implementation changed. Task 3.3 was not started.
 **Next task**
 
 - Task 3.4 — Authorization.
+
+### Task 3.4 — Authorization
+
+**Status:** Complete
+
+**Authorization model**
+
+- The application command manifest and command-to-renderer role assignments
+  now share one typed Rust source of truth.
+- Every completed Phase 1–3 command is authorized only for the exact
+  `companion` renderer role.
+- Each command still accepts the invoking `WebviewWindow` and rejects an
+  unexpected or unknown label as defense in depth.
+- Tauri capabilities now explicitly apply only to local content and the exact
+  `companion` or `preferences` webview label. They grant no wildcard window,
+  remote origin, broad core default, renderer event emission, filesystem,
+  HTTP, shell, process, clipboard, or global-shortcut authority.
+- Backend events reuse the same renderer-role identities and remain emitted
+  only to their approved exact targets.
+- Existing Electron role/channel/URL/subframe authorization and permission
+  denial policy remain unchanged.
+
+**Files changed**
+
+- `src-tauri/src/authorization.rs` — added renderer roles, exact labels,
+  typed command authorization records, centralized deny-by-default command
+  checks, the build-time command name manifest, and focused policy tests.
+- `src-tauri/src/commands/manifest.rs` — removed after its command list moved
+  into the centralized authorization source of truth.
+- `src-tauri/build.rs` — generates application-command permissions from the
+  authorization manifest.
+- `src-tauri/src/commands/companion.rs` — routes every current command through
+  the centralized role/capability check while retaining the existing
+  sanitized unauthorized error.
+- `src-tauri/src/commands/mod.rs` and `src-tauri/src/lib.rs` — register the
+  authorization module without changing command dispatch.
+- `src-tauri/src/desktop/windows/companion.rs` and
+  `src-tauri/src/events.rs` — reuse the centralized renderer labels/roles so
+  command and event routing cannot drift.
+- `src-tauri/capabilities/companion.json` and
+  `src-tauri/capabilities/preferences.json` — narrowed capability selection
+  from whole-window inheritance to exact local webview labels.
+- `tests/tauri-ipc-authorization.test.cjs` — verifies exact capability
+  loading, local-only scope, no wildcards/remotes, companion-only command
+  grants, no broad plugin permissions, and one narrow generated allow/deny
+  pair per application command.
+- `docs/migrating/progress.md` — recorded Task 3.4 completion.
+
+**Validation performed**
+
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (18 tests),
+  including companion allow, Preferences deny, unknown-label deny, manifest
+  uniqueness, and event-role routing.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- Focused Tauri authorization/event capability tests: passed (6 tests).
+- `npx tauri permission ls`: confirmed generated narrow allow/deny
+  permissions for exactly the five completed commands.
+- `npm run typecheck`: passed.
+- `npm test`: passed (124 tests across 35 suites).
+- `npm run build`: passed.
+- `npm run tauri:dev`: passed. Exact-webview capabilities authorized the
+  companion cursor/window operations with no command or capability errors;
+  the process was then stopped manually.
+- Electron smoke launch: passed with the existing preload bridge, IPC
+  authorizer, and deny-by-default WebContents permission policy intact; the
+  process was then stopped manually.
+
+**Scope boundary**
+
+- Task 3.4 implements only IPC authorization policy and least-privilege
+  capability enforcement.
+- No Electron IPC file or renderer DesktopBridge adapter changed.
+- Task 3.5 was not started.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 3.5 — DesktopBridge → Tauri.

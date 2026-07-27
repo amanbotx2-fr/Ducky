@@ -1,29 +1,11 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, EventTarget, Runtime};
 
-use crate::desktop::windows::companion;
+use crate::authorization::RendererRole;
 
-const PREFERENCES_LABEL: &str = "preferences";
-
-const COMPANION_ONLY: &[RendererTarget] = &[RendererTarget::Companion];
-const PREFERENCES_ONLY: &[RendererTarget] = &[RendererTarget::Preferences];
-const BOTH_RENDERERS: &[RendererTarget] = &[RendererTarget::Companion, RendererTarget::Preferences];
-
-/// Exact renderer destinations supported by Ducky's desktop event bridge.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(crate) enum RendererTarget {
-    Companion,
-    Preferences,
-}
-
-impl RendererTarget {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Companion => companion::LABEL,
-            Self::Preferences => PREFERENCES_LABEL,
-        }
-    }
-}
+const COMPANION_ONLY: &[RendererRole] = &[RendererRole::Companion];
+const PREFERENCES_ONLY: &[RendererRole] = &[RendererRole::Preferences];
+const BOTH_RENDERERS: &[RendererRole] = &[RendererRole::Companion, RendererRole::Preferences];
 
 /// Low-frequency backend events from the existing Electron IPC contract.
 ///
@@ -77,7 +59,7 @@ impl DesktopEvent {
         }
     }
 
-    pub(crate) fn targets(self) -> &'static [RendererTarget] {
+    pub(crate) fn targets(self) -> &'static [RendererRole] {
         match self {
             Self::RuntimeSettingsChanged => BOTH_RENDERERS,
             Self::UpdateStatusChanged => PREFERENCES_ONLY,
@@ -123,7 +105,8 @@ where
 mod tests {
     use std::collections::HashSet;
 
-    use super::{DesktopEvent, RendererTarget, LOW_FREQUENCY_EVENTS};
+    use super::{DesktopEvent, LOW_FREQUENCY_EVENTS};
+    use crate::authorization::RendererRole;
 
     #[test]
     fn event_registry_matches_the_existing_low_frequency_contract() {
@@ -159,11 +142,11 @@ mod tests {
     fn events_are_routed_only_to_their_existing_renderer_roles() {
         assert_eq!(
             DesktopEvent::RuntimeSettingsChanged.targets(),
-            [RendererTarget::Companion, RendererTarget::Preferences,],
+            [RendererRole::Companion, RendererRole::Preferences,],
         );
         assert_eq!(
             DesktopEvent::UpdateStatusChanged.targets(),
-            [RendererTarget::Preferences],
+            [RendererRole::Preferences],
         );
 
         for event in LOW_FREQUENCY_EVENTS {
@@ -174,7 +157,7 @@ mod tests {
                 continue;
             }
 
-            assert_eq!(event.targets(), [RendererTarget::Companion]);
+            assert_eq!(event.targets(), [RendererRole::Companion]);
         }
     }
 }

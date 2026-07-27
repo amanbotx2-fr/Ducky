@@ -1,6 +1,4 @@
 pub(crate) mod companion;
-#[cfg(test)]
-pub(crate) mod manifest;
 
 use tauri::{Builder, Runtime};
 

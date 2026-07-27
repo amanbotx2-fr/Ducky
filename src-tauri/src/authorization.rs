@@ -1,0 +1,160 @@
+pub(crate) const COMPANION_LABEL: &str = "companion";
+pub(crate) const PREFERENCES_LABEL: &str = "preferences";
+
+const COMPANION_ONLY: &[RendererRole] = &[RendererRole::Companion];
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) enum RendererRole {
+    Companion,
+    Preferences,
+}
+
+impl RendererRole {
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Companion => COMPANION_LABEL,
+            Self::Preferences => PREFERENCES_LABEL,
+        }
+    }
+
+    fn from_label(label: &str) -> Option<Self> {
+        match label {
+            COMPANION_LABEL => Some(Self::Companion),
+            PREFERENCES_LABEL => Some(Self::Preferences),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct CommandAuthorization {
+    name: &'static str,
+    allowed_roles: &'static [RendererRole],
+}
+
+impl CommandAuthorization {
+    const fn companion_only(name: &'static str) -> Self {
+        Self {
+            name,
+            allowed_roles: COMPANION_ONLY,
+        }
+    }
+
+    // The build script compiles this module separately to generate command
+    // permissions, so the application library does not call this directly.
+    #[allow(dead_code)]
+    pub(crate) const fn name(self) -> &'static str {
+        self.name
+    }
+
+    pub(crate) const fn allowed_roles(self) -> &'static [RendererRole] {
+        self.allowed_roles
+    }
+}
+
+pub(crate) const GET_CURSOR_POSITION: CommandAuthorization =
+    CommandAuthorization::companion_only("get_cursor_position");
+pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
+    CommandAuthorization::companion_only("move_companion_window");
+pub(crate) const SET_COMPANION_CONTENT_HEIGHT: CommandAuthorization =
+    CommandAuthorization::companion_only("set_companion_content_height");
+pub(crate) const STREAM_CURSOR_POSITIONS: CommandAuthorization =
+    CommandAuthorization::companion_only("stream_cursor_positions");
+pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
+    CommandAuthorization::companion_only("stop_cursor_positions");
+
+#[cfg(test)]
+pub(crate) const PHASE_1_TO_3_COMMANDS: &[CommandAuthorization] = &[
+    GET_CURSOR_POSITION,
+    MOVE_COMPANION_WINDOW,
+    SET_COMPANION_CONTENT_HEIGHT,
+    STREAM_CURSOR_POSITIONS,
+    STOP_CURSOR_POSITIONS,
+];
+
+// Consumed by build.rs through a path module; retained here as the single
+// source for generated application-command permissions.
+#[allow(dead_code)]
+pub(crate) const PHASE_1_TO_3_COMMAND_NAMES: &[&str] = &[
+    GET_CURSOR_POSITION.name(),
+    MOVE_COMPANION_WINDOW.name(),
+    SET_COMPANION_CONTENT_HEIGHT.name(),
+    STREAM_CURSOR_POSITIONS.name(),
+    STOP_CURSOR_POSITIONS.name(),
+];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum AuthorizationError {
+    UnknownRenderer,
+    CapabilityDenied,
+}
+
+pub(crate) fn authorize_command(
+    renderer_label: &str,
+    command: CommandAuthorization,
+) -> Result<RendererRole, AuthorizationError> {
+    let role =
+        RendererRole::from_label(renderer_label).ok_or(AuthorizationError::UnknownRenderer)?;
+
+    if command.allowed_roles().contains(&role) {
+        Ok(role)
+    } else {
+        Err(AuthorizationError::CapabilityDenied)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn command_manifest_is_unique_and_matches_the_completed_scope() {
+        let names = PHASE_1_TO_3_COMMANDS
+            .iter()
+            .map(|command| command.name())
+            .collect::<Vec<_>>();
+
+        assert_eq!(names, PHASE_1_TO_3_COMMAND_NAMES);
+        assert_eq!(
+            names.iter().copied().collect::<HashSet<_>>().len(),
+            names.len(),
+        );
+        assert_eq!(
+            names,
+            [
+                "get_cursor_position",
+                "move_companion_window",
+                "set_companion_content_height",
+                "stream_cursor_positions",
+                "stop_cursor_positions",
+            ],
+        );
+    }
+
+    #[test]
+    fn phase_one_to_three_commands_are_companion_only() {
+        for command in PHASE_1_TO_3_COMMANDS {
+            assert_eq!(command.allowed_roles(), [RendererRole::Companion]);
+            assert_eq!(
+                authorize_command(COMPANION_LABEL, *command),
+                Ok(RendererRole::Companion),
+            );
+            assert_eq!(
+                authorize_command(PREFERENCES_LABEL, *command),
+                Err(AuthorizationError::CapabilityDenied),
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_renderer_labels_have_no_command_authority() {
+        for label in ["", "*", "main", "companion-child", "preferences-child"] {
+            assert_eq!(
+                authorize_command(label, GET_CURSOR_POSITION),
+                Err(AuthorizationError::UnknownRenderer),
+            );
+        }
+    }
+}

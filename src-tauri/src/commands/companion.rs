@@ -10,7 +10,13 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tauri::{ipc::Channel, LogicalPosition, PhysicalPosition, Runtime, State, WebviewWindow};
 
-use crate::desktop::windows::companion;
+use crate::{
+    authorization::{
+        authorize_command, CommandAuthorization, GET_CURSOR_POSITION, MOVE_COMPANION_WINDOW,
+        SET_COMPANION_CONTENT_HEIGHT, STOP_CURSOR_POSITIONS, STREAM_CURSOR_POSITIONS,
+    },
+    desktop::windows::companion,
+};
 
 const MAX_ABSOLUTE_WINDOW_COORDINATE: f64 = 100_000.0;
 const MAX_COMPANION_CONTENT_HEIGHT: f64 = 10_000.0;
@@ -55,7 +61,7 @@ pub(crate) enum CompanionCommandError {
 pub(crate) fn get_cursor_position<R: Runtime>(
     window: WebviewWindow<R>,
 ) -> Result<ScreenPoint, CompanionCommandError> {
-    authorize_companion(&window)?;
+    authorize(&window, GET_CURSOR_POSITION)?;
     logical_cursor_position(&window).map_err(|_| CompanionCommandError::CursorUnavailable)
 }
 
@@ -64,7 +70,7 @@ pub(crate) fn move_companion_window<R: Runtime>(
     window: WebviewWindow<R>,
     position: ScreenPoint,
 ) -> Result<(), CompanionCommandError> {
-    authorize_companion(&window)?;
+    authorize(&window, MOVE_COMPANION_WINDOW)?;
 
     let position = normalize_position(position).ok_or(CompanionCommandError::InvalidPosition)?;
 
@@ -76,7 +82,7 @@ pub(crate) fn set_companion_content_height<R: Runtime>(
     window: WebviewWindow<R>,
     height: f64,
 ) -> Result<(), CompanionCommandError> {
-    authorize_companion(&window)?;
+    authorize(&window, SET_COMPANION_CONTENT_HEIGHT)?;
 
     if !is_valid_content_height(height) {
         return Err(CompanionCommandError::InvalidContentHeight);
@@ -92,7 +98,7 @@ pub(crate) fn stream_cursor_positions<R: Runtime>(
     on_position: Channel<ScreenPoint>,
     state: State<'_, CursorStreamState>,
 ) -> Result<(), CompanionCommandError> {
-    authorize_companion(&window)?;
+    authorize(&window, STREAM_CURSOR_POSITIONS)?;
 
     let stream_state = state.inner().clone();
     let generation = stream_state.begin();
@@ -112,18 +118,19 @@ pub(crate) fn stop_cursor_positions<R: Runtime>(
     window: WebviewWindow<R>,
     state: State<'_, CursorStreamState>,
 ) -> Result<(), CompanionCommandError> {
-    authorize_companion(&window)?;
+    authorize(&window, STOP_CURSOR_POSITIONS)?;
     state.stop();
 
     Ok(())
 }
 
-fn authorize_companion<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), CompanionCommandError> {
-    if window.label() == companion::LABEL {
-        Ok(())
-    } else {
-        Err(CompanionCommandError::UnauthorizedWindow)
-    }
+fn authorize<R: Runtime>(
+    window: &WebviewWindow<R>,
+    command: CommandAuthorization,
+) -> Result<(), CompanionCommandError> {
+    authorize_command(window.label(), command)
+        .map(|_| ())
+        .map_err(|_| CompanionCommandError::UnauthorizedWindow)
 }
 
 fn run_cursor_stream<R: Runtime>(

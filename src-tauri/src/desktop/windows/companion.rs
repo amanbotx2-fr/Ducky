@@ -8,7 +8,7 @@ use tauri::{
     PhysicalRect, PhysicalSize, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 
-pub const LABEL: &str = "companion";
+pub const LABEL: &str = crate::authorization::COMPANION_LABEL;
 
 const TITLE: &str = "Ducky";
 const WIDTH: f64 = 220.0;

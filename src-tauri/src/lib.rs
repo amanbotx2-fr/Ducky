@@ -1,3 +1,4 @@
+mod authorization;
 mod commands;
 mod desktop;
 // Event producers are connected by their owning feature phases. Compile and
