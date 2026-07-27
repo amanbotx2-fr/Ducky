@@ -2637,3 +2637,66 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 6.3 — DesktopBridge credential API.
+
+### Task 6.3 — DesktopBridge Credential API
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added the shared `CredentialId`, `CredentialState`, and secret-free
+  `CredentialStatus` contract.
+- Added a narrow `CredentialBridge` with status, save, and delete operations.
+  Plaintext load is deliberately absent so a renderer cannot retrieve a stored
+  secret.
+- Added the Preferences-only DesktopBridge view and capability flag. Renderer
+  code still has no direct Electron preload, Tauri invoke, or native keyring
+  access.
+- Adapted Electron's existing `PreferencesBridge.updateAiConfiguration`
+  transport behind the new credential boundary without changing Electron IPC,
+  main-process storage, or behavior.
+- Left the Tauri credential bridge unavailable until Task 6.4 registers the
+  native store and completed commands; no placeholder native command was
+  exposed.
+- Extended bridge-boundary tests to enforce the narrow API and verify that
+  neither runtime accidentally claims an unavailable credential capability.
+
+**Files changed**
+
+- `src/shared/credentials.ts` and `src/shared/types.ts` — typed shared
+  credential metadata and bridge contract.
+- `src/desktop/contracts.ts`, `src/desktop/DesktopBridge.ts`,
+  `src/desktop/electronBridge.ts`, and `src/desktop/tauriBridge.ts` —
+  role-scoped runtime adapters.
+- `tests/desktop-bridge-boundary.test.cjs` — renderer isolation and
+  secret-return regression coverage.
+- `docs/migrating/progress.md` — Task 6.3 record.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (134 tests across 38 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (50 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; Task 6.3 adds no WebView command.
+- Electron production-output smoke launch: passed through the unchanged
+  preload and protected settings service.
+- `npm run tauri:dev`: passed; the companion launched and remained alive with
+  the credential capability unavailable by design. The known development
+  custom-protocol fallback warning remained unchanged.
+
+**Manual verification**
+
+- Runtime credential UI remains unchanged in this bridge-only milestone.
+- Source and automated boundary inspection confirmed the renderer-facing API
+  can send an explicitly entered secret but cannot request plaintext back.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 6.4 — Credential persistence.

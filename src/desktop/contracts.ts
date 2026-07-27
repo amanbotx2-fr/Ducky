@@ -2,6 +2,7 @@ import type {
   CompanionBridge,
   CompanionSettingsBridge,
   CompanionWindowBridge,
+  CredentialBridge,
   PreferencesBridge,
   PreferencesSettingsBridge,
   RuntimeSettingsBridge,
@@ -14,6 +15,7 @@ export interface PreferencesSettingsCapabilities {
   readonly updates: boolean;
   readonly ai: boolean;
   readonly aiModelExplorer: boolean;
+  readonly credentials: boolean;
 }
 
 /** Native capabilities available to the companion renderer. */
@@ -36,6 +38,7 @@ export interface PreferencesDesktopBridge {
   readonly getPreferencesSettingsBridge: () =>
     | PreferencesSettingsBridge
     | undefined;
+  readonly getCredentialBridge: () => CredentialBridge | undefined;
   readonly getPreferencesSettingsCapabilities: () =>
     PreferencesSettingsCapabilities;
 }

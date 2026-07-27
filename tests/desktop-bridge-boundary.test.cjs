@@ -173,6 +173,24 @@ describe('DesktopBridge renderer boundary', () => {
       preferencesSettingsHook,
       /updateAiConfiguration[\s\S]*getPreferencesBridge\(\)/,
     );
+
+    const contracts = await readFile(
+      path.join(sourceRoot, 'desktop', 'contracts.ts'),
+      'utf8',
+    );
+    const sharedTypes = await readFile(
+      path.join(sourceRoot, 'shared', 'types.ts'),
+      'utf8',
+    );
+    assert.match(contracts, /getCredentialBridge/);
+    assert.match(
+      sharedTypes,
+      /interface CredentialBridge[\s\S]*getCredentialStatus[\s\S]*saveCredential[\s\S]*deleteCredential/,
+    );
+    assert.doesNotMatch(
+      sharedTypes,
+      /interface CredentialBridge[\s\S]*loadCredential/,
+    );
   });
 
   it('keeps deferred Preferences domains runtime-capability gated', async () => {
@@ -191,11 +209,11 @@ describe('DesktopBridge renderer boundary', () => {
     assert.match(contracts, /getPreferencesSettingsCapabilities/);
     assert.match(
       electronAdapter,
-      /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true/,
+      /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
     );
     assert.match(
       tauriAdapter,
-      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false/,
+      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false,[\s\S]*credentials: false/,
     );
     assert.match(
       preferencesUi,

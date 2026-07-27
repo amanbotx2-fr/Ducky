@@ -4,6 +4,10 @@ import type {
   AIResponse,
 } from '../ai/AIProvider';
 import type { AIConversationRequest } from './aiConversation';
+import type {
+  CredentialId,
+  CredentialStatus,
+} from './credentials';
 import type { DailyPlannerBriefing } from './dailyPlanner';
 import type {
   PomodoroCompletionListener,
@@ -111,6 +115,19 @@ export interface PreferencesSettingsBridge extends SettingsChangeBridge {
   readonly updatePreferencesSettings: (
     patch: PreferencesSettingsPatch,
   ) => Promise<PreferencesSettings>;
+}
+
+export interface CredentialBridge {
+  readonly getCredentialStatus: (
+    id: CredentialId,
+  ) => Promise<CredentialStatus>;
+  readonly saveCredential: (
+    id: CredentialId,
+    secret: string,
+  ) => Promise<CredentialStatus>;
+  readonly deleteCredential: (
+    id: CredentialId,
+  ) => Promise<CredentialStatus>;
 }
 
 export interface CompanionBridge

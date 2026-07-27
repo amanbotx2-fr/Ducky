@@ -106,6 +106,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   updates: false,
   ai: false,
   aiModelExplorer: false,
+  credentials: false,
 });
 
 /**
@@ -120,6 +121,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionWindowBridge: () => companionWindowBridge,
   getPreferencesBridge: () => undefined,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
+  getCredentialBridge: () => undefined,
   getPreferencesSettingsCapabilities: () =>
     TAURI_PREFERENCES_SETTINGS_CAPABILITIES,
 });
