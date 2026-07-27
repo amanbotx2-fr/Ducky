@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use tauri::{App, Manager, Runtime};
 
-use crate::{domain::settings::SettingsState, infrastructure::persistence::SettingsStore};
+use crate::{
+    domain::settings::SettingsState,
+    infrastructure::{credentials::CredentialStore, persistence::SettingsStore},
+};
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 
@@ -12,6 +15,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let store = SettingsStore::new(settings_path);
     let settings = store.load_with_legacy(legacy_path.as_deref())?;
 
+    app.manage(CredentialStore::native());
     app.manage(SettingsState::new(store, settings));
     Ok(())
 }

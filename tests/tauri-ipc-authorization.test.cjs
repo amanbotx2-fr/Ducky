@@ -27,6 +27,9 @@ const companionCommandPermissions = [
 const preferencesCommandPermissions = [
   'allow-get-preferences-settings',
   'allow-update-preferences-settings',
+  'allow-get-credential-status',
+  'allow-save-credential',
+  'allow-delete-credential',
 ];
 const expectedCommandPermissions = [
   ...companionCommandPermissions,

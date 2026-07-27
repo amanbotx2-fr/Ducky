@@ -110,7 +110,7 @@ impl CredentialStore {
     }
 
     pub(crate) fn is_configured(&self, id: CredentialId) -> Result<bool, CredentialStoreError> {
-        self.backend.load(id).map(|secret| secret.is_some())
+        self.load(id).map(|secret| secret.is_some())
     }
 
     pub(crate) fn load(
@@ -276,6 +276,23 @@ mod tests {
             CredentialMutation::Unchanged
         );
         assert_eq!(*backend.writes.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn credentials_survive_store_reconstruction() {
+        let backend = Arc::new(MemoryBackend::default());
+        let first = CredentialStore::with_backend(Box::new(Arc::clone(&backend)));
+        first
+            .save(CredentialId::AiApiKey, "persistent-key".to_owned())
+            .unwrap();
+        drop(first);
+
+        let restored = CredentialStore::with_backend(Box::new(backend));
+        let loaded = restored.load(CredentialId::AiApiKey).unwrap();
+        assert_eq!(
+            loaded.as_deref().map(|secret| secret.as_str()),
+            Some("persistent-key")
+        );
     }
 
     #[test]

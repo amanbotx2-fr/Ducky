@@ -1,12 +1,14 @@
 import type {
   CompanionSettingsBridge,
   CompanionWindowBridge,
+  CredentialBridge,
   PreferencesSettingsBridge,
   RuntimeSettingsChangeListener,
   RuntimeSettingsBridge,
   ScreenPoint,
 } from '../shared/types';
 import type { PreferencesSettingsPatch } from '../shared/settings';
+import type { CredentialId } from '../shared/credentials';
 import type { DesktopBridge } from './contracts';
 import {
   dispatchTauriCommand,
@@ -99,6 +101,18 @@ const preferencesSettingsBridge: PreferencesSettingsBridge =
       ),
   });
 
+const credentialBridge: CredentialBridge = Object.freeze({
+  getCredentialStatus: (id: CredentialId) =>
+    dispatchTauriCommand(TAURI_COMMANDS.getCredentialStatus, { id }),
+  saveCredential: (id: CredentialId, secret: string) =>
+    dispatchTauriCommand(TAURI_COMMANDS.saveCredential, {
+      id,
+      secret,
+    }),
+  deleteCredential: (id: CredentialId) =>
+    dispatchTauriCommand(TAURI_COMMANDS.deleteCredential, { id }),
+});
+
 const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   general: true,
   notificationSounds: true,
@@ -106,7 +120,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   updates: false,
   ai: false,
   aiModelExplorer: false,
-  credentials: false,
+  credentials: true,
 });
 
 /**
@@ -121,7 +135,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionWindowBridge: () => companionWindowBridge,
   getPreferencesBridge: () => undefined,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
-  getCredentialBridge: () => undefined,
+  getCredentialBridge: () => credentialBridge,
   getPreferencesSettingsCapabilities: () =>
     TAURI_PREFERENCES_SETTINGS_CAPABILITIES,
 });

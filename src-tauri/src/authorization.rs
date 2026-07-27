@@ -72,6 +72,12 @@ pub(crate) const UPDATE_STICKY_MESSAGE: CommandAuthorization =
     CommandAuthorization::companion_only("update_sticky_message");
 pub(crate) const UPDATE_PREFERENCES_SETTINGS: CommandAuthorization =
     CommandAuthorization::preferences_only("update_preferences_settings");
+pub(crate) const GET_CREDENTIAL_STATUS: CommandAuthorization =
+    CommandAuthorization::preferences_only("get_credential_status");
+pub(crate) const SAVE_CREDENTIAL: CommandAuthorization =
+    CommandAuthorization::preferences_only("save_credential");
+pub(crate) const DELETE_CREDENTIAL: CommandAuthorization =
+    CommandAuthorization::preferences_only("delete_credential");
 pub(crate) const GET_COMPANION_WINDOW_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_companion_window_position");
 pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
@@ -93,6 +99,9 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     UPDATE_USER_NAME,
     UPDATE_STICKY_MESSAGE,
     UPDATE_PREFERENCES_SETTINGS,
+    GET_CREDENTIAL_STATUS,
+    SAVE_CREDENTIAL,
+    DELETE_CREDENTIAL,
     GET_COMPANION_WINDOW_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
@@ -111,6 +120,9 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     UPDATE_USER_NAME.name(),
     UPDATE_STICKY_MESSAGE.name(),
     UPDATE_PREFERENCES_SETTINGS.name(),
+    GET_CREDENTIAL_STATUS.name(),
+    SAVE_CREDENTIAL.name(),
+    DELETE_CREDENTIAL.name(),
     GET_COMPANION_WINDOW_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
@@ -166,6 +178,9 @@ mod tests {
                 "update_user_name",
                 "update_sticky_message",
                 "update_preferences_settings",
+                "get_credential_status",
+                "save_credential",
+                "delete_credential",
                 "get_companion_window_position",
                 "move_companion_window",
                 "set_companion_content_height",
@@ -179,7 +194,12 @@ mod tests {
     #[test]
     fn migrated_commands_have_exact_renderer_roles() {
         for command in MIGRATED_COMMANDS {
-            if command == &GET_PREFERENCES_SETTINGS || command == &UPDATE_PREFERENCES_SETTINGS {
+            if command == &GET_PREFERENCES_SETTINGS
+                || command == &UPDATE_PREFERENCES_SETTINGS
+                || command == &GET_CREDENTIAL_STATUS
+                || command == &SAVE_CREDENTIAL
+                || command == &DELETE_CREDENTIAL
+            {
                 assert_eq!(command.allowed_roles(), [RendererRole::Preferences]);
                 assert_eq!(
                     authorize_command(PREFERENCES_LABEL, *command),

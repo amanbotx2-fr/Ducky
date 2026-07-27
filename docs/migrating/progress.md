@@ -2700,3 +2700,79 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 6.4 — Credential persistence.
+
+### Task 6.4 — Credential Persistence
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Registered the native `CredentialStore` as Rust-owned application state at
+  startup. Its stable service identity matches the application identifier
+  `com.ducky.desktop`.
+- Added Preferences-only `get_credential_status`, `save_credential`, and
+  `delete_credential` commands with exact authorization and generated Tauri
+  permissions.
+- Connected the Tauri DesktopBridge adapter to those commands with fully typed
+  request/result mappings.
+- Native status distinguishes `configured`, `missing`, and
+  `requiresReentry`. The last state is returned when Phase 5 preserved an
+  Electron ciphertext or legacy plaintext record but no native vault entry
+  exists. The opaque value is neither decrypted nor returned.
+- Native save validates and normalizes before persistence, safely overwrites,
+  skips duplicate values, and zeroizes the command-owned string. Delete is
+  idempotent and removes only the native secret.
+- Credential metadata contains only an ID and state. The native load API stays
+  internal for the later AI migration and no plaintext load command exists.
+- Added persistence tests covering save, load, replacement, deletion,
+  duplicate-write suppression, store reconstruction, invalid values, safe
+  re-entry detection, and secret-free serialization.
+
+**Files changed**
+
+- `src-tauri/src/app_state.rs` and
+  `src-tauri/src/infrastructure/credentials.rs` — native state ownership and
+  persistence lifecycle.
+- `src-tauri/src/commands/credentials.rs`,
+  `src-tauri/src/commands/mod.rs`, and
+  `src-tauri/src/authorization.rs` — narrow native command surface.
+- `src-tauri/capabilities/preferences.json` and generated credential
+  permissions — Preferences-only least privilege.
+- `src/desktop/tauriCommands.ts` and `src/desktop/tauriBridge.ts` — typed
+  runtime adapter.
+- `tests/desktop-bridge-boundary.test.cjs` and
+  `tests/tauri-ipc-authorization.test.cjs` — bridge and permission regression
+  coverage.
+- `docs/migrating/progress.md` — Task 6.4 record.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (134 tests across 38 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (54 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed and generated exact allow/deny pairs for
+  the three credential commands.
+- Electron production-output smoke launch: passed with its original
+  `safeStorage` and IPC behavior unchanged.
+- `npm run tauri:dev`: passed; native credential state and commands registered,
+  the companion launched, and no authorization or store error appeared. The
+  known development custom-protocol fallback warning remained unchanged.
+
+**Manual verification**
+
+- Native command registration and restart semantics were verified through
+  typed adapter, authorization, state-reconstruction, and persistence tests.
+- End-to-end real Keychain create/update/restart/delete verification is
+  intentionally performed through Preferences in Task 6.5 so no temporary
+  testing entry bypasses the product path.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 6.5 — Preferences integration.

@@ -7,6 +7,9 @@
   "permissions": [
     "allow-get-preferences-settings",
     "allow-update-preferences-settings",
+    "allow-get-credential-status",
+    "allow-save-credential",
+    "allow-delete-credential",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

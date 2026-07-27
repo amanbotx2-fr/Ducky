@@ -1,4 +1,5 @@
 pub(crate) mod companion;
+pub(crate) mod credentials;
 pub(crate) mod settings;
 
 use tauri::{Builder, Runtime};
@@ -18,6 +19,9 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             companion::show_companion_context_menu,
             companion::stream_cursor_positions,
             companion::stop_cursor_positions,
+            credentials::get_credential_status,
+            credentials::save_credential,
+            credentials::delete_credential,
             settings::get_runtime_settings,
             settings::get_preferences_settings,
             settings::update_user_name,

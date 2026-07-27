@@ -213,7 +213,11 @@ describe('DesktopBridge renderer boundary', () => {
     );
     assert.match(
       tauriAdapter,
-      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false,[\s\S]*credentials: false/,
+      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false,[\s\S]*credentials: true/,
+    );
+    assert.match(
+      tauriAdapter,
+      /getCredentialBridge: \(\) => credentialBridge/,
     );
     assert.match(
       preferencesUi,
