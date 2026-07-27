@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
 use super::{AiProvider, AiProviderId, AiProviderRegistry, AiRegistryError};
+use crate::infrastructure::credentials::{CredentialId, CredentialStore, CredentialStoreError};
+use zeroize::Zeroizing;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AiRuntimeError {
@@ -29,16 +31,21 @@ struct AiRuntimeState {
 /// Provider registration and execution are added by their owning Phase 9
 /// milestones. Keeping lifecycle ownership independent from any provider
 /// prevents renderer or transport concerns from becoming runtime state.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(crate) struct AiRuntime {
     state: Arc<Mutex<AiRuntimeState>>,
     #[allow(dead_code)]
     providers: AiProviderRegistry,
+    credentials: CredentialStore,
 }
 
 impl AiRuntime {
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new(credentials: CredentialStore) -> Self {
+        Self {
+            state: Arc::default(),
+            providers: AiProviderRegistry::default(),
+            credentials,
+        }
     }
 
     pub(crate) fn ensure_running(&self) -> Result<(), AiRuntimeError> {
@@ -72,6 +79,18 @@ impl AiRuntime {
         self.providers.registered_ids()
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn load_provider_credential(
+        &self,
+        provider: AiProviderId,
+    ) -> Result<Option<Zeroizing<String>>, CredentialStoreError> {
+        if provider == AiProviderId::Ollama {
+            Ok(None)
+        } else {
+            self.credentials.load(CredentialId::AiApiKey)
+        }
+    }
+
     pub(crate) fn shutdown(&self) -> Result<(), AiRuntimeError> {
         self.state.lock()?.shutting_down = true;
         Ok(())
@@ -95,7 +114,7 @@ mod tests {
 
     #[test]
     fn runtime_initializes_available_and_shuts_down_cleanly() {
-        let runtime = AiRuntime::new();
+        let runtime = AiRuntime::new(CredentialStore::native());
 
         assert_eq!(runtime.ensure_running(), Ok(()));
         assert_eq!(runtime.is_shutting_down(), Ok(false));
@@ -106,11 +125,23 @@ mod tests {
 
     #[test]
     fn cloned_handles_share_one_runtime_lifecycle() {
-        let runtime = AiRuntime::new();
+        let runtime = AiRuntime::new(CredentialStore::native());
         let clone = runtime.clone();
 
         clone.shutdown().unwrap();
 
         assert_eq!(runtime.ensure_running(), Err(AiRuntimeError::ShuttingDown));
+    }
+
+    #[test]
+    fn ollama_never_requests_a_cloud_provider_credential() {
+        let runtime = AiRuntime::new(CredentialStore::native());
+
+        assert_eq!(
+            runtime
+                .load_provider_credential(AiProviderId::Ollama)
+                .unwrap(),
+            None
+        );
     }
 }

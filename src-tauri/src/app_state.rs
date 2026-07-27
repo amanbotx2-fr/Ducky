@@ -28,7 +28,8 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let settings = store.load_with_legacy(legacy_settings_path.as_deref())?;
 
     let settings_state = SettingsState::new(store, settings);
-    let ai_runtime = AiRuntime::new();
+    let credential_store = CredentialStore::native();
+    let ai_runtime = AiRuntime::new(credential_store.clone());
     ai_runtime.ensure_running()?;
     let app_handle = app.handle().clone();
     let reminder_runtime = ReminderRuntime::with_delivery(
@@ -69,7 +70,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
         PomodoroRuntime::new(Arc::new(pomodoro_store), Arc::new(pomodoro_events.clone()));
     pomodoro_runtime.start()?;
 
-    app.manage(CredentialStore::native());
+    app.manage(credential_store);
     app.manage(ai_runtime);
     app.manage(settings_state);
     app.manage(reminder_runtime);

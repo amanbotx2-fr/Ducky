@@ -1,4 +1,4 @@
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use keyring::{Entry, Error as KeyringError};
 use zeroize::{Zeroize, Zeroizing};
@@ -84,9 +84,10 @@ impl CredentialBackend for KeyringCredentialBackend {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct CredentialStore {
-    backend: Box<dyn CredentialBackend>,
-    mutation_lock: Mutex<()>,
+    backend: Arc<dyn CredentialBackend>,
+    mutation_lock: Arc<Mutex<()>>,
 }
 
 impl std::fmt::Debug for CredentialStore {
@@ -99,13 +100,13 @@ impl std::fmt::Debug for CredentialStore {
 
 impl CredentialStore {
     pub(crate) fn native() -> Self {
-        Self::with_backend(Box::<KeyringCredentialBackend>::default())
+        Self::with_backend(Arc::new(KeyringCredentialBackend))
     }
 
-    fn with_backend(backend: Box<dyn CredentialBackend>) -> Self {
+    fn with_backend(backend: Arc<dyn CredentialBackend>) -> Self {
         Self {
             backend,
-            mutation_lock: Mutex::new(()),
+            mutation_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -225,7 +226,7 @@ mod tests {
 
     fn memory_store() -> (CredentialStore, Arc<MemoryBackend>) {
         let backend = Arc::new(MemoryBackend::default());
-        let store = CredentialStore::with_backend(Box::new(Arc::clone(&backend)));
+        let store = CredentialStore::with_backend(Arc::new(Arc::clone(&backend)));
         (store, backend)
     }
 
@@ -281,13 +282,13 @@ mod tests {
     #[test]
     fn credentials_survive_store_reconstruction() {
         let backend = Arc::new(MemoryBackend::default());
-        let first = CredentialStore::with_backend(Box::new(Arc::clone(&backend)));
+        let first = CredentialStore::with_backend(Arc::new(Arc::clone(&backend)));
         first
             .save(CredentialId::AiApiKey, "persistent-key".to_owned())
             .unwrap();
         drop(first);
 
-        let restored = CredentialStore::with_backend(Box::new(backend));
+        let restored = CredentialStore::with_backend(Arc::new(backend));
         let loaded = restored.load(CredentialId::AiApiKey).unwrap();
         assert_eq!(
             loaded.as_deref().map(|secret| secret.as_str()),

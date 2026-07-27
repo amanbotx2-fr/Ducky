@@ -6,8 +6,8 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.3 — Provider Registry
-- Next task: Task 9.4 — Secret Store Integration
+- Last completed task: Task 9.4 — Secret Store Integration
+- Next task: Task 9.5 — OpenAI Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
@@ -4556,6 +4556,63 @@ the Phase 9 architecture clarification; Task 9.2 has not started.
 
 - Task 9.2 — Create Native AI Runtime. Do not begin without a separate
   implementation instruction.
+
+### Task 9.4 — Secret Store Integration
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Reused the Phase 6 native `CredentialStore` as the only AI secret source.
+- Made the store safely cloneable by sharing its native backend and mutation
+  lock, so Preferences mutations and the AI runtime use the same protected
+  credential boundary.
+- Injected the native credential store into `AiRuntime` at startup without
+  exposing plaintext retrieval to commands, DesktopBridge, or renderers.
+- Added provider-scoped credential loading and preserved Ollama's credential-
+  free local-provider behavior.
+- Retained zeroizing secret values and the existing one-active-provider
+  Electron credential model.
+
+**Files changed**
+
+- `src-tauri/src/infrastructure/credentials.rs` — shared native backend and
+  lock ownership while preserving all Phase 6 behavior and tests.
+- `src-tauri/src/domain/ai/runtime.rs` — runtime-only provider credential
+  access.
+- `src-tauri/src/app_state.rs` — injected the same native store into
+  Preferences state and the AI runtime.
+- `docs/migrating/progress.md` — recorded Task 9.4.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (88 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no secret-read permission or new
+  renderer authority exists.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed the native app initialized with the shared protected credential
+  store and remained alive.
+- No plaintext credential, secret-read command, renderer error, keyring error,
+  or permission warning appeared.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.5 — OpenAI Provider.
 
 ### Task 9.3 — Provider Registry
 
