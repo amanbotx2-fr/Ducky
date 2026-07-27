@@ -171,16 +171,31 @@ fn run_cursor_stream<R: Runtime>(
 
 fn logical_cursor_position<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<ScreenPoint> {
     let physical_position = window.cursor_position()?;
-    let scale_factor = window.scale_factor()?;
+    let primary_scale_factor = window
+        .primary_monitor()?
+        .map(|monitor| monitor.scale_factor());
+    let companion_scale_factor = window.scale_factor()?;
 
-    Ok(cursor_position_for_scale(physical_position, scale_factor))
+    Ok(cursor_position_in_desktop_logical_space(
+        physical_position,
+        primary_scale_factor,
+        companion_scale_factor,
+    ))
 }
 
-fn cursor_position_for_scale(
+fn cursor_position_in_desktop_logical_space(
     physical_position: PhysicalPosition<f64>,
-    scale_factor: f64,
+    primary_scale_factor: Option<f64>,
+    companion_scale_factor: f64,
 ) -> ScreenPoint {
-    let logical_position = physical_position.to_logical::<f64>(scale_factor);
+    // Tao represents its global cursor point using the primary monitor's scale
+    // factor. Convert with that same factor so the result matches Electron's
+    // desktop DIP coordinates and the renderer's CSS screen coordinates.
+    //
+    // The companion factor is only a defensive fallback for platforms or
+    // transient display states where no primary monitor is available.
+    let source_scale_factor = primary_scale_factor.unwrap_or(companion_scale_factor);
+    let logical_position = physical_position.to_logical::<f64>(source_scale_factor);
 
     ScreenPoint {
         x: logical_position.x,
@@ -266,9 +281,62 @@ mod tests {
     }
 
     #[test]
-    fn converts_cursor_coordinates_to_the_window_logical_scale() {
+    fn converts_mixed_dpi_cursor_coordinates_with_the_primary_scale() {
         assert_eq!(
-            cursor_position_for_scale(PhysicalPosition::new(-640.0, 512.0), 2.0,),
+            cursor_position_in_desktop_logical_space(
+                PhysicalPosition::new(6_630.0, 846.0),
+                Some(2.0),
+                1.0,
+            ),
+            ScreenPoint {
+                x: 3_315.0,
+                y: 423.0,
+            },
+        );
+    }
+
+    #[test]
+    fn ignores_retina_companion_scale_when_primary_scale_is_one() {
+        assert_eq!(
+            cursor_position_in_desktop_logical_space(
+                PhysicalPosition::new(1_280.0, 720.0),
+                Some(1.0),
+                2.0,
+            ),
+            ScreenPoint {
+                x: 1_280.0,
+                y: 720.0,
+            },
+        );
+    }
+
+    #[test]
+    fn preserves_retina_to_external_monitor_origin_and_offset() {
+        let external_monitor_origin = ScreenPoint {
+            x: 1_710.0,
+            y: 32.0,
+        };
+        let cursor_offset_on_external_monitor = ScreenPoint { x: 820.0, y: 391.0 };
+        let expected = ScreenPoint {
+            x: external_monitor_origin.x + cursor_offset_on_external_monitor.x,
+            y: external_monitor_origin.y + cursor_offset_on_external_monitor.y,
+        };
+        let tao_physical_position = PhysicalPosition::new(expected.x * 2.0, expected.y * 2.0);
+
+        assert_eq!(
+            cursor_position_in_desktop_logical_space(tao_physical_position, Some(2.0), 1.0,),
+            expected,
+        );
+    }
+
+    #[test]
+    fn falls_back_to_companion_scale_when_primary_monitor_is_unavailable() {
+        assert_eq!(
+            cursor_position_in_desktop_logical_space(
+                PhysicalPosition::new(-640.0, 512.0),
+                None,
+                2.0,
+            ),
             ScreenPoint {
                 x: -320.0,
                 y: 256.0,

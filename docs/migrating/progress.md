@@ -4,14 +4,12 @@
 
 ## Current Status
 
-- Active work: Phase 2 cursor-position regression investigation
+- Active work: Paused after Phase 4
 - Last completed phase: Phase 4 — Tray + Native Menu Migration
-- Next task: Correct and revalidate the Phase 2 cursor coordinate contract
-  before beginning Phase 5
-- Blockers: Phase 4 has no remaining blocker. Manual verification exposed a
-  separate mixed-DPI cursor conversion defect in the Phase 2 eye-tracking
-  pipeline. The root cause is documented below; no implementation was changed
-  during the investigation, and Phase 5 has not started.
+- Last completed correction: Phase 2 mixed-DPI cursor coordinates
+- Next task: Phase 5, only when explicitly requested
+- Blockers: None. Phase 4 and the mixed-DPI regression revalidation are
+  complete. Phase 5 has not started.
 
 ## Completed Tasks
 
@@ -1756,7 +1754,7 @@ before Task 4.2 rather than guessing.
 
 ### Phase 2 Cursor-Position Regression Investigation
 
-**Status:** Root cause identified; implementation unchanged
+**Status:** Resolved and revalidated
 
 **Observed regression**
 
@@ -1804,7 +1802,7 @@ before Task 4.2 rather than guessing.
   the locked-session gate explicitly left mixed-DPI visual/input parity for
   later manual verification.
 
-**Required correction**
+**Correction contract**
 
 - Keep the renderer and `EyeTracker` in CSS logical desktop coordinates.
 - Normalize the native cursor sample to that coordinate system without using
@@ -1814,8 +1812,58 @@ before Task 4.2 rather than guessing.
 - Re-run Electron and Tauri eye-tracking parity on Retina, 1×, and mixed-DPI
   monitor arrangements before resuming the migration.
 
+**Implementation**
+
+- `src-tauri/src/commands/companion.rs` now converts Tao's physical cursor
+  payload with the primary monitor scale factor that Tao used to create it.
+- The companion window scale factor is retained only as a defensive fallback
+  for a transient or unsupported state where no primary monitor is available.
+- The cursor channel payload once again matches Electron desktop DIP
+  coordinates and the renderer's CSS logical `window.screenX` /
+  `window.screenY` contract.
+- The renderer, `EyeTracker`, DesktopBridge, cursor channel lifecycle,
+  Electron implementation, and all Phase 4 functionality remain unchanged.
+
+**Regression tests**
+
+- Mixed-DPI conversion with a 2× primary monitor and 1× companion monitor.
+- A 1× primary monitor with a 2× Retina companion monitor, proving the
+  companion factor does not rescale a primary-scaled cursor payload.
+- A Retina-primary to 1× external-monitor example that preserves the external
+  monitor origin and cursor offset.
+- Companion-scale fallback behavior when a primary monitor is unavailable.
+
+**Validation performed**
+
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (30 tests),
+  including all four cursor-coordinate regression tests.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; the existing companion-only cursor
+  permissions remain unchanged.
+- `npm run typecheck`: passed.
+- `npm test`: passed (128 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- Electron production-output smoke launch: passed using the unchanged
+  Electron cursor sampler and renderer bridge.
+- `npm run tauri:dev`: passed. The companion and cursor channel started with
+  no command, scope, or permission error; only the known development
+  custom-protocol-to-`postMessage` fallback warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  packaged debug macOS application.
+- Packaged mixed-DPI visual verification: passed. The companion was moved from
+  the 2× 1710 × 1112 primary display fully onto the 1× 1920 × 1080 external
+  display. Its pupils then followed cursor positions at both the top-right and
+  bottom-left of the companion without the prior scale/origin offset.
+
+**Environment note**
+
+- The first Rust validation attempt failed before tests ran because the disk
+  was full. Only rebuildable Cargo output under `src-tauri/target` was cleaned;
+  the complete validation matrix then passed from a clean Rust rebuild.
+
 **Scope**
 
 - No Phase 4 tray, menu, permission, or lifecycle implementation was changed.
-- No Phase 2 implementation was changed during this investigation.
 - Phase 5 has not started.
