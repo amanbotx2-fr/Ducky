@@ -1953,3 +1953,202 @@ before Task 4.2 rather than guessing.
 - No Phase 4 tray or menu behavior was changed.
 - Eye tracking and the cursor stream were not changed.
 - Phase 5 has not started.
+
+## Phase 5 — Settings Migration
+
+### Task 5.1 — Audit Existing Settings
+
+**Status:** Complete
+
+**Storage backend and persistence contract**
+
+- Electron owns one process-wide `SettingsService` in
+  `src/main/SettingsService.ts`.
+- The service reads and writes `settings.json` under Electron's
+  `app.getPath('userData')`.
+- The current production document has no literal schema-version field.
+  Compatibility is maintained by strict parsing, additive optional fields,
+  default merging, and canonical rewrites. Tauri must preserve that actual
+  document contract rather than introduce a new wrapper.
+- Mutations are serialized through one operation queue. Each accepted
+  snapshot is written to `settings.json.tmp` with mode `0600` and renamed
+  over the authoritative file.
+- Invalid JSON or an invalid document is renamed to
+  `settings.json.invalid-<timestamp>` before defaults are written.
+- Missing files materialize the defaults. Unknown keys, invalid enum values,
+  invalid lengths, malformed reminders, malformed credentials, and invalid
+  endpoint URLs are rejected.
+- Credentials share the Electron snapshot, but their encryption, decryption,
+  and plaintext migration are explicitly Phase 6 work. Phase 5 must preserve
+  credential and deferred-domain data without exposing it to a renderer.
+
+**Persisted schema and defaults**
+
+- `userName`: `"Friend"`.
+- `stickyMessage`: `null`.
+- `reminders`: an empty array; reminder behavior remains deferred.
+- `general.alwaysOnTop`: `true`.
+- `general.launchAtStartup`: `false`.
+- `general.eyeTracking`: `true`.
+- `water.enabled`: `true`; water behavior/configuration remains deferred.
+- `water.interval`: `30`, constrained to `15`, `30`, `45`, `60`, `90`, or
+  `120`.
+- `notificationSounds.enabled`: `true`.
+- `notificationSounds.sound`: `"soft-bell"`, constrained to the four built-in
+  sound IDs.
+- `notificationSounds.volume`: `70`, constrained to integer `0…100`.
+- `updates.automatic`: `false`; updater behavior/preferences remain deferred.
+- `ai.enabled`: `false`, `provider`: `""`, `model`: `""`,
+  `endpoint`: `"http://localhost:11434"`, and `baseUrl`: `""`; AI settings
+  remain deferred.
+- `aiModelExplorer.favorites` and `recent`: empty arrays; AI/model selection
+  remains deferred.
+- `credential`: `null`. Older Electron documents may instead contain
+  `ai.apiKey`; credential interpretation and migration remain deferred.
+- `apiKeyConfigured` exists only in in-memory/renderer-safe projections and
+  is derived from protected or legacy credential presence; it is not written
+  as an AI setting.
+
+**Startup and runtime flow**
+
+- Electron constructs `SettingsService` after `app.whenReady()`, loads it
+  before updater/reminder/AI/Pomodoro services, IPC registration, runtime
+  setting application, companion creation, and tray creation.
+- A load failure is logged and the service's in-memory defaults remain
+  available.
+- Startup applies `alwaysOnTop` to the companion and, for packaged Electron,
+  `launchAtStartup` through `app.setLoginItemSettings`.
+- Successful updates persist first, replace the in-memory snapshot second,
+  then notify subscribers. No-op updates skip the write and notification.
+- The main-process subscriber reapplies native general settings and emits the
+  secret-free `RuntimeSettings` projection to the companion and Preferences.
+- Electron runtime mutations currently come from user-name/sticky-message
+  commands, Preferences patches, AI configuration, reminders, and native
+  menu actions. Only settings infrastructure is in Phase 5; domain behavior
+  stays with its owning phase.
+
+**Renderer and DesktopBridge interactions**
+
+- `useRuntimeSettings.ts` obtains a secret-free snapshot and change events for
+  user name, sticky message, general settings, water configuration, and
+  notification sounds. The companion uses those values for presentation,
+  eye tracking, and sound configuration.
+- `usePreferencesSettings.ts` obtains the redacted Preferences snapshot,
+  performs optimistic settings updates, reconciles from the authoritative
+  snapshot after failure, and consumes the shared runtime-settings event.
+- `PreferencesApp.tsx` renders general, notification sound, hydration,
+  updater, AI, and model-explorer controls. Phase 5 may connect the settings
+  transport without implementing the deferred updater, AI, credential,
+  reminder, or water domain behavior.
+- Electron's companion and Preferences preload APIs implement the existing
+  typed settings methods. `electronDesktopBridge` adapts them unchanged.
+- Tauri currently exposes no companion-domain or Preferences-domain bridge,
+  so both settings hooks fall back or fail. Phase 5 must add narrow
+  settings-only bridge views rather than exposing incomplete AI, updater,
+  reminder, or Pomodoro capabilities.
+- Tauri's existing `runtime-settings:changed` event registry already targets
+  only the exact `companion` and `preferences` webviews. Phase 5 owns its
+  first producer and snapshot recovery commands.
+
+**Phase 5 boundary**
+
+- The native repository will preserve the complete compatible document so a
+  Tauri save cannot erase Electron or future-phase data.
+- Phase 5 will implement typed settings snapshots, validated settings
+  patches, atomic persistence, startup loading, native application of general
+  settings, notification, and Preferences integration.
+- It will not interpret credentials, call AI providers, schedule reminders or
+  hydration, run Pomodoro behavior, check for updates, or change release
+  infrastructure.
+
+**Production code changes**
+
+- None. This task was discovery and documentation only.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 5.2 — Create Native Settings Store.
+
+### Task 5.2 — Create Native Settings Store
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added a runtime-owned Rust settings domain with typed, serde-validated
+  representations of the existing Electron document.
+- Preserved the current `settings.json` field names, optional-field migration
+  behavior, defaults, redacted credential status boundary, and strict
+  rejection of unknown or malformed settings-owned values.
+- Deferred reminders and credential records are retained losslessly without
+  being interpreted or exposed. AI, updater, reminder, hydration, Pomodoro,
+  and credential behavior was not implemented.
+- Added a native repository that materializes defaults for a missing file,
+  writes a same-directory temporary file with owner-only permissions, flushes
+  it, atomically persists it, and syncs the containing directory where
+  supported.
+- Invalid JSON or invalid settings are renamed to
+  `settings.json.invalid-<timestamp>` before defaults are restored.
+- Added a shared current-format fixture consumed by both the Electron
+  `SettingsService` test suite and Rust schema tests, preventing the two
+  parsers from drifting.
+- The repository remains independently tested and is not registered during
+  application startup until Task 5.4.
+
+**Files changed**
+
+- `src-tauri/src/domain/mod.rs` and
+  `src-tauri/src/domain/settings/mod.rs` — native settings schema, defaults,
+  canonicalization, validation, and compatibility tests.
+- `src-tauri/src/infrastructure/mod.rs` and
+  `src-tauri/src/infrastructure/persistence.rs` — atomic native settings
+  repository and recovery tests.
+- `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` — direct JSON, URL, and
+  same-directory temporary-file dependencies.
+- `src-tauri/src/lib.rs` — registered the independently tested modules without
+  changing application startup.
+- `tests/fixtures/settings/electron-current.json` and
+  `tests/settings-contract.test.cjs` — shared Electron/Rust golden contract.
+- `docs/migrating/migration_tasks.md` — accepted Phase 5 execution contract
+  supplied before implementation.
+- `docs/migrating/progress.md` — recorded discovery and Task 5.2.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (132 tests across 38 suites), including the shared
+  Electron settings fixture.
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (38 tests),
+  including defaults, migrations, strict validation, atomic persistence,
+  invalid-file recovery, owner-only permissions, and deferred-data
+  preservation.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; the backend-only store adds no renderer
+  permission.
+- Electron production-output smoke launch: passed with the existing
+  `SettingsService`, preload bridges, and security policy unchanged.
+- `npm run tauri:dev`: passed. Tauri compiled, launched the companion, and
+  reported no settings, command, or capability error; the known development
+  custom-protocol fallback warning remained unchanged.
+
+**Manual verification**
+
+- Store-level load/save/reload, default materialization, recovery, private
+  permissions, and deferred-field preservation are covered by focused native
+  tests.
+- Interactive Preferences and restart persistence are deferred until the
+  bridge, startup, and mutation milestones are connected.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 5.3 — DesktopBridge Settings API.

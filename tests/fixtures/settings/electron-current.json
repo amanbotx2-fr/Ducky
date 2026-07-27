@@ -1,0 +1,33 @@
+{
+  "userName": "Aman",
+  "stickyMessage": "Ship carefully",
+  "reminders": [],
+  "general": {
+    "alwaysOnTop": false,
+    "launchAtStartup": true,
+    "eyeTracking": true
+  },
+  "water": {
+    "enabled": false,
+    "interval": 45
+  },
+  "notificationSounds": {
+    "enabled": true,
+    "sound": "zen-chime",
+    "volume": 42
+  },
+  "updates": {
+    "automatic": false
+  },
+  "ai": {
+    "enabled": false,
+    "provider": "",
+    "model": "",
+    "endpoint": "http://localhost:11434"
+  },
+  "aiModelExplorer": {
+    "favorites": [],
+    "recent": []
+  },
+  "credential": null
+}

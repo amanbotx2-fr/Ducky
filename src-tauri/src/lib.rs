@@ -1,10 +1,16 @@
 mod authorization;
 mod commands;
 mod desktop;
+// Registered in application state during Task 5.4. Keep the independently
+// tested repository free of dead-code noise during the store milestone.
+#[allow(dead_code)]
+mod domain;
 // Event producers are connected by their owning feature phases. Compile and
 // test the complete infrastructure now without registering placeholder events.
 #[allow(dead_code)]
 mod events;
+#[allow(dead_code)]
+mod infrastructure;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

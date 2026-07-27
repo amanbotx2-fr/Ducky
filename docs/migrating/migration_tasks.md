@@ -760,9 +760,343 @@ Only then may Phase 5 begin.
 
 # PHASE 5
 
-Settings
+Settings Migration
 
-...
+Goal
+
+Migrate the settings infrastructure from Electron to Tauri v2 while preserving
+existing behaviour.
+
+This phase migrates only the settings system itself.
+
+Feature-specific settings remain deferred to their owning migration phases.
+
+Electron remains the reference implementation until Phase 12.
+
+DesktopBridge remains the only renderer abstraction.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- Audit the existing settings implementation.
+- Identify every persisted setting.
+- Identify default values.
+- Identify storage backend.
+- Identify settings read during startup.
+- Identify settings modified at runtime.
+- Identify renderer interactions.
+- Identify DesktopBridge integration.
+- Document findings inside docs/migrating/progress.md.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- settings storage
+- settings loading
+- settings persistence
+- default values
+- settings validation
+- DesktopBridge settings API
+- startup loading
+- settings change notifications
+- Preferences window integration
+
+This phase does NOT include:
+
+- reminder behaviour
+- water reminder logic
+- pomodoro logic
+- AI settings
+- updater settings
+- credential storage
+- release pipeline
+- Electron removal
+
+---
+
+## Architecture Rules
+
+Renderer never accesses runtime storage directly.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Runtime Adapter
+
+↓
+
+Native Settings Store
+
+All validation occurs inside the runtime.
+
+Renderer receives typed settings objects only.
+
+---
+
+## Task 5.1
+
+Audit Existing Settings
+
+Objective
+
+Document the current Electron settings implementation.
+
+Acceptance
+
+- storage backend documented
+- settings list documented
+- startup flow documented
+- renderer interactions documented
+- DesktopBridge touch points documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 5.2
+
+Create Native Settings Store
+
+Objective
+
+Implement the Tauri settings backend.
+
+Requirements
+
+- runtime owned
+- typed storage
+- validation
+- preserve Electron implementation
+
+Acceptance
+
+- settings load successfully
+- settings save successfully
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate settings store
+
+---
+
+## Task 5.3
+
+DesktopBridge Settings API
+
+Objective
+
+Expose typed settings APIs through DesktopBridge.
+
+Requirements
+
+- renderer runtime agnostic
+- no direct Tauri APIs
+- preserve Electron bridge
+
+Acceptance
+
+Renderer accesses settings only through DesktopBridge.
+
+Commit
+
+feat(tauri): migrate settings bridge
+
+---
+
+## Task 5.4
+
+Startup Settings Loading
+
+Objective
+
+Initialize settings during application startup.
+
+Requirements
+
+- load before renderer requires them
+- preserve defaults
+- preserve existing startup behaviour
+
+Acceptance
+
+Application starts with identical settings behaviour.
+
+Commit
+
+feat(tauri): migrate settings startup
+
+---
+
+## Task 5.5
+
+Settings Persistence
+
+Objective
+
+Persist modified settings.
+
+Requirements
+
+- validate before save
+- avoid duplicate writes
+- preserve defaults
+
+Acceptance
+
+Modified settings survive restart.
+
+Commit
+
+feat(tauri): migrate settings persistence
+
+---
+
+## Task 5.6
+
+Preferences Window Integration
+
+Objective
+
+Connect the Preferences UI to the new settings backend.
+
+Requirements
+
+- no renderer runtime detection
+- DesktopBridge only
+- preserve Electron implementation
+
+Acceptance
+
+Changing settings updates the native store.
+
+Commit
+
+feat(tauri): migrate preferences settings
+
+---
+
+## Deferred
+
+The following settings remain owned by later phases:
+
+Reminder System
+
+- reminder schedules
+- water reminder configuration
+
+Pomodoro
+
+- durations
+- auto-start
+- break configuration
+
+AI
+
+- providers
+- API keys
+- model selection
+
+Updater
+
+- update preferences
+
+Credentials
+
+- authentication
+- secrets
+
+These remain Electron-only until their migration phases.
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix all failures before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- settings load on startup
+- default values correct
+- settings persist after restart
+- Preferences displays current values
+- changing settings updates immediately
+- no duplicate writes
+- no renderer console errors
+- Electron behaviour unchanged
+
+---
+
+## Progress Tracking
+
+Update docs/migrating/progress.md with:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 5 is complete only if:
+
+✓ Native settings store implemented
+
+✓ DesktopBridge handles all settings access
+
+✓ Preferences window uses the native backend
+
+✓ Settings persist across restarts
+
+✓ Default values preserved
+
+✓ Electron implementation preserved
+
+✓ All validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 6 begin.
 
 ---
 
