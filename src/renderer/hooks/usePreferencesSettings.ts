@@ -38,7 +38,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
   useEffect(() => {
     mountedRef.current = true;
     const preferencesBridge =
-      preferencesDesktopBridge.getPreferencesBridge();
+      preferencesDesktopBridge.getPreferencesSettingsBridge();
 
     if (preferencesBridge === undefined) {
       setStatus('error');
@@ -97,7 +97,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
   const update = useCallback(
     async (patch: PreferencesSettingsPatch): Promise<boolean> => {
       const preferencesBridge =
-        preferencesDesktopBridge.getPreferencesBridge();
+        preferencesDesktopBridge.getPreferencesSettingsBridge();
 
       if (preferencesBridge === undefined) {
         setStatus('error');
@@ -158,8 +158,13 @@ export function usePreferencesSettings(): PreferencesSettingsController {
     async (configuration: AiConfigurationUpdate): Promise<boolean> => {
       const preferencesBridge =
         preferencesDesktopBridge.getPreferencesBridge();
+      const settingsBridge =
+        preferencesDesktopBridge.getPreferencesSettingsBridge();
 
-      if (preferencesBridge === undefined) {
+      if (
+        preferencesBridge === undefined ||
+        settingsBridge === undefined
+      ) {
         setStatus('error');
         setErrorMessage('Settings are unavailable in this window.');
         return false;
@@ -193,7 +198,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
         try {
           const authoritativeSettings =
-            await preferencesBridge.getPreferencesSettings();
+            await settingsBridge.getPreferencesSettings();
 
           if (
             mountedRef.current &&

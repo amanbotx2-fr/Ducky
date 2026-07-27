@@ -139,4 +139,39 @@ describe('DesktopBridge renderer boundary', () => {
       /getCompanionBridge\(\)[\s\S]{0,100}showCompanionContextMenu\(\)/,
     );
   });
+
+  it('routes settings hooks through settings-only bridge views', async () => {
+    const runtimeSettingsHook = await readFile(
+      path.join(
+        sourceRoot,
+        'renderer',
+        'hooks',
+        'useRuntimeSettings.ts',
+      ),
+      'utf8',
+    );
+    const preferencesSettingsHook = await readFile(
+      path.join(
+        sourceRoot,
+        'renderer',
+        'hooks',
+        'usePreferencesSettings.ts',
+      ),
+      'utf8',
+    );
+
+    assert.match(
+      runtimeSettingsHook,
+      /getCompanionSettingsBridge\(\)/,
+    );
+    assert.doesNotMatch(runtimeSettingsHook, /getCompanionBridge\(\)/);
+    assert.match(
+      preferencesSettingsHook,
+      /getPreferencesSettingsBridge\(\)/,
+    );
+    assert.match(
+      preferencesSettingsHook,
+      /updateAiConfiguration[\s\S]*getPreferencesBridge\(\)/,
+    );
+  });
 });

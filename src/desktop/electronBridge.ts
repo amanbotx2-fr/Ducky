@@ -7,6 +7,8 @@ import type { DesktopBridge } from './contracts';
  */
 export const electronDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionBridge: () => window.psyduck,
+  getCompanionSettingsBridge: () => window.psyduck,
   getCompanionWindowBridge: () => window.psyduck,
   getPreferencesBridge: () => window.psyduckPreferences,
+  getPreferencesSettingsBridge: () => window.psyduckPreferences,
 });

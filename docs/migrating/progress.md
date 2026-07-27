@@ -2152,3 +2152,73 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 5.3 — DesktopBridge Settings API.
+
+### Task 5.3 — DesktopBridge Settings API
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Split settings access from the existing feature-heavy companion and
+  Preferences bridge interfaces.
+- Added narrow `CompanionSettingsBridge` and
+  `PreferencesSettingsBridge` contracts for snapshot, mutation, and
+  secret-free change-notification operations.
+- The role-scoped DesktopBridge views now expose settings-only getters.
+  Runtime selection remains private to `src/desktop`; renderer code still has
+  no Electron/Tauri import, preload-global access, or runtime detection.
+- Electron maps the new narrow views to its unchanged, structurally
+  compatible preload APIs.
+- Tauri intentionally keeps the new settings getters unavailable until its
+  native state is loaded during Task 5.4. No missing-state command or
+  production placeholder was exposed.
+- `useRuntimeSettings` and the ordinary snapshot/update paths in
+  `usePreferencesSettings` now use settings-only bridge views. The dedicated
+  AI mutation path continues using the full Electron Preferences bridge and
+  remains unavailable to Tauri until its owning phase.
+
+**Files changed**
+
+- `src/shared/types.ts` — added the settings-only bridge contracts and
+  composed the existing complete bridge types from them.
+- `src/desktop/contracts.ts`, `src/desktop/DesktopBridge.ts`,
+  `src/desktop/electronBridge.ts`, and `src/desktop/tauriBridge.ts` — exposed
+  role-scoped settings views without changing runtime selection.
+- `src/renderer/hooks/useRuntimeSettings.ts` and
+  `src/renderer/hooks/usePreferencesSettings.ts` — consume only the narrow
+  settings bridge for settings operations.
+- `tests/desktop-bridge-boundary.test.cjs` — locks the settings-only renderer
+  boundary.
+- `docs/migrating/progress.md` — recorded Task 5.3.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (133 tests across 38 suites), including the new
+  settings-only DesktopBridge boundary assertion.
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (39 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; this abstraction-only milestone added
+  no renderer permission.
+- Electron production-output smoke launch: passed through the unchanged
+  preload settings implementations.
+- `npm run tauri:dev`: passed. The companion launched with the unavailable
+  native settings bridge continuing to use its existing safe defaults; no
+  command or capability error appeared.
+
+**Manual verification**
+
+- Electron settings load and renderer subscriptions continued through the
+  new narrow views during smoke launch.
+- Tauri startup remained behaviorally unchanged pending the native state
+  connection in Task 5.4.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 5.4 — Startup Settings Loading.

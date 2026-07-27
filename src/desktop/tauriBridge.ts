@@ -52,6 +52,8 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
  */
 export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionBridge: () => undefined,
+  getCompanionSettingsBridge: () => undefined,
   getCompanionWindowBridge: () => companionWindowBridge,
   getPreferencesBridge: () => undefined,
+  getPreferencesSettingsBridge: () => undefined,
 });

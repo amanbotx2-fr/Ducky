@@ -20,6 +20,8 @@ const runtimeDesktopBridge = isTauri()
 /** Electron/Tauri-neutral native surface for the companion renderer. */
 export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
   getCompanionBridge: runtimeDesktopBridge.getCompanionBridge,
+  getCompanionSettingsBridge:
+    runtimeDesktopBridge.getCompanionSettingsBridge,
   getCompanionWindowBridge:
     runtimeDesktopBridge.getCompanionWindowBridge,
 });
@@ -28,4 +30,6 @@ export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
 export const preferencesDesktopBridge: PreferencesDesktopBridge =
   Object.freeze({
     getPreferencesBridge: runtimeDesktopBridge.getPreferencesBridge,
+    getPreferencesSettingsBridge:
+      runtimeDesktopBridge.getPreferencesSettingsBridge,
   });

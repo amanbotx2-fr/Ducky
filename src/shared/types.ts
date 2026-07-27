@@ -89,13 +89,31 @@ export type AIConnectionTestResult =
       readonly diagnostics?: AIProviderHttpDiagnostics;
     };
 
-export interface CompanionBridge extends CompanionWindowBridge {
-  readonly platform: string;
+export interface CompanionSettingsBridge {
   readonly getRuntimeSettings: () => Promise<RuntimeSettings>;
   readonly updateUserName: (name: string) => Promise<string>;
   readonly updateStickyMessage: (
     message: string | null,
   ) => Promise<string | null>;
+  readonly onRuntimeSettingsChanged: (
+    listener: RuntimeSettingsChangeListener,
+  ) => () => void;
+}
+
+export interface PreferencesSettingsBridge {
+  readonly getPreferencesSettings: () => Promise<PreferencesSettings>;
+  readonly updatePreferencesSettings: (
+    patch: PreferencesSettingsPatch,
+  ) => Promise<PreferencesSettings>;
+  readonly onRuntimeSettingsChanged: (
+    listener: RuntimeSettingsChangeListener,
+  ) => () => void;
+}
+
+export interface CompanionBridge
+  extends CompanionWindowBridge,
+    CompanionSettingsBridge {
+  readonly platform: string;
   readonly onUserNamePanelRequested: (
     listener: UserNamePanelRequestListener,
   ) => () => void;
@@ -139,16 +157,9 @@ export interface CompanionBridge extends CompanionWindowBridge {
   readonly listReminders: () => Promise<readonly Reminder[]>;
   readonly markReminderCompleted: (id: string) => Promise<Reminder>;
   readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
-  readonly onRuntimeSettingsChanged: (
-    listener: RuntimeSettingsChangeListener,
-  ) => () => void;
 }
 
-export interface PreferencesBridge {
-  readonly getPreferencesSettings: () => Promise<PreferencesSettings>;
-  readonly updatePreferencesSettings: (
-    patch: PreferencesSettingsPatch,
-  ) => Promise<PreferencesSettings>;
+export interface PreferencesBridge extends PreferencesSettingsBridge {
   readonly updateAiConfiguration: (
     configuration: AiConfigurationUpdate,
   ) => Promise<PreferencesSettings>;
@@ -158,8 +169,5 @@ export interface PreferencesBridge {
   readonly checkForUpdates: () => Promise<UpdateStatus>;
   readonly onUpdateStatusChanged: (
     listener: UpdateStatusListener,
-  ) => () => void;
-  readonly onRuntimeSettingsChanged: (
-    listener: RuntimeSettingsChangeListener,
   ) => () => void;
 }
