@@ -3485,3 +3485,59 @@ milestone.
 
 - Task 7.8 — grant only the six existing reminder CRUD commands to the exact
   Companion capability, then run the complete Phase 7 parity gate.
+
+### Task 7.8 — Reminder Permissions
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Granted the six existing reminder CRUD commands—create, update, delete,
+  get, list, and mark-completed—only to the exact local `companion` WebView.
+- Kept the internal fired-event activation handshake Companion-only and
+  retained the existing listen/unlisten-only event authority.
+- Kept Preferences unable to invoke reminder commands and kept both renderers
+  unable to emit native events.
+- Extended the capability regression test to reject notification permissions
+  explicitly. No wildcard, remote, filesystem, HTTP, shell, process,
+  clipboard, global-shortcut, menu, tray, or notification permission was
+  added.
+
+**Files changed**
+
+- `src-tauri/capabilities/companion.json` — six exact reminder CRUD grants.
+- `tests/tauri-ipc-authorization.test.cjs` — exact completed Companion grant
+  set and explicit notification-permission prohibition.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (135 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (65 tests).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed; all reminder grants resolve to their
+  generated command pairs and no notification capability is present.
+- Electron production-output smoke launch: passed with Electron authorization
+  unchanged.
+- `npx tauri dev --no-watch`: passed with no reminder or capability errors.
+  Existing development custom-protocol fallback warnings were unchanged.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  macOS application bundle.
+
+**Manual verification**
+
+- Both runtimes launched under the completed permission set without command,
+  event, renderer, or permission errors.
+- Full reminder CRUD, restart persistence, fired-widget, Dismiss, Snooze,
+  sound, recurrence, and context-menu parity verification follows as the final
+  Phase 7 gate.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Phase 7 final manual parity verification. Do not begin Phase 8.

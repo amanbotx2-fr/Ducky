@@ -14,6 +14,12 @@ const permissionDirectory = path.join(
 
 const companionCommandPermissions = [
   'allow-activate-reminder-events',
+  'allow-create-reminder',
+  'allow-update-reminder',
+  'allow-delete-reminder',
+  'allow-get-reminder',
+  'allow-list-reminders',
+  'allow-mark-reminder-completed',
   'allow-get-cursor-position',
   'allow-get-runtime-settings',
   'allow-get-companion-window-position',
@@ -32,17 +38,8 @@ const preferencesCommandPermissions = [
   'allow-save-credential',
   'allow-delete-credential',
 ];
-const reminderCommandPermissions = [
-  'allow-create-reminder',
-  'allow-update-reminder',
-  'allow-delete-reminder',
-  'allow-get-reminder',
-  'allow-list-reminders',
-  'allow-mark-reminder-completed',
-];
 const registeredCommandPermissions = [
   ...companionCommandPermissions,
-  ...reminderCommandPermissions,
   ...preferencesCommandPermissions,
 ];
 const eventPermissions = [
@@ -126,6 +123,7 @@ describe('Tauri IPC authorization', () => {
       'clipboard:',
       'global-shortcut:',
       'menu:',
+      'notification:',
       'tray:',
     ];
 
