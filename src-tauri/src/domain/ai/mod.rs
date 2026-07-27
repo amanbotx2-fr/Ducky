@@ -18,11 +18,12 @@ pub(crate) use claude::ClaudeProvider;
 pub(crate) use custom::CustomProvider;
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use grok::GrokProvider;
+pub(crate) use ollama::is_valid_endpoint as is_valid_ollama_endpoint;
 pub(crate) use ollama::OllamaProvider;
 pub(crate) use openai::OpenAiProvider;
 pub(crate) use provider::{
-    AiFinishReason, AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode,
-    AiRequest, AiResponse,
+    AiFinishReason, AiModel, AiProvider, AiProviderConfiguration, AiProviderError,
+    AiProviderErrorCode, AiProviderHttpDiagnostics, AiRequest, AiResponse,
 };
 pub(crate) use registry::{AiProviderId, AiProviderRegistry, AiRegistryError};
 pub(crate) use runtime::{AiExecutionError, AiRuntime};

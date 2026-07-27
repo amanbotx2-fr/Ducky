@@ -35,6 +35,7 @@ export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
 export const preferencesDesktopBridge: PreferencesDesktopBridge =
   Object.freeze({
     getPreferencesBridge: runtimeDesktopBridge.getPreferencesBridge,
+    getPreferencesAiBridge: runtimeDesktopBridge.getPreferencesAiBridge,
     getPreferencesSettingsBridge:
       runtimeDesktopBridge.getPreferencesSettingsBridge,
     getCredentialBridge: runtimeDesktopBridge.getCredentialBridge,

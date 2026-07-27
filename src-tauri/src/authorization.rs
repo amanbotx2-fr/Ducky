@@ -111,6 +111,12 @@ pub(crate) const STREAM_CURSOR_POSITIONS: CommandAuthorization =
 pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
     CommandAuthorization::companion_only("stop_cursor_positions");
 pub(crate) const ASK_AI: CommandAuthorization = CommandAuthorization::companion_only("ask_ai");
+pub(crate) const UPDATE_AI_CONFIGURATION: CommandAuthorization =
+    CommandAuthorization::preferences_only("update_ai_configuration");
+pub(crate) const LIST_AI_MODELS: CommandAuthorization =
+    CommandAuthorization::preferences_only("list_ai_models");
+pub(crate) const TEST_AI_CONNECTION: CommandAuthorization =
+    CommandAuthorization::preferences_only("test_ai_connection");
 
 #[cfg(test)]
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
@@ -140,6 +146,9 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     STREAM_CURSOR_POSITIONS,
     STOP_CURSOR_POSITIONS,
     ASK_AI,
+    UPDATE_AI_CONFIGURATION,
+    LIST_AI_MODELS,
+    TEST_AI_CONNECTION,
 ];
 
 // Consumed by build.rs through a path module; retained here as the single
@@ -172,6 +181,9 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     STREAM_CURSOR_POSITIONS.name(),
     STOP_CURSOR_POSITIONS.name(),
     ASK_AI.name(),
+    UPDATE_AI_CONFIGURATION.name(),
+    LIST_AI_MODELS.name(),
+    TEST_AI_CONNECTION.name(),
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -241,6 +253,9 @@ mod tests {
                 "stream_cursor_positions",
                 "stop_cursor_positions",
                 "ask_ai",
+                "update_ai_configuration",
+                "list_ai_models",
+                "test_ai_connection",
             ],
         );
     }
@@ -253,6 +268,9 @@ mod tests {
                 || command == &GET_CREDENTIAL_STATUS
                 || command == &SAVE_CREDENTIAL
                 || command == &DELETE_CREDENTIAL
+                || command == &UPDATE_AI_CONFIGURATION
+                || command == &LIST_AI_MODELS
+                || command == &TEST_AI_CONNECTION
             {
                 assert_eq!(command.allowed_roles(), [RendererRole::Preferences]);
                 assert_eq!(

@@ -240,6 +240,36 @@ impl SettingsState {
         })
     }
 
+    pub(crate) fn update_ai_configuration(
+        &self,
+        patch: AiSettingsPatch,
+        clear_legacy_credential: bool,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        self.persist_update(move |settings| {
+            let mut next = settings.clone();
+            if let Some(enabled) = patch.enabled {
+                next.ai.enabled = enabled;
+            }
+            if let Some(provider) = patch.provider {
+                next.ai.provider = provider;
+            }
+            if let Some(model) = patch.model {
+                next.ai.model = model;
+            }
+            if let Some(endpoint) = patch.endpoint {
+                next.ai.endpoint = endpoint;
+            }
+            if let Some(base_url) = patch.base_url {
+                next.ai.base_url = base_url;
+            }
+            if clear_legacy_credential {
+                next.credential = None;
+                next.ai.api_key = None;
+            }
+            next
+        })
+    }
+
     pub(crate) fn clear_legacy_credential(&self) -> Result<SettingsUpdate, SettingsMutationError> {
         self.persist_update(|settings| {
             let mut next = settings.clone();
@@ -336,6 +366,21 @@ pub(crate) struct PreferencesAiSettings {
     pub(crate) api_key_configured: bool,
     pub(crate) endpoint: String,
     pub(crate) base_url: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct AiSettingsPatch {
+    #[serde(default)]
+    pub(crate) enabled: Option<bool>,
+    #[serde(default)]
+    pub(crate) provider: Option<String>,
+    #[serde(default)]
+    pub(crate) model: Option<String>,
+    #[serde(default)]
+    pub(crate) endpoint: Option<String>,
+    #[serde(default)]
+    pub(crate) base_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]

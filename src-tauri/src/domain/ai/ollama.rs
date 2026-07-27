@@ -133,6 +133,10 @@ impl OllamaProvider {
     }
 }
 
+pub(crate) fn is_valid_endpoint(value: &str) -> bool {
+    parse_endpoint(value).is_ok()
+}
+
 #[async_trait]
 impl AiProvider for OllamaProvider {
     fn id(&self) -> AiProviderId {

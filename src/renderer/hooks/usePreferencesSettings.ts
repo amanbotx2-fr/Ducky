@@ -229,7 +229,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
   const updateAiConfiguration = useCallback(
     async (configuration: AiConfigurationUpdate): Promise<boolean> => {
       const preferencesBridge =
-        preferencesDesktopBridge.getPreferencesBridge();
+        preferencesDesktopBridge.getPreferencesAiBridge();
       const settingsBridge =
         preferencesDesktopBridge.getPreferencesSettingsBridge();
 

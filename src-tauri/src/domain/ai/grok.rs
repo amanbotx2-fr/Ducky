@@ -9,8 +9,8 @@ use super::{
         normalize_models, AiFinishReason, AiModel, AiUsage, MAXIMUM_MODELS, MAXIMUM_OUTPUT_TOKENS,
         MAXIMUM_RESPONSE_CHARS,
     },
-    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode, AiProviderId,
-    AiRequest, AiResponse,
+    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode,
+    AiProviderHttpDiagnostics, AiProviderId, AiRequest, AiResponse,
 };
 
 const XAI_BASE_URL: &str = "https://api.x.ai/v1";
@@ -35,6 +35,11 @@ impl GrokProvider {
         &self,
         request: reqwest::RequestBuilder,
     ) -> Result<Value, AiProviderError> {
+        let request_url = request
+            .try_clone()
+            .and_then(|request| request.build().ok())
+            .map(|request| request.url().to_string())
+            .unwrap_or_else(|| XAI_BASE_URL.to_owned());
         let response = request
             .send()
             .await
@@ -48,7 +53,7 @@ impl GrokProvider {
             return Err(connection_error("Grok response exceeded the safe limit."));
         }
         if !status.is_success() {
-            return Err(status_error(status));
+            return Err(status_error(status, &request_url, &bytes));
         }
         serde_json::from_slice(&bytes)
             .map_err(|_| connection_error("Grok returned an invalid response."))
@@ -100,6 +105,20 @@ impl AiProvider for GrokProvider {
             )
             .await?;
         Ok(parse_models(value))
+    }
+
+    async fn test_connection(
+        &self,
+        configuration: AiProviderConfiguration<'_>,
+    ) -> Result<String, AiProviderError> {
+        let api_key = required(configuration.api_key, "Grok requires an API key.")?;
+        self.checked_json(
+            self.client
+                .get(format!("{XAI_BASE_URL}/models"))
+                .bearer_auth(api_key),
+        )
+        .await?;
+        Ok("Connection successful.".to_owned())
     }
 }
 
@@ -206,12 +225,72 @@ fn connection_error(message: &'static str) -> AiProviderError {
     AiProviderError::new(AiProviderId::Grok, AiProviderErrorCode::Connection, message)
 }
 
-fn status_error(status: StatusCode) -> AiProviderError {
-    connection_error(match status.as_u16() {
+fn status_error(status: StatusCode, request_url: &str, bytes: &[u8]) -> AiProviderError {
+    let message = match status.as_u16() {
         401 | 403 => "Grok authentication failed.",
         429 => "Grok rate limit reached.",
         _ => "Grok request failed.",
+    };
+    let (response_body, error_code, error_message) = sanitize_error_body(bytes, message);
+    connection_error(message).with_diagnostics(AiProviderHttpDiagnostics {
+        request_url: request_url.chars().take(2_048).collect(),
+        http_status_code: Some(status.as_u16()),
+        http_status_text: status.canonical_reason().map(str::to_owned),
+        response_body,
+        error_code,
+        error_message,
     })
+}
+
+fn sanitize_error_body(bytes: &[u8], fallback_message: &str) -> (String, Option<String>, String) {
+    let mut value = serde_json::from_slice::<Value>(bytes).ok();
+    if let Some(value) = value.as_mut() {
+        redact_sensitive_values(value);
+    }
+    let response_body = value
+        .as_ref()
+        .and_then(|value| serde_json::to_string(value).ok())
+        .unwrap_or_else(|| String::from_utf8_lossy(bytes).into_owned());
+    let response_body = response_body
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
+        .take(4_096)
+        .collect::<String>();
+    let error_code = value
+        .as_ref()
+        .and_then(|value| value["error"]["code"].as_str())
+        .map(|value| value.chars().take(256).collect());
+    let error_message = value
+        .as_ref()
+        .and_then(|value| value["error"]["message"].as_str())
+        .unwrap_or(fallback_message)
+        .chars()
+        .take(512)
+        .collect();
+    (response_body, error_code, error_message)
+}
+
+fn redact_sensitive_values(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, value) in object {
+                if ["authorization", "api_key", "apikey", "secret", "token"]
+                    .iter()
+                    .any(|sensitive| key.eq_ignore_ascii_case(sensitive))
+                {
+                    *value = Value::String("[REDACTED]".to_owned());
+                } else {
+                    redact_sensitive_values(value);
+                }
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                redact_sensitive_values(value);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
@@ -266,5 +345,20 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn http_diagnostics_are_bounded_and_redact_sensitive_values() {
+        let error = status_error(
+            StatusCode::UNAUTHORIZED,
+            "https://api.x.ai/v1/language-models",
+            br#"{"error":{"message":"bad key","code":"invalid_api_key","token":"secret"}}"#,
+        );
+        let diagnostics = error.diagnostics().unwrap();
+
+        assert_eq!(diagnostics.http_status_code, Some(401));
+        assert_eq!(diagnostics.error_code.as_deref(), Some("invalid_api_key"));
+        assert!(diagnostics.response_body.contains("[REDACTED]"));
+        assert!(!diagnostics.response_body.contains("secret"));
     }
 }

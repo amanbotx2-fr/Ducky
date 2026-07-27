@@ -55,6 +55,17 @@ pub(crate) struct AiModel {
     pub(crate) display_name: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct AiProviderHttpDiagnostics {
+    pub(crate) request_url: String,
+    pub(crate) http_status_code: Option<u16>,
+    pub(crate) http_status_text: Option<String>,
+    pub(crate) response_body: String,
+    pub(crate) error_code: Option<String>,
+    pub(crate) error_message: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum AiProviderErrorCode {
     Configuration,
@@ -68,6 +79,7 @@ pub(crate) struct AiProviderError {
     pub(crate) provider_id: AiProviderId,
     pub(crate) code: AiProviderErrorCode,
     message: String,
+    diagnostics: Option<AiProviderHttpDiagnostics>,
 }
 
 impl AiProviderError {
@@ -81,11 +93,21 @@ impl AiProviderError {
             provider_id,
             code,
             message: message.chars().take(MAXIMUM_ERROR_CHARS).collect(),
+            diagnostics: None,
         }
+    }
+
+    pub(crate) fn with_diagnostics(mut self, diagnostics: AiProviderHttpDiagnostics) -> Self {
+        self.diagnostics = Some(diagnostics);
+        self
     }
 
     pub(crate) fn message(&self) -> &str {
         &self.message
+    }
+
+    pub(crate) fn diagnostics(&self) -> Option<&AiProviderHttpDiagnostics> {
+        self.diagnostics.as_ref()
     }
 }
 

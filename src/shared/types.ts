@@ -97,6 +97,14 @@ export interface CompanionAiBridge {
   readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
 }
 
+export interface PreferencesAiBridge {
+  readonly updateAiConfiguration: (
+    configuration: AiConfigurationUpdate,
+  ) => Promise<PreferencesSettings>;
+  readonly listAIModels: () => Promise<AIModelListResult>;
+  readonly testAIConnection: () => Promise<AIConnectionTestResult>;
+}
+
 export interface SettingsChangeBridge {
   readonly onRuntimeSettingsChanged: (
     listener: RuntimeSettingsChangeListener,
@@ -192,11 +200,9 @@ export interface CompanionBridge
 }
 
 export interface PreferencesBridge extends PreferencesSettingsBridge {
-  readonly updateAiConfiguration: (
-    configuration: AiConfigurationUpdate,
-  ) => Promise<PreferencesSettings>;
-  readonly listAIModels: () => Promise<AIModelListResult>;
-  readonly testAIConnection: () => Promise<AIConnectionTestResult>;
+  readonly updateAiConfiguration: PreferencesAiBridge['updateAiConfiguration'];
+  readonly listAIModels: PreferencesAiBridge['listAIModels'];
+  readonly testAIConnection: PreferencesAiBridge['testAIConnection'];
   readonly getUpdateStatus: () => Promise<UpdateStatus>;
   readonly checkForUpdates: () => Promise<UpdateStatus>;
   readonly onUpdateStatusChanged: (

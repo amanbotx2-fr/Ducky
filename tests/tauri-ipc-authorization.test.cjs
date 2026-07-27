@@ -36,6 +36,9 @@ const companionCommandPermissions = [
   'allow-update-sticky-message',
 ];
 const preferencesCommandPermissions = [
+  'allow-update-ai-configuration',
+  'allow-list-ai-models',
+  'allow-test-ai-connection',
   'allow-get-preferences-settings',
   'allow-update-preferences-settings',
   'allow-get-credential-status',

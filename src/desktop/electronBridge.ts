@@ -90,6 +90,7 @@ export const electronDesktopBridge: DesktopBridge = Object.freeze({
   getReminderBridge: () => window.psyduck,
   getPomodoroBridge: () => window.psyduck,
   getPreferencesBridge: () => window.psyduckPreferences,
+  getPreferencesAiBridge: () => window.psyduckPreferences,
   getPreferencesSettingsBridge: () => window.psyduckPreferences,
   getCredentialBridge: () => electronCredentialBridge,
   getPreferencesSettingsCapabilities: () =>

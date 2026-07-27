@@ -120,6 +120,11 @@ impl AiProviderRegistry {
         Ok(())
     }
 
+    pub(crate) fn clear_selection(&self) -> Result<(), AiRegistryError> {
+        self.state.write()?.active_provider = None;
+        Ok(())
+    }
+
     pub(crate) fn provider(
         &self,
         id: AiProviderId,

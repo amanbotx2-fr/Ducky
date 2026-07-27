@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
 use super::{
-    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderId, AiProviderRegistry,
-    AiRegistryError, AiRequest, AiResponse,
+    AiModel, AiProvider, AiProviderConfiguration, AiProviderError, AiProviderId,
+    AiProviderRegistry, AiRegistryError, AiRequest, AiResponse,
 };
 use crate::infrastructure::credentials::{CredentialId, CredentialStore, CredentialStoreError};
 use zeroize::Zeroizing;
@@ -93,6 +93,10 @@ impl AiRuntime {
         self.providers.select(id)
     }
 
+    pub(crate) fn clear_provider(&self) -> Result<(), AiRegistryError> {
+        self.providers.clear_selection()
+    }
+
     #[allow(dead_code)]
     pub(crate) fn active_provider(&self) -> Result<Option<Arc<dyn AiProvider>>, AiRegistryError> {
         self.providers.active_provider()
@@ -127,6 +131,36 @@ impl AiRuntime {
             .ok_or(AiExecutionError::ProviderNotSelected)?;
         provider
             .send_message(configuration, request)
+            .await
+            .map_err(AiExecutionError::Provider)
+    }
+
+    pub(crate) async fn list_models(
+        &self,
+        configuration: AiProviderConfiguration<'_>,
+    ) -> Result<Vec<AiModel>, AiExecutionError> {
+        self.ensure_running().map_err(AiExecutionError::Runtime)?;
+        let provider = self
+            .active_provider()
+            .map_err(AiExecutionError::Registry)?
+            .ok_or(AiExecutionError::ProviderNotSelected)?;
+        provider
+            .list_models(configuration)
+            .await
+            .map_err(AiExecutionError::Provider)
+    }
+
+    pub(crate) async fn test_connection(
+        &self,
+        configuration: AiProviderConfiguration<'_>,
+    ) -> Result<String, AiExecutionError> {
+        self.ensure_running().map_err(AiExecutionError::Runtime)?;
+        let provider = self
+            .active_provider()
+            .map_err(AiExecutionError::Registry)?
+            .ok_or(AiExecutionError::ProviderNotSelected)?;
+        provider
+            .test_connection(configuration)
             .await
             .map_err(AiExecutionError::Provider)
     }

@@ -435,7 +435,7 @@ export function PreferencesApp() {
     }
 
     const preferencesBridge =
-      preferencesDesktopBridge.getPreferencesBridge();
+      preferencesDesktopBridge.getPreferencesAiBridge();
 
     if (preferencesBridge === undefined) {
       setConnectionStatus({
@@ -482,7 +482,7 @@ export function PreferencesApp() {
     }
 
     const preferencesBridge =
-      preferencesDesktopBridge.getPreferencesBridge();
+      preferencesDesktopBridge.getPreferencesAiBridge();
 
     if (preferencesBridge === undefined) {
       setModelLoadingStatus({

@@ -215,7 +215,7 @@ describe('DesktopBridge renderer boundary', () => {
     );
     assert.match(
       preferencesSettingsHook,
-      /updateAiConfiguration[\s\S]*getPreferencesBridge\(\)/,
+      /updateAiConfiguration[\s\S]*getPreferencesAiBridge\(\)/,
     );
 
     const contracts = await readFile(
@@ -308,17 +308,22 @@ describe('DesktopBridge renderer boundary', () => {
       );
 
     assert.match(contracts, /getPreferencesSettingsCapabilities/);
+    assert.match(contracts, /getPreferencesAiBridge/);
     assert.match(
       electronAdapter,
       /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
     );
     assert.match(
       tauriAdapter,
-      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false,[\s\S]*credentials: true/,
+      /water: false,[\s\S]*updates: false,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
     );
     assert.match(
       tauriAdapter,
       /getCredentialBridge: \(\) => credentialBridge/,
+    );
+    assert.match(
+      tauriAdapter,
+      /getPreferencesAiBridge: \(\) => preferencesAiBridge/,
     );
     assert.match(
       preferencesUi,

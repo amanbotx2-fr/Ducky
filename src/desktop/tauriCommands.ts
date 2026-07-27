@@ -5,11 +5,16 @@ import type {
   CredentialStatus,
 } from '../shared/credentials';
 import type {
+  AiConfigurationUpdate,
   PreferencesSettings,
   PreferencesSettingsPatch,
   RuntimeSettings,
 } from '../shared/settings';
 import type { AIConversationRequest } from '../shared/aiConversation';
+import type {
+  AIConnectionTestResult,
+  AIModelListResult,
+} from '../shared/types';
 import type {
   CreateReminderInput,
   Reminder,
@@ -24,6 +29,9 @@ import type { AIAskResult, ScreenPoint } from '../shared/types';
  */
 export const TAURI_COMMANDS = Object.freeze({
   askAI: 'ask_ai',
+  updateAiConfiguration: 'update_ai_configuration',
+  listAIModels: 'list_ai_models',
+  testAIConnection: 'test_ai_connection',
   activatePomodoroEvents: 'activate_pomodoro_events',
   activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
@@ -58,6 +66,11 @@ interface TauriCommandArguments {
   readonly ask_ai: {
     readonly request: AIConversationRequest;
   };
+  readonly update_ai_configuration: {
+    readonly configuration: AiConfigurationUpdate;
+  };
+  readonly list_ai_models: Record<string, never>;
+  readonly test_ai_connection: Record<string, never>;
   readonly activate_pomodoro_events: Record<string, never>;
   readonly activate_reminder_events: Record<string, never>;
   readonly create_reminder: {
@@ -119,6 +132,9 @@ interface TauriCommandArguments {
 
 interface TauriCommandResults {
   readonly ask_ai: AIAskResult;
+  readonly update_ai_configuration: PreferencesSettings;
+  readonly list_ai_models: AIModelListResult;
+  readonly test_ai_connection: AIConnectionTestResult;
   readonly activate_pomodoro_events: void;
   readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;
