@@ -33,6 +33,7 @@ import type {
 const IPC_CHANNELS = {
   cursorPosition: 'psyduck:cursor-position',
   getCursorPosition: 'psyduck:get-cursor-position',
+  getWindowPosition: 'psyduck:get-window-position',
   moveWindow: 'psyduck:move-window',
   setCompanionContentHeight: 'psyduck:set-content-height',
   showCompanionContextMenu: 'psyduck:show-context-menu',
@@ -206,6 +207,8 @@ const companionBridge: CompanionBridge = Object.freeze({
   platform: process.platform,
   getCursorPosition: () =>
     ipcRenderer.invoke(IPC_CHANNELS.getCursorPosition) as Promise<ScreenPoint>,
+  getWindowPosition: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.getWindowPosition) as Promise<ScreenPoint>,
   onCursorPosition: (listener: CursorPositionListener) => {
     const handleCursorPosition = (
       _event: Electron.IpcRendererEvent,

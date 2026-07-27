@@ -11,6 +11,11 @@ import {
 
 const companionWindowBridge: CompanionWindowBridge = Object.freeze({
   getCursorPosition: getTauriCursorPosition,
+  getWindowPosition: () =>
+    dispatchTauriCommand(
+      TAURI_COMMANDS.getCompanionWindowPosition,
+      {},
+    ),
   onCursorPosition: subscribeToTauriCursorPositions,
   moveWindow: (position: ScreenPoint) => {
     void dispatchTauriCommand(TAURI_COMMANDS.moveCompanionWindow, {

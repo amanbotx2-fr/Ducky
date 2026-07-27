@@ -393,7 +393,7 @@ export function PsyDuck({
 
     const dragController = new DragController({
       surface: stage,
-      getWindowPosition: () => ({ x: window.screenX, y: window.screenY }),
+      getWindowPosition: companionWindowBridge.getWindowPosition,
       moveWindow: companionWindowBridge.moveWindow,
       onDraggingChange: (isDragging) => {
         draggingRef.current = isDragging;

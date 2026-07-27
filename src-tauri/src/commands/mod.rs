@@ -11,6 +11,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         .manage(companion::CursorStreamState::default())
         .invoke_handler(tauri::generate_handler![
             companion::get_cursor_position,
+            companion::get_companion_window_position,
             companion::move_companion_window,
             companion::set_companion_content_height,
             companion::show_companion_context_menu,

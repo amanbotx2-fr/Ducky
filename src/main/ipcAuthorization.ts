@@ -17,6 +17,7 @@ export const RENDERER_CAPABILITIES = {
     IPC_CHANNELS.setCompanionContentHeight,
     IPC_CHANNELS.showCompanionContextMenu,
     IPC_CHANNELS.getCursorPosition,
+    IPC_CHANNELS.getWindowPosition,
     IPC_CHANNELS.startPomodoro,
     IPC_CHANNELS.customPomodoroPanelClosed,
     IPC_CHANNELS.createReminder,

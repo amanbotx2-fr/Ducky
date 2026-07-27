@@ -54,6 +54,8 @@ impl CommandAuthorization {
 
 pub(crate) const GET_CURSOR_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_cursor_position");
+pub(crate) const GET_COMPANION_WINDOW_POSITION: CommandAuthorization =
+    CommandAuthorization::companion_only("get_companion_window_position");
 pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
     CommandAuthorization::companion_only("move_companion_window");
 pub(crate) const SET_COMPANION_CONTENT_HEIGHT: CommandAuthorization =
@@ -68,6 +70,7 @@ pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
 #[cfg(test)]
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CURSOR_POSITION,
+    GET_COMPANION_WINDOW_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
     SHOW_COMPANION_CONTEXT_MENU,
@@ -80,6 +83,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
 #[allow(dead_code)]
 pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CURSOR_POSITION.name(),
+    GET_COMPANION_WINDOW_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
     SHOW_COMPANION_CONTEXT_MENU.name(),
@@ -129,6 +133,7 @@ mod tests {
             names,
             [
                 "get_cursor_position",
+                "get_companion_window_position",
                 "move_companion_window",
                 "set_companion_content_height",
                 "show_companion_context_menu",

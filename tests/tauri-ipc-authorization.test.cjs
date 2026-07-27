@@ -14,6 +14,7 @@ const permissionDirectory = path.join(
 
 const expectedCommandPermissions = [
   'allow-get-cursor-position',
+  'allow-get-companion-window-position',
   'allow-move-companion-window',
   'allow-set-companion-content-height',
   'allow-show-companion-context-menu',

@@ -6,10 +6,10 @@
 
 - Active work: Paused after Phase 4
 - Last completed phase: Phase 4 — Tray + Native Menu Migration
-- Last completed correction: Phase 2 mixed-DPI cursor coordinates
+- Last completed correction: Phase 2 native drag-anchor position
 - Next task: Phase 5, only when explicitly requested
-- Blockers: None. Phase 4 and the mixed-DPI regression revalidation are
-  complete. Phase 5 has not started.
+- Blockers: None. Phase 4, mixed-DPI cursor revalidation, and native
+  drag-anchor correction are complete. Phase 5 has not started.
 
 ## Completed Tasks
 
@@ -1866,4 +1866,90 @@ before Task 4.2 rather than guessing.
 **Scope**
 
 - No Phase 4 tray, menu, permission, or lifecycle implementation was changed.
+- Phase 5 has not started.
+
+### Phase 2 Native Drag-Anchor Regression
+
+**Status:** Resolved
+
+**Observed regression**
+
+- The Tauri companion moved when dragged, but did not preserve the original
+  point where the pointer grabbed it.
+- Repeated drags introduced additional vertical error and made the companion
+  appear to slide away from the cursor.
+- Electron retained the exact grab point.
+
+**Root cause**
+
+- `PsyDuck.tsx` supplied `window.screenX` and `window.screenY` as the current
+  native window position to `DragController`.
+- Those browser window-origin values are not authoritative in macOS
+  WKWebView. The resulting pointerdown offset was therefore calculated from
+  an incorrect window origin and was carried into every absolute move.
+- The controller already kept its offset immutable during each drag.
+  DesktopBridge and the Rust move command passed absolute logical coordinates
+  without another scale conversion, and absolute rounding could not create
+  the accumulating error.
+
+**Implementation**
+
+- Added `getWindowPosition()` to the role-scoped `CompanionWindowBridge`.
+- Electron now serves that operation from the authorized companion
+  `BrowserWindow` bounds while retaining its existing absolute
+  `setPosition()` movement implementation.
+- Tauri now exposes a companion-only
+  `get_companion_window_position` command. Rust reads the native outer
+  position and converts it to the current monitor's logical coordinate space
+  before returning it.
+- `DragController` now requests the native position once on pointerdown and
+  creates the immutable drag anchor from that position plus the pointer's
+  `clientX` / `clientY`.
+- Pointer movement that arrives while the native request is resolving is
+  retained and applied once initialization completes. A generation guard
+  prevents a late response from reviving a completed drag.
+- Absolute logical movement, pointer capture, drag state callbacks, Electron
+  IPC, and Tauri command dispatch remain otherwise unchanged.
+- Added and granted only the generated companion command permission;
+  Preferences receives no new authority.
+
+**Regression tests**
+
+- A macOS WKWebView case with deliberately invalid browser
+  `window.screenX` / `window.screenY` values proves they cannot influence the
+  anchor.
+- Exact client-space grab-point preservation is verified after movement.
+- Two consecutive drags with different grab points prove that no position
+  error accumulates.
+- Movement received before the native window-position request resolves is
+  preserved.
+- Tauri authorization tests verify the new command is companion-only and has
+  one narrow generated allow/deny permission pair.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (131 tests across 37 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (30 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed and listed the new scoped
+  `allow-get-companion-window-position` permission.
+- Electron production-output smoke launch: passed; the companion window
+  opened with the existing Electron movement implementation and no IPC
+  authorization error.
+- `npm run tauri:dev`: passed; the companion opened and the new command
+  registry/capability configuration produced no command or permission error.
+  The only warning was the existing development custom-protocol transport
+  fallback.
+
+**Commit**
+
+- `fix(tauri): preserve drag anchor using native window position`
+
+**Scope**
+
+- No Phase 4 tray or menu behavior was changed.
+- Eye tracking and the cursor stream were not changed.
 - Phase 5 has not started.

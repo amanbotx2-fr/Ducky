@@ -787,6 +787,19 @@ const handleGetCursorPosition = (
   return screen.getCursorScreenPoint();
 };
 
+const handleGetWindowPosition = (
+  event: IpcMainInvokeEvent,
+): ScreenPoint => {
+  const targetWindow = BrowserWindow.fromWebContents(event.sender);
+
+  if (targetWindow === null || targetWindow.isDestroyed()) {
+    throw new Error('Companion window is unavailable.');
+  }
+
+  const { x, y } = targetWindow.getBounds();
+  return { x, y };
+};
+
 const handleGetRuntimeSettings = (
   _event: IpcMainInvokeEvent,
 ): RuntimeSettings => {
@@ -1216,6 +1229,13 @@ const registerIpcHandlers = (): void => {
     ),
   );
   ipcMain.handle(
+    IPC_CHANNELS.getWindowPosition,
+    ipcAuthorizer.protectInvoke(
+      IPC_CHANNELS.getWindowPosition,
+      handleGetWindowPosition,
+    ),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.getRuntimeSettings,
     ipcAuthorizer.protectInvoke(
       IPC_CHANNELS.getRuntimeSettings,
@@ -1362,6 +1382,7 @@ const registerIpcHandlers = (): void => {
 
 const unregisterIpcHandlers = (): void => {
   ipcMain.removeHandler(IPC_CHANNELS.getCursorPosition);
+  ipcMain.removeHandler(IPC_CHANNELS.getWindowPosition);
   ipcMain.removeHandler(IPC_CHANNELS.getRuntimeSettings);
   ipcMain.removeHandler(IPC_CHANNELS.updateUserName);
   ipcMain.removeHandler(IPC_CHANNELS.updateStickyMessage);

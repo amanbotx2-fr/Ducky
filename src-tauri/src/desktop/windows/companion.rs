@@ -98,6 +98,15 @@ pub fn move_to<R: Runtime>(
     window.set_position(position)
 }
 
+pub fn logical_position<R: Runtime>(
+    window: &WebviewWindow<R>,
+) -> tauri::Result<LogicalPosition<f64>> {
+    let physical_position = window.outer_position()?;
+    let scale_factor = window.scale_factor()?;
+
+    Ok(physical_position.to_logical(scale_factor))
+}
+
 pub fn set_content_height<R: Runtime>(
     window: &WebviewWindow<R>,
     requested_height: f64,

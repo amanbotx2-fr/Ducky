@@ -12,9 +12,9 @@ use tauri::{ipc::Channel, LogicalPosition, PhysicalPosition, Runtime, State, Web
 
 use crate::{
     authorization::{
-        authorize_command, CommandAuthorization, GET_CURSOR_POSITION, MOVE_COMPANION_WINDOW,
-        SET_COMPANION_CONTENT_HEIGHT, SHOW_COMPANION_CONTEXT_MENU, STOP_CURSOR_POSITIONS,
-        STREAM_CURSOR_POSITIONS,
+        authorize_command, CommandAuthorization, GET_COMPANION_WINDOW_POSITION,
+        GET_CURSOR_POSITION, MOVE_COMPANION_WINDOW, SET_COMPANION_CONTENT_HEIGHT,
+        SHOW_COMPANION_CONTEXT_MENU, STOP_CURSOR_POSITIONS, STREAM_CURSOR_POSITIONS,
     },
     desktop::windows::companion,
 };
@@ -64,6 +64,21 @@ pub(crate) fn get_cursor_position<R: Runtime>(
 ) -> Result<ScreenPoint, CompanionCommandError> {
     authorize(&window, GET_CURSOR_POSITION)?;
     logical_cursor_position(&window).map_err(|_| CompanionCommandError::CursorUnavailable)
+}
+
+#[tauri::command]
+pub(crate) fn get_companion_window_position<R: Runtime>(
+    window: WebviewWindow<R>,
+) -> Result<ScreenPoint, CompanionCommandError> {
+    authorize(&window, GET_COMPANION_WINDOW_POSITION)?;
+
+    let position = companion::logical_position(&window)
+        .map_err(|_| CompanionCommandError::WindowOperationFailed)?;
+
+    Ok(ScreenPoint {
+        x: position.x,
+        y: position.y,
+    })
 }
 
 #[tauri::command]

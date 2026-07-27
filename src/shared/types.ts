@@ -37,6 +37,7 @@ export type CursorPositionListener = (position: ScreenPoint) => void;
 
 export interface CompanionWindowBridge {
   readonly getCursorPosition: () => Promise<ScreenPoint>;
+  readonly getWindowPosition: () => Promise<ScreenPoint>;
   readonly onCursorPosition: (
     listener: CursorPositionListener,
   ) => () => void;
