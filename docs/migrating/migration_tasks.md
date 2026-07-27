@@ -3047,9 +3047,401 @@ Only then may Phase 10 begin.
 
 # PHASE 10
 
-Updater
+Updater Migration
 
-...
+Goal
+
+Migrate the existing Electron updater runtime contract to the Tauri
+architecture without expanding the product's update experience.
+
+The renderer-visible Electron contract is authoritative:
+
+- obtain the current update status;
+- manually check for updates;
+- observe `updates:status-changed`;
+- persist `updates.automatic`; and
+- perform one automatic check during startup when that setting is enabled.
+
+The one-time manual Electron → Tauri migration dialog is the only approved
+functional expansion in this phase.
+
+Phase 10 establishes the runtime abstraction and application integration.
+Phase 11 supplies the production signing identity, signed artifacts, hosted
+feed, CI/CD, notarization, and live production updater verification.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- inspect the existing Electron update flow
+- inspect update preferences
+- inspect update settings persistence
+- inspect update menus
+- inspect update notifications
+- inspect startup update checks
+- inspect manual update flow
+- inspect the exact renderer/DesktopBridge surface
+- inspect release packaging
+- document findings inside `docs/migrating/progress.md`
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- native updater runtime abstraction
+- a Tauri updater adapter boundary
+- the existing update status model
+- the existing update status event
+- the existing DesktopBridge update methods
+- startup update checks when `updates.automatic` is enabled
+- manual update checks
+- update-setting persistence
+- the approved manual Electron → Tauri migration dialog
+- least-privilege permissions
+
+This phase does NOT include:
+
+- renderer download, install, or restart-to-update controls
+- updater-specific native menus
+- updater-specific native or OS notifications
+- automatic downloads
+- automatic installation
+- automatic framework replacement
+- updater signing or signing-key generation
+- the updater public key
+- `latest.json`
+- updater `.sig` generation
+- GitHub release feed configuration or hosting
+- production release metadata
+- CI/CD or release automation
+- code signing or notarization
+- production updater verification
+- Electron removal
+- installer redesign
+
+---
+
+## Parity Rule
+
+Follow strict Electron parity.
+
+If migration documents conflict with Electron, Electron is authoritative unless
+an explicit redesign has already been approved.
+
+---
+
+## Architecture Rules
+
+Updater logic belongs to Rust.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Rust updater
+
+The renderer never calls Tauri updater APIs directly.
+
+The Phase 10 runtime must be testable through a deterministic updater backend
+without production release infrastructure. The production Tauri updater
+provider is configured and verified in Phase 11.
+
+No renderer-visible download, install, restart, menu, or notification contract
+may be introduced in Phase 10.
+
+---
+
+## Task 10.1
+
+Audit Existing Update System
+
+Objective
+
+Document the existing Electron updater.
+
+Acceptance
+
+- updater documented
+- preferences documented
+- menu behaviour documented
+- notification behaviour documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 10.2
+
+Native Updater
+
+Objective
+
+Implement the native updater runtime abstraction and Tauri adapter boundary.
+
+Requirements
+
+- preserve the exact shared Electron update status DTO
+- preserve Electron check coalescing and error sanitization
+- preserve prerelease/downgrade behavior
+- expose status snapshots and check operations to the command layer
+- support a deterministic backend for tests
+- fail safely when production updater configuration is absent
+- do not download, install, or restart the application
+
+Acceptance
+
+The native runtime reproduces Electron's status/check behavior in automated
+tests without depending on a production feed.
+
+Commit
+
+feat(tauri): migrate updater runtime
+
+---
+
+## Task 10.3
+
+DesktopBridge
+
+Objective
+
+Expose updater functionality through DesktopBridge.
+
+Requirements
+
+- get current update status
+- check for updates
+- update status events
+- preserve the existing Preferences-only authorization boundary
+- preserve the existing renderer-facing method signatures
+- no direct Tauri imports in renderer components
+
+Acceptance
+
+Renderer remains runtime agnostic and the DesktopBridge update surface does not
+expand beyond Electron.
+
+Commit
+
+feat(tauri): migrate updater bridge
+
+---
+
+## Task 10.4
+
+Settings Integration
+
+Objective
+
+Preserve update preferences.
+
+Requirements
+
+- preserve `updates.automatic`
+- default remains `false`
+- perform one startup check only when enabled
+- enabling the setting triggers the same immediate check as Electron
+- disabling the setting does not download or install anything
+- persistence
+
+Acceptance
+
+Settings survive restart and startup/manual check behavior matches Electron.
+
+Commit
+
+feat(tauri): migrate updater settings
+
+---
+
+## Task 10.5
+
+Update Status and Events
+
+Objective
+
+Preserve the existing update presentation contract.
+
+Requirements
+
+- preserve the existing `UpdateStatus` states and payloads
+- preserve only `updates:status-changed`
+- target only the Preferences window
+- keep the existing Preferences status text
+- do not add native notifications
+- do not add updater menu items
+- do not add download/install/restart controls
+
+Acceptance
+
+Preferences receives the initial snapshot and subsequent status changes exactly
+as it does under Electron.
+
+Commit
+
+feat(tauri): migrate updater status
+
+---
+
+## Task 10.6
+
+Electron → Tauri Migration
+
+Objective
+
+Implement the one-time migration path for existing Electron users.
+
+Requirements
+
+When the final Electron release detects that PsyDuck 2.0 (Tauri) is available:
+
+- display a migration dialog
+- explain that this is a one-time upgrade
+- provide:
+  - Download PsyDuck 2.0
+  - Remind Me Later
+- open the official release page when Download is selected
+- do not attempt in-place framework replacement
+- do not uninstall the Electron application
+- do not add an automatic install path
+
+Phase 10 implements and tests the dialog behavior. Phase 11 owns the production
+release metadata and publication sequence that cause the final Electron release
+to discover the approved Tauri transition release.
+
+Acceptance
+
+Existing Electron users can migrate safely.
+
+Commit
+
+feat(updater): add tauri migration flow
+
+---
+
+## Task 10.7
+
+Permissions
+
+Objective
+
+Grant least-privilege updater permissions.
+
+Requirements
+
+- exact Preferences-window status/check permissions only
+- no companion updater authority
+- no renderer download/install/restart permission
+- no wildcard permissions
+- deny unused updater/plugin commands
+
+Acceptance
+
+Permission validation passes and the renderer cannot exceed the Electron update
+surface.
+
+Commit
+
+feat(tauri): migrate updater permissions
+
+---
+
+## Validation
+
+Run:
+
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Tauri production build
+- deterministic updater runtime tests
+- DesktopBridge contract tests
+- migration-dialog tests
+
+Production signing, feed, artifact, installation, and update verification belong
+to Phase 11 and are not Phase 10 validation gates.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- startup update check
+- manual update check
+- update status text
+- update status events
+- update persistence
+- migration dialog
+- migration link
+- DesktopBridge
+- no renderer errors
+- no permission warnings
+
+Do not claim live production update detection, download, installation, or
+restart verification during Phase 10. Those checks require Phase 11 release
+infrastructure.
+
+---
+
+## Progress Tracking
+
+Update `docs/migrating/progress.md` after every milestone.
+
+Document:
+
+- completed task
+- implementation
+- validation
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 10 is complete only if:
+
+✓ Native updater implemented
+
+✓ DesktopBridge migrated
+
+✓ Update settings preserved
+
+✓ Update status and events preserved
+
+✓ Electron → Tauri migration implemented
+
+✓ Least-privilege permissions implemented
+
+✓ Automated validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Phase 10 completion does not mean the production updater feed is releasable.
+Production updater signing and distribution remain mandatory Phase 11 gates.
+
+Only then may Phase 11 begin.
 
 ---
 
@@ -3057,7 +3449,117 @@ Updater
 
 Release Pipeline
 
-...
+Goal
+
+Make the migrated Tauri updater and cross-platform application releasable using
+production signing, hosted metadata, and atomic GitHub publication.
+
+Phase 11 owns all release-infrastructure inputs intentionally excluded from
+Phase 10.
+
+---
+
+## Scope
+
+Phase 11 includes:
+
+- stable Tauri updater signing identity
+- committed updater public key
+- private signing key and password stored only as CI secrets
+- `bundle.createUpdaterArtifacts`
+- signed updater bundles and `.sig` files
+- `latest.json` generation
+- GitHub release feed configuration and hosting
+- cross-platform Tauri artifact generation
+- release asset naming and collision prevention
+- CI/CD and release automation
+- macOS signing and notarization
+- Windows signing where configured
+- production updater endpoint configuration
+- production updater verification
+- final Electron transition-release metadata
+- preservation of legacy Electron feed assets
+- website download selection at cutover
+
+Phase 11 does NOT introduce new renderer updater controls, menus,
+notifications, automatic installation, or any other product behavior excluded
+from Phase 10.
+
+---
+
+## Required Work
+
+1. Configure the production Tauri updater public key and endpoints.
+2. Store the private signing material only in approved GitHub Actions secrets.
+3. Generate platform-specific Tauri bundles, updater archives, signatures, and
+   `latest.json`.
+4. Preserve the existing atomic draft/verify/publish release architecture.
+5. Prevent Electron and Tauri assets from colliding or being selected
+   ambiguously.
+6. Keep legacy Electron update metadata available for existing installs.
+7. Publish the final Electron transition metadata that triggers the approved
+   one-time PsyDuck 2.0 migration dialog.
+8. Add macOS notarization and configured platform signing.
+9. Update release verification for every expected package, signature,
+   checksum, URL, version, platform, and architecture.
+10. Verify the production update path against a signed staged release before
+    publication.
+
+---
+
+## Validation
+
+Run all repository validation plus:
+
+- tag/package/Cargo/Tauri version consistency
+- Tauri updater configuration validation
+- signing-secret presence checks without logging secret values
+- signed-artifact and `.sig` verification
+- `latest.json` schema and URL verification
+- cross-platform package verification
+- notarization/signing verification where configured
+- staged production updater check
+- signed download verification
+- installation and restart verification
+- final Electron migration-dialog discovery verification
+- legacy Electron feed compatibility verification
+- atomic GitHub release publication verification
+
+---
+
+## Phase Exit Criteria
+
+Phase 11 is complete only if:
+
+✓ Stable updater signing identity configured
+
+✓ Updater public key committed
+
+✓ Private signing material remains secret
+
+✓ Signed Tauri updater artifacts generated
+
+✓ `latest.json` generated and hosted
+
+✓ GitHub release feed configured
+
+✓ CI/CD builds every supported platform
+
+✓ Required signing and notarization pass
+
+✓ Production updater detection is verified
+
+✓ Signed download, installation, and restart are verified
+
+✓ Final Electron transition flow is verified
+
+✓ Legacy Electron feed remains supported
+
+✓ Release publication remains atomic
+
+✓ Website selects the intended Tauri installers
+
+Only then may Phase 12 begin.
 
 ---
 

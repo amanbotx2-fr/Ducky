@@ -4,17 +4,248 @@
 
 ## Current Status
 
-- Active work: None. Phase 9 final provider verification and regression pass
-  is complete.
+- Active work: None. Phase 10 contract clarification is complete; production
+  implementation has not started.
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Phase 9 final provider verification and regression
-  fixes
-- Next task: Phase 10 only after a separate instruction.
-- Blockers: None. OpenAI, Claude, and Grok account/credential limitations
-  observed during final verification are documented below and are not native
-  runtime implementation defects.
+- Last completed task: Phase 10 contract clarification after Task 10.1
+  discovery
+- Next task: Task 10.2 — Native Updater, only after a separate implementation
+  instruction.
+- Blockers: None. Production signing/feed work is now an explicit Phase 11
+  responsibility rather than a Phase 10 prerequisite.
 
 ## Completed Tasks
+
+### Phase 10 Contract Clarification — Electron Parity
+
+**Status:** Complete. Documentation only; Task 10.2 has not started.
+
+**Clarification**
+
+- Applied the migration-wide parity rule to the updater domain. Electron's
+  renderer-visible updater behavior is authoritative: status snapshots,
+  manual checks, `updates:status-changed`, `updates.automatic`, and one
+  startup check when automatic checking is enabled.
+- Removed Phase 10 requirements for renderer download/install/restart
+  methods, updater menus, native/OS updater notifications, automatic
+  downloads, automatic installation, and restart-to-update behavior. None is
+  exposed by the Electron preload, DesktopBridge, renderer, or menus.
+- Kept the one-time Electron → Tauri manual migration dialog as the only
+  previously approved updater expansion.
+- Defined Phase 10 as the runtime-parity phase: native updater abstraction,
+  Tauri adapter boundary, exact DesktopBridge contract, settings,
+  persistence, status/events, migration dialog, and least-privilege
+  Preferences authorization.
+- Defined Phase 11 as the release-infrastructure phase: signing identity,
+  updater public key, private CI secrets, `.sig` generation, `latest.json`,
+  GitHub feed/hosting, CI/CD, code signing/notarization, production updater
+  verification, legacy Electron metadata, transition-release publication,
+  and website cutover.
+- Phase 10 runtime validation uses a deterministic updater backend and must
+  not introduce placeholder production signing material. Phase 11 must not
+  use its release responsibilities to expand the Phase 10 renderer contract.
+
+**Files changed**
+
+- `docs/migrating/migration_codex.md`
+- `docs/migrating/migration_tasks.md`
+- `docs/migrating/progress.md`
+
+**Production code**
+
+- No production source, test, dependency, capability, build configuration, or
+  release configuration file was modified.
+- Task 10.2 was not started.
+
+**Validation**
+
+- `git diff --check` passed.
+- Builds and tests are not required because runtime code did not change.
+
+**Manual verification**
+
+- Not applicable to a documentation-only contract clarification.
+
+**Blockers**
+
+- None. Release signing and feed work remains mandatory, but is now correctly
+  scheduled as Phase 11 rather than blocking Phase 10 runtime work.
+
+**Next task**
+
+- Task 10.2 — Native Updater, only after a separate instruction. Do not begin
+  implementation as part of this clarification.
+
+### Task 10.1 — Audit Existing Update System
+
+**Status:** Discovery complete. The source-of-truth conflict found below was
+resolved by the Phase 10 contract clarification. Task 10.2 has not started.
+
+**Electron updater lifecycle**
+
+- `src/main/UpdateService.ts` is the authoritative Electron updater service.
+  It wraps `electron-updater`, owns one immutable `UpdateStatus`, coalesces
+  concurrent checks/downloads, and publishes status changes to subscribers.
+- Initialization explicitly sets `autoDownload = false`,
+  `autoInstallOnAppQuit = false`, `allowPrerelease = false`, and
+  `allowDowngrade = false`.
+- The service supports idle, checking, available, not-available, downloading,
+  downloaded, and bounded error states. Provider errors are reduced to an
+  error name/code and never expose release response bodies to the renderer.
+- Electron constructs and initializes the service after settings load,
+  subscribes Preferences status delivery, applies the stored automatic-check
+  preference, and calls `checkAutomatically()` once during startup.
+- Enabling automatic checks at runtime triggers one check immediately.
+  Disabling automatic checks suppresses future startup/setting-triggered
+  checks. Automatic checking does not download an update.
+- Shutdown unsubscribes updater events and disposes the service. Electron has
+  no updater-owned application restart/install lifecycle.
+
+**Actual renderer and DesktopBridge contract**
+
+- Preferences is the only renderer allowed to access updates.
+- The existing Electron preload/DesktopBridge surface contains exactly:
+  `getUpdateStatus`, `checkForUpdates`, and `onUpdateStatusChanged`.
+- `useUpdateStatus.ts` obtains the initial snapshot, listens for
+  `updates:status-changed`, and exposes only a manual check operation.
+- `PreferencesApp.tsx` presents the current version, the persisted
+  `updates.automatic` switch, a `Check Now` button, and status text.
+- The renderer has no Download Update, Install Update, Restart to Update, or
+  updater migration-dialog API. `UpdateService.downloadUpdate()` exists as
+  unexposed main-process functionality and has no IPC, preload,
+  DesktopBridge, React, tray, application-menu, or context-menu caller.
+- Electron has no native updater notification. “Available,” “downloading,”
+  and “downloaded” are Preferences status text states only.
+
+**Menus**
+
+- `src/main/menus.ts` and `src/main/tray.ts` contain no updater item or updater
+  action.
+- The Electron tray remains Show Ducky, Preferences…, About Ducky, separator,
+  Restart, and Quit.
+- The Electron companion context menu contains feature controls,
+  Preferences/About, Restart, and Quit. Its Restart action always performs a
+  normal application relaunch; it is not a restart-to-install action.
+- The macOS application menu contains only the existing native
+  application/Edit roles. There is no Check for Updates, Download Update, or
+  Restart to Update item.
+
+**Settings and persistence**
+
+- The exact persisted setting is `updates.automatic`, defaulting to `false`.
+  It already round-trips through the native Phase 5 settings document and
+  Preferences projection.
+- The native `PreferencesSettingsPatch` intentionally rejects `updates`
+  because updater-owned mutation was deferred to Phase 10.
+- Tauri advertises `capabilities.updates = false`, so the existing update
+  switch and check button remain disabled without renderer runtime detection.
+
+**Current Tauri integration state**
+
+- The existing low-frequency event registry reserves only
+  `updates:status-changed` for the exact Preferences renderer.
+- There is no Rust updater runtime, update command, updater plugin dependency,
+  updater capability, updater public key, update endpoint, or updater
+  configuration.
+- `src-tauri/tauri.conf.json` does not enable
+  `bundle.createUpdaterArtifacts` and contains no `plugins.updater`
+  configuration.
+- The native bundle currently produces ordinary application/install bundles
+  only. It does not produce signed updater artifacts or `.sig` files.
+
+**Release and packaging**
+
+- `electron-builder.yml`, `.github/workflows/release.yml`, and
+  `scripts/verify-release-artifacts.mjs` produce and verify Electron DMG/ZIP,
+  NSIS/MSI, AppImage/DEB, `latest*.yml`, and blockmaps.
+- Tauri updater signatures are mandatory. The Electron YAML metadata,
+  blockmaps, and Electron packages are not a valid Tauri updater feed.
+- The repository contains no Tauri signing public key, no updater
+  `latest.json`, no signed Tauri update bundle, and no configured endpoint
+  from which the native updater can securely check, download, or install.
+- Phase 11 now explicitly owns signing keys, signed artifact generation,
+  static updater JSON, GitHub publication, and production update
+  verification.
+
+**Approved Electron → Tauri migration flow**
+
+- The existing Electron implementation has no framework-migration dialog,
+  migration-state marker, or Tauri-release detection contract.
+- The approved addition says the final Electron release should offer
+  Download PsyDuck 2.0 / Remind Me Later and open the official release page.
+- An Electron client cannot discover a Tauri release through Tauri
+  `latest.json`; conversely, a Tauri client cannot consume Electron
+  `latest*.yml`. The final Electron transition-feed metadata and release
+  publication order therefore must be defined before this detection path can
+  be implemented and verified safely.
+- The official GitHub Releases page is documented, but the repository does
+  not define which signed release metadata proves that a discovered version
+  is the approved Tauri 2.0 migration release.
+
+**Source-of-truth conflicts found during discovery**
+
+1. Phase 10 requires DesktopBridge check/download/install methods. Electron
+   exposes only status/check/listen; its download method is not part of the
+   renderer contract and it has no install method.
+2. Phase 10 requires Check for Updates, Download Update, and Restart to Update
+   native menus. None exists in Electron.
+3. Phase 10 requires update available/downloading/restart-required/completed
+   notifications. Electron has Preferences status text and no updater
+   notification UI or restart-required/completed status type.
+4. The phase request states that the migration dialog is the only approved
+   functional addition. Implementing the other required controls would be an
+   updater redesign prohibited by the same request and the migration-wide
+   parity rule.
+5. Secure Tauri check/download/install requires a stable signing public key
+   and signed feed. Supplying a placeholder/test key would create an
+   unshippable trust root; generating a production signing identity without
+   an approved secret-management/release plan would exceed Phase 10.
+
+**Contract resolution**
+
+- Tasks 10.2–10.7 and the Phase 10 exit criteria now preserve only Electron's
+  status/check/listen, automatic startup check, persistence, and Preferences
+  presentation behavior, plus the approved migration dialog.
+- Download/install/restart commands, updater menus, updater notifications,
+  automatic download, and automatic installation are explicitly excluded.
+- Stable signing identity/public key, signed feed/artifacts, hosted metadata,
+  CI/CD, notarization, production updater verification, and final Electron
+  transition publication are explicitly owned by Phase 11.
+
+**Production code**
+
+- No production source, dependency, capability, or configuration file was
+  modified.
+- Task 10.2 was not started.
+
+**Validation performed**
+
+- Reviewed the Electron updater service and tests, main-process composition,
+  startup/settings subscriptions, shutdown, IPC authorization, Preferences
+  preload, DesktopBridge adapters, renderer hook/UI, settings schema and
+  persistence, all native menus/tray actions, Electron Builder configuration,
+  release workflow/verifier, Tauri configuration, Cargo dependencies,
+  capabilities, command/event registries, and current bundle output.
+- Confirmed the repository contains no updater signing key, `.sig`, Tauri
+  update JSON, or Tauri updater endpoint.
+- `git diff --check` passed after recording this discovery. Builds and tests
+  were not required because no production implementation changed.
+
+**Manual verification**
+
+- Not applicable. Discovery did not change runtime behavior.
+- Live production update detection, signed download, installation, restart,
+  and transition-release discovery are Phase 11 verification gates.
+
+**Blockers**
+
+- None after the contract clarification.
+- Production signing/feed prerequisites remain mandatory Phase 11 work.
+
+**Next task**
+
+- Task 10.2 under the clarified runtime-only contract. Do not begin it or
+  Phase 11 as part of this documentation task.
 
 ### Phase 9 — Provider Verification and Regression Fixes
 

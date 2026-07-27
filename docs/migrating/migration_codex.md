@@ -56,6 +56,13 @@ stream into the single final response used by Electron before crossing
 DesktopBridge. Internal provider transport does not authorize incremental
 renderer streaming, streaming IPC/events, or a new DesktopBridge contract.
 
+For updates, Electron's renderer-visible contract is status, manual checking,
+the automatic-startup-check preference, and targeted status events. Internal
+Electron download code that has no IPC, DesktopBridge, renderer, menu, or
+notification caller does not authorize new user-facing download, install,
+restart, menu, or notification behavior. The one-time manual Electron → Tauri
+migration dialog is the only approved updater expansion.
+
 The review covered all tracked top-level areas and all desktop runtime source:
 
 - `.github/`, `assets/`, `character/`, `docs/`, `scripts/`, `src/`, `supabase/`, `tests/`, and `website/`;
@@ -184,7 +191,7 @@ On `app.activate`, Ducky shows or recreates the companion. It intentionally stay
 | `src/main/PomodoroManager.ts` | Timer state, persistence, relaunch materialization | Rust Pomodoro actor/service |
 | `src/main/AIRequestManager.ts` | Abort, one-request-per-role, rate limiting | Rust cancellation tokens/semaphores/rate limiter |
 | `src/main/AIConnectionDiagnostics.ts` | Safe provider diagnostics | Rust sanitized error/diagnostics model |
-| `src/main/UpdateService.ts` | Electron update state machine | Tauri updater service |
+| `src/main/UpdateService.ts` | Electron update state machine | Rust updater runtime abstraction; production Tauri signing/feed integration follows in the release phase |
 | `src/main/menus.ts` | macOS app menu, companion context menu, tray menu | Rust Tauri menu/tray builders |
 | `src/main/tray.ts` | Tray icon, tooltip, context menu | Rust `TrayIconBuilder` |
 | `src/main/appBranding.ts` | name, app ID, icons, About UI | Tauri config/Rust dialog/menu |
@@ -217,7 +224,7 @@ Classification means:
 | `nativeImage` | Loads/resizes app/tray/About icon | `appBranding.ts`, `tray.ts` | DIRECT | Tauri `Image`, `include_image!`, configured bundle icons | **Low.** Generate platform icon variants once and use a dedicated template tray asset on macOS if needed. |
 | `dialog` | About information message | `appBranding.ts` | DIRECT | Rust dialog plugin/message dialog or custom About window | **Low.** Update “Built with Electron” copy at cutover. |
 | `safeStorage` | Protects API keys, rejects Linux `basic_text`, migrates legacy plaintext | `CredentialManager.ts`, `main.ts`, `SettingsService.ts` | CUSTOM | Rust OS keyring adapter or Stronghold-backed vault | **High.** Stronghold is not a drop-in OS-vault equivalent and needs key management. Electron ciphertext needs a deliberate transition path or user re-entry. |
-| `autoUpdater` / `electron-updater` | Checks GitHub releases, tracks status/progress, contains download logic | `UpdateService.ts`, `main.ts` | PARTIAL | `tauri-plugin-updater` | **High.** Tauri signatures and feed/artifact formats differ. Current UI exposes check only; `downloadUpdate()` exists but has no IPC/UI caller. |
+| `autoUpdater` / `electron-updater` | Checks GitHub releases, tracks status/progress, contains unexposed download logic | `UpdateService.ts`, `main.ts` | PARTIAL | Rust updater abstraction backed by `tauri-plugin-updater` after release configuration | **High.** Phase 10 preserves status/check/events/settings only. The current UI exposes check only; `downloadUpdate()` has no IPC/UI caller and does not authorize new controls. Phase 11 owns signatures, artifacts, endpoints, and production verification. |
 | `powerMonitor` | Reconciles reminders/Pomodoro after system resume | `main.ts` | PARTIAL | `RunEvent::Resumed` plus elapsed-time reconciliation; custom platform validation | **High.** Tauri's event-loop resume is not guaranteed to be identical to Electron system sleep resume on every desktop. Keep deadline-based periodic reconciliation and add OS-specific suspend/resume handling only if tests prove it necessary. |
 | `screen` | Cursor position, primary/matching display work areas | `main.ts`, `window.ts` | DIRECT | Tauri app cursor position and monitor/window APIs | **Medium.** Preserve physical/logical coordinate conversions, negative monitor coordinates, scale factors, and bottom-edge anchoring. |
 | `nativeTheme` | Chooses initial Preferences background | `preferencesWindow.ts` | DIRECT | Tauri theme and `WindowEvent::ThemeChanged` / CSS media query | **Low.** Prefer CSS `prefers-color-scheme`, with a non-flashing native window background. |
@@ -657,6 +664,28 @@ Use a deliberate cutover:
 6. Switch website latest-asset selection only when Tauri installers are production-ready; current website patterns such as “first `.exe`” may become ambiguous.
 7. Update README/site “Electron” wording only at the cutover release.
 
+### Updater phase ownership
+
+The updater migration is intentionally split across two phases:
+
+- **Phase 10 — runtime parity:** implement the native updater abstraction,
+  preserve the existing `UpdateStatus` contract, Preferences-only
+  DesktopBridge status/check methods, `updates:status-changed`,
+  `updates.automatic`, startup/manual checks, persistence, least-privilege
+  authorization, and the approved one-time Electron → Tauri migration dialog.
+  Test the runtime through a deterministic backend. Do not add renderer
+  download/install/restart controls, updater menus, or updater notifications.
+- **Phase 11 — release infrastructure:** configure the stable updater public
+  key and endpoints, protect private signing material in CI, generate signed
+  artifacts/`.sig`/`latest.json`, host the GitHub release feed, preserve legacy
+  Electron metadata, add code signing/notarization, and perform staged
+  production updater and transition-release verification.
+
+Phase 10 may define and compile the Tauri adapter boundary, but it does not use
+placeholder signing identities or claim live production update verification.
+Phase 11 must not use its release responsibilities to expand the
+renderer-visible updater behavior established by Phase 10.
+
 ## Tauri Equivalent Summary by Feature
 
 | Ducky feature | Files | Mapping | Difficulty | Key strategy |
@@ -678,7 +707,7 @@ Use a deliberate cutover:
 | Notification sounds | sound service/assets | DIRECT | Low | Keep Web Audio/HTML Audio implementation |
 | Native notifications | none | NOT NEEDED | None | Do not add |
 | Auto-launch | main settings application | DIRECT | Medium | Official autostart plugin, Rust-only use |
-| Updates | UpdateService/build/release | PARTIAL | High | Official updater, new signed artifacts/feed |
+| Updates | UpdateService/build/release | PARTIAL | High | Phase 10 preserves status/check/settings/events; Phase 11 supplies signed artifacts/feed and production verification |
 | About/branding | appBranding/constants/icons | DIRECT | Low | Tauri bundle metadata and dialog |
 | Logging | scattered console logging | PARTIAL | Medium | Rust structured logging, optional log plugin |
 
@@ -934,8 +963,11 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Pomodoro persistence, ticking, pause/resume/completion, and recovery.
 - AI configuration, all providers, request limits/cancellation, diagnostics, and assistant actions.
 - Always-on-top, start-at-login, theme/background, restart, and quit behavior.
-- Update status/check logic and release integration.
-- Release verification, bundling, update signing, GitHub publication, and website asset selection.
+- Update status/check/events/settings runtime parity and the approved manual
+  Electron → Tauri migration dialog (Phase 10).
+- Release verification, bundling, updater public-key configuration, update
+  signing, hosted metadata, GitHub publication, notarization, production
+  updater verification, and website asset selection (Phase 11).
 - Main-process tests that assert behavior of code being moved to Rust.
 
 ## Everything That Can Remain Unchanged or Nearly Unchanged
@@ -960,7 +992,8 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Credential backend and migration.
 - Electron IPC registration/authorization as Tauri commands/capabilities.
 - Native lifecycle/window/menu/tray adapters.
-- Updater service and release artifact verifier/workflow.
+- Updater runtime abstraction in Phase 10 and the release artifact
+  verifier/workflow in Phase 11.
 - Main-process unit tests as Rust tests, while retaining useful black-box TypeScript contract fixtures.
 
 ## Everything That Should Be Deleted After Parity
@@ -1009,7 +1042,10 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - No remote origin receives a capability.
 - Ollama remains loopback-only after DNS resolution and connection.
 - Custom provider URL rules and response limits remain enforced.
-- Tauri updater signatures are verified.
+- Phase 10 grants only the Preferences status/check authority present in
+  Electron.
+- Phase 11 verifies Tauri updater signatures against the stable production
+  public key.
 
 ### Release
 
@@ -1018,6 +1054,10 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - Release publication remains atomic and avoids published-asset replacement.
 - Existing Electron installs have an explicit supported transition.
 - Website routes select only intended Tauri installer assets.
+
+These release gates belong to Phase 11. They are not prerequisites for
+implementing or unit-testing the Phase 10 runtime abstraction, and Phase 10
+must not use placeholder production signing material to satisfy them early.
 
 ## Complexity Conclusion
 
