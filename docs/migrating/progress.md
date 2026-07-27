@@ -4,10 +4,10 @@
 
 ## Current Status
 
-- Active work: Phase 8 — Pomodoro Migration
-- Last completed phase: Phase 7 — Reminder System Migration
-- Last completed task: Task 8.8 — Permissions
-- Next task: Phase 8 final manual parity verification
+- Active work: None
+- Last completed phase: Phase 8 — Pomodoro Migration
+- Last completed task: Phase 8 final manual parity verification
+- Next task: Phase 9 — AI Integration Migration
 - Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
   the migration-wide Electron parity rule.
 
@@ -4287,3 +4287,112 @@ run.
 
 - Perform the complete Phase 8 interactive parity verification; do not begin
   Phase 9.
+
+### Phase 8 — Final Manual Parity Verification
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Completed the Electron-parity Pomodoro migration without adding breaks,
+  cycles, Preferences settings, native notifications, renderer timers, or
+  other new behavior.
+- Rust now owns the singleton timer engine, wall-clock materialization,
+  persistence, startup restoration, native context-menu actions, and exact
+  event delivery.
+- The renderer remains runtime agnostic behind DesktopBridge and retains the
+  existing custom-duration panel, timer widget, completion personality
+  message, celebration, and notification-sound service.
+- Electron remains fully intact and continues to use its existing
+  `PomodoroManager`, preload bridge, context menu, persistence, and renderer
+  event contract.
+
+**Phase 8 commits**
+
+- `9188bb4 docs(tauri): align phase 8 with electron parity`
+- `c0b2790 feat(tauri): migrate pomodoro engine`
+- `b6f5118 feat(tauri): migrate pomodoro persistence`
+- `77d2629 feat(tauri): migrate pomodoro commands`
+- `8276212 feat(tauri): migrate pomodoro events`
+- `5abfeb0 feat(tauri): migrate pomodoro companion`
+- `f18587c feat(tauri): migrate pomodoro completion`
+- `5b3ab87 feat(tauri): migrate pomodoro permissions`
+
+**Final automated validation**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (82 tests).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed. Only the previously documented
+  development custom-protocol fallback warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  packaged debug macOS application used for manual verification.
+
+**Manual verification**
+
+- Opened the packaged Phase 8 application from
+  `src-tauri/target/debug/bundle/macos/Ducky.app`.
+- Verified the native Companion menu contains the exact Electron Pomodoro
+  structure and action order.
+- Verified 25, 50, and 90 minute presets each start and render the correct
+  Companion timer value.
+- Verified starting 50 minutes replaces an active 25-minute session and
+  starting 90 minutes replaces that session.
+- Verified Custom… opens the existing React duration panel and a one-minute
+  custom session starts through DesktopBridge.
+- Verified Pause changes the widget to `Paused`, freezes the exact remaining
+  time, and disables Pause while enabling Resume.
+- Verified Resume continues from the frozen remaining time and restores the
+  running menu state.
+- Verified Stop removes the timer widget and returns Pause, Resume, and Stop
+  to their idle disabled state.
+- Verified native Restart preserves an active custom session. The timer was
+  visible at `00:29` before restart and restored at `00:14`, demonstrating
+  startup restoration and elapsed wall-clock materialization rather than
+  resetting the session.
+- Verified the restored session completed after expiry, removed the timer
+  widget, showed the existing `Focus complete. Take a short break.` React
+  personality message, and did not emit a second completion during subsequent
+  observation.
+- The same manually exercised completion callback is covered by
+  `tests/pomodoro-completion-parity.test.cjs`, which verifies the configured
+  `pomodoro` sound playback request and celebration transition. The automation
+  environment cannot independently hear host audio, so no unsupported claim
+  of audible listening is made.
+- macOS accessibility automation exposes the native menu items and enabled
+  state but not the selected checkmark property. Exact mutually exclusive
+  preset/custom checked-state projection is covered by the passing Rust menu
+  regression test.
+- No renderer error, permission prompt, or permission warning appeared during
+  packaged interaction. The Tauri development smoke log likewise contained
+  no Pomodoro command, event, menu, or permission error.
+- Quit the packaged app after verification and restored the pre-existing
+  native `pomodoro.json` byte-for-byte. The temporary recoverable QA backup was
+  moved to Trash.
+
+**Phase 8 exit criteria**
+
+- Native singleton Pomodoro engine: passed.
+- Rust-owned timer execution: passed.
+- Electron-compatible separate persistence and restoration: passed.
+- Preset, custom, replacement, pause, resume, and stop behavior: passed.
+- Rust-owned native context-menu behavior: passed.
+- Runtime-neutral DesktopBridge and exact event contract: passed.
+- Existing renderer completion widget, personality message, celebration, and
+  sound path: passed.
+- Least-privilege Companion-only permissions: passed.
+- Electron preservation and cross-runtime builds: passed.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Phase 9 — AI Integration Migration. Do not begin without a separate
+  instruction.
