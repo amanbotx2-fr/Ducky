@@ -1322,6 +1322,8 @@ export function PreferencesApp() {
       <footer className="preferences-footer">
         {capabilities.water && capabilities.updates
           ? 'General, sound, hydration, and update changes save automatically. AI changes apply when saved.'
+          : capabilities.ai
+            ? 'General and sound changes save automatically. AI changes apply when saved. Hydration and update settings remain Electron-only during migration.'
           : capabilities.credentials
             ? 'General and sound changes save automatically. Credentials use native secure storage; other AI settings remain Electron-only during migration.'
             : 'General and sound changes save automatically. Other feature settings remain Electron-only during migration.'}

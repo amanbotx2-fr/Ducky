@@ -333,6 +333,10 @@ describe('DesktopBridge renderer boundary', () => {
       preferencesUi,
       /ref=\{apiKeyInputRef\}[\s\S]*defaultValue=""[\s\S]*credentialSettingsUnavailable/,
     );
+    assert.match(
+      preferencesUi,
+      /capabilities\.ai[\s\S]*AI changes apply when saved\. Hydration and update settings remain Electron-only during migration\./,
+    );
     assert.doesNotMatch(
       preferencesUi,
       /useState<[^>]*string[^>]*>\([^)]*apiKey/i,

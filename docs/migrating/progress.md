@@ -4,15 +4,106 @@
 
 ## Current Status
 
-- Active work: None
+- Active work: Phase 9 final manual parity verification (blocked)
 - Last completed phase: Phase 8 — Pomodoro Migration
 - Last completed task: Task 9.15 — Permissions
-- Next task: Phase 9 final manual parity verification
-- Blockers: None. The Phase 9 contract now follows the Electron final-response,
-  lifecycle-cancellation, connection-diagnostics, and one-request-per-role
-  behavior. Claude remains the only approved functional expansion.
+- Next task: Resume the Phase 9 credentialed provider verification gate
+- Blockers: OpenAI, Gemini, Claude, and Grok have no configured test
+  credentials in the native store, and no real Ollama daemon/model is
+  available. Phase 9 cannot be marked complete until those providers, live AI
+  actions, and credentialed lifecycle cancellation have been manually
+  verified.
 
 ## Completed Tasks
+
+### Phase 9 — Final Manual Verification Gate
+
+**Status:** Blocked after all currently available checks.
+
+**Implementation summary**
+
+- Confirmed the migrated AI controls are enabled in the current Tauri bundle.
+  An initially observed Electron-only state came from the installed
+  `/Applications/Ducky.app`, then from a development process started before
+  the latest renderer bundle was rebuilt; neither was the current packaged
+  migration output.
+- Fixed the one genuine verification regression: the Tauri Preferences footer
+  still described AI settings as Electron-only even though the native AI
+  capability was enabled. The capability-dependent copy now accurately
+  distinguishes migrated AI settings from the deferred hydration and update
+  domains.
+- Added a renderer-boundary regression assertion for the migrated Tauri
+  Preferences status copy. No AI command, provider, secret, transport,
+  authorization, or Electron implementation changed.
+
+**Files changed**
+
+- `src/renderer/PreferencesApp.tsx` — corrected the Tauri AI-capability footer
+  status without changing the Electron branch.
+- `tests/desktop-bridge-boundary.test.cjs` — locked the migrated capability
+  copy to the existing renderer boundary suite.
+- `docs/migrating/progress.md` — recorded the verification evidence and
+  remaining external gate.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (141 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (111 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; the exact four-command AI permission
+  surface remains unchanged.
+- Electron production-output smoke launch: passed through the unchanged
+  Electron AI path.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed and rebuilt the
+  current macOS bundle.
+
+**Manual verification**
+
+- Opened the rebuilt Tauri bundle and confirmed the AI enable switch, provider
+  selector, connection test, model controls, and Save action are enabled
+  through DesktopBridge. The corrected footer copy is visible.
+- Confirmed a missing Gemini credential returns a bounded
+  `Couldn't reach the provider.` error without exposing a secret or native
+  error.
+- Used loopback-only test endpoints to exercise the complete Ollama and Custom
+  provider paths without credentials. Both connection tests passed, model
+  discovery populated a selectable model, model changes persisted, and each
+  provider returned exactly one final response through the existing
+  conversation/typewriter UI.
+- Restarted the bundle and confirmed provider persistence. Restored the
+  original `gemini` / `gemini-3.5-flash-lite` selection after testing.
+- Parsed only the persisted provider/model fields and confirmed the settings
+  document has no `apiKey` property. No credential value was read, displayed,
+  transmitted, or logged during verification.
+- Loopback test endpoints validate native dispatch, switching, discovery,
+  persistence, and whole-response transport; they do not substitute for the
+  required live OpenAI, Gemini, Claude, Grok, or real Ollama checks.
+- Live provider requests, native secret loading, AI reminder/sticky actions,
+  and credentialed lifecycle cancellation have not been manually claimed.
+  Their automated provider/domain coverage passes, but the Phase 9 contract
+  requires manual verification as well.
+
+**Blockers**
+
+- No OpenAI, Gemini, Claude, or Grok credential is configured in the native
+  store.
+- No real Ollama daemon or installed model is available on
+  `127.0.0.1:11434`.
+- These are external verification prerequisites rather than implementation or
+  architecture defects. Phase 9 remains incomplete and Phase 10 must not
+  begin.
+
+**Next task**
+
+- Once test credentials and a local Ollama model are available, run every live
+  provider, AI action, secret-loading, and lifecycle-cancellation check from
+  the Phase 9 manual gate. If all pass, record Phase 9 completion and create
+  the final `feat(tauri): complete ai migration` commit. Do not begin Phase 10.
 
 ### Task 9.15 — Permissions
 
