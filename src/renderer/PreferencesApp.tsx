@@ -7,7 +7,7 @@ import {
 } from 'react';
 
 import type { AIProviderHttpDiagnostics } from '../ai/AIProvider';
-import { desktopBridge } from '../desktop/DesktopBridge';
+import { preferencesDesktopBridge } from '../desktop/DesktopBridge';
 import {
   createModelReference,
   recordRecentModel,
@@ -382,7 +382,8 @@ export function PreferencesApp() {
       return;
     }
 
-    const preferencesBridge = desktopBridge.getPreferencesBridge();
+    const preferencesBridge =
+      preferencesDesktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setConnectionStatus({
@@ -428,7 +429,8 @@ export function PreferencesApp() {
       return;
     }
 
-    const preferencesBridge = desktopBridge.getPreferencesBridge();
+    const preferencesBridge =
+      preferencesDesktopBridge.getPreferencesBridge();
 
     if (preferencesBridge === undefined) {
       setModelLoadingStatus({

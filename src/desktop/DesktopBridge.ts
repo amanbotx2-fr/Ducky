@@ -1,14 +1,31 @@
 import { isTauri } from '@tauri-apps/api/core';
 
+import type {
+  CompanionDesktopBridge,
+  PreferencesDesktopBridge,
+} from './contracts';
 import { electronDesktopBridge } from './electronBridge';
 import { tauriDesktopBridge } from './tauriBridge';
 
 /**
- * Renderer-facing desktop integration boundary.
+ * Runtime adapter selected once for the current desktop shell.
  *
- * Callers depend on this module rather than Electron or Tauri. Each shell
- * exposes only native capabilities whose migration is complete.
+ * The complete adapter remains private so a renderer cannot request native
+ * capabilities belonging to the other window role.
  */
-export const desktopBridge = isTauri()
+const runtimeDesktopBridge = isTauri()
   ? tauriDesktopBridge
   : electronDesktopBridge;
+
+/** Electron/Tauri-neutral native surface for the companion renderer. */
+export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
+  getCompanionBridge: runtimeDesktopBridge.getCompanionBridge,
+  getCompanionWindowBridge:
+    runtimeDesktopBridge.getCompanionWindowBridge,
+});
+
+/** Electron/Tauri-neutral native surface for the Preferences renderer. */
+export const preferencesDesktopBridge: PreferencesDesktopBridge =
+  Object.freeze({
+    getPreferencesBridge: runtimeDesktopBridge.getPreferencesBridge,
+  });

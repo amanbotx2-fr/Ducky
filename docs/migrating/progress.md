@@ -4,10 +4,10 @@
 
 ## Current Status
 
-- Active phase: Phase 3 — IPC Migration
-- Last completed task: Task 3.4 — Authorization
-- Next task: Task 3.5 — DesktopBridge → Tauri
-- Blockers: None. Task 3.5 has not started.
+- Active phase: Phase 3 — IPC Migration (infrastructure complete)
+- Last completed task: Task 3.5 — DesktopBridge → Tauri
+- Next task: Phase 4 — not started; executable task definitions are required
+- Blockers: None for Task 3.5.
 
 ## Completed Tasks
 
@@ -1021,3 +1021,80 @@ or Electron event implementation changed. Task 3.3 was not started.
 **Next task**
 
 - Task 3.5 — DesktopBridge → Tauri.
+
+### Task 3.5 — DesktopBridge → Tauri
+
+**Status:** Complete
+
+**Bridge architecture**
+
+- Electron and Tauri continue to implement one internal `DesktopBridge`
+  adapter contract, selected once at renderer startup.
+- The complete runtime adapter is now private. Renderers import either a
+  companion-only view or a Preferences-only view, so TypeScript prevents one
+  renderer role from requesting native capabilities assigned to the other.
+- React, engine, personality, and shared code contain no direct Electron
+  imports, Tauri imports, or Electron preload-global access.
+- The Electron adapter and both preload implementations remain unchanged and
+  authoritative for Electron.
+- The Tauri adapter retains the completed Phase 1–3 cursor/window command
+  surface and reuses the existing typed command, event, and cursor transports.
+
+**Files changed**
+
+- `src/desktop/contracts.ts` — split the renderer-facing API into
+  `CompanionDesktopBridge` and `PreferencesDesktopBridge` role contracts while
+  retaining the complete internal adapter contract.
+- `src/desktop/DesktopBridge.ts` — keeps runtime detection inside the desktop
+  boundary, makes the full selected adapter private, and exports frozen
+  role-scoped bridge views.
+- `src/renderer/App.tsx`, `src/renderer/components/PsyDuck.tsx`,
+  `src/renderer/hooks/usePomodoroState.ts`,
+  `src/renderer/hooks/useReminderNotifications.ts`, and
+  `src/renderer/hooks/useRuntimeSettings.ts` — consume only the companion
+  bridge view.
+- `src/renderer/PreferencesApp.tsx`,
+  `src/renderer/hooks/usePreferencesSettings.ts`, and
+  `src/renderer/hooks/useUpdateStatus.ts` — consume only the Preferences
+  bridge view.
+- `tests/desktop-bridge-boundary.test.cjs` — prevents direct runtime API
+  imports, preload-global access, complete-adapter exports, and renderer-role
+  bridge crossover.
+- `docs/migrating/progress.md` — recorded Task 3.5 and the Phase 3
+  infrastructure boundary.
+
+**Validation performed**
+
+- Focused DesktopBridge boundary tests: passed (3 tests).
+- `npm run typecheck`: passed.
+- `npm test`: passed (127 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (18 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run tauri:dev`: passed. Tauri compiled, launched, and remained running
+  through the role-scoped bridge boundary; it was then stopped manually.
+- Electron smoke launch: passed through the unchanged preload adapter. The
+  existing deny-by-default permission checks remained active; the process was
+  then stopped manually.
+
+**Phase 3 scope boundary**
+
+- Under the accepted project clarification, Phase 3 migrates IPC
+  infrastructure only. It does not implement feature domains assigned to
+  later phases.
+- Tauri feature-domain bridge methods that are not part of completed
+  Phases 1–3 remain unavailable by design. No menus, settings, credentials,
+  reminders, Pomodoro, AI, updater, or other later-phase behavior was added.
+- No Electron code was removed, and Phase 4 was not started.
+
+**Blockers**
+
+- None for Task 3.5.
+- `docs/migrating/migration_tasks.md` contains placeholders for Phases 4–11,
+  so no later task will be inferred without an executable task definition.
+
+**Next task**
+
+- Phase 4 — not started.

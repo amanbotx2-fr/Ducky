@@ -4,14 +4,25 @@ import type {
   PreferencesBridge,
 } from '../shared/types';
 
-/**
- * Selects the privileged bridge available to each renderer surface without
- * exposing a desktop runtime implementation to React components.
- */
-export interface DesktopBridge {
+/** Native capabilities available to the companion renderer. */
+export interface CompanionDesktopBridge {
   readonly getCompanionBridge: () => CompanionBridge | undefined;
   readonly getCompanionWindowBridge: () =>
     | CompanionWindowBridge
     | undefined;
+}
+
+/** Native capabilities available to the Preferences renderer. */
+export interface PreferencesDesktopBridge {
   readonly getPreferencesBridge: () => PreferencesBridge | undefined;
 }
+
+/**
+ * Internal adapter contract implemented by each desktop runtime.
+ *
+ * Renderer entry points receive one of the role-scoped views above rather
+ * than this complete privileged surface.
+ */
+export interface DesktopBridge
+  extends CompanionDesktopBridge,
+    PreferencesDesktopBridge {}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { desktopBridge } from '../../desktop/DesktopBridge';
+import { companionDesktopBridge } from '../../desktop/DesktopBridge';
 import {
   createSnoozedReminderInput,
   type ReminderFiredNotification,
@@ -35,7 +35,7 @@ export function useReminderNotifications(): ReminderNotifications {
   const currentReminderId = current?.reminder.id ?? null;
 
   useEffect(() => {
-    const bridge = desktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;
@@ -85,7 +85,7 @@ export function useReminderNotifications(): ReminderNotifications {
       return;
     }
 
-    const bridge = desktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getCompanionBridge();
     const reminderId = current.reminder.id;
 
     if (bridge === undefined) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { desktopBridge } from '../../desktop/DesktopBridge';
+import { companionDesktopBridge } from '../../desktop/DesktopBridge';
 import {
   createDefaultRuntimeSettings,
   type RuntimeSettings,
@@ -12,7 +12,8 @@ export function useRuntimeSettings(): RuntimeSettings {
 
   useEffect(() => {
     mountedRef.current = true;
-    const companionBridge = desktopBridge.getCompanionBridge();
+    const companionBridge =
+      companionDesktopBridge.getCompanionBridge();
 
     if (companionBridge === undefined) {
       return () => {

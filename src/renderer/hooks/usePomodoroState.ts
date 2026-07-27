@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { desktopBridge } from '../../desktop/DesktopBridge';
+import { companionDesktopBridge } from '../../desktop/DesktopBridge';
 import {
   createIdlePomodoroState,
   type PomodoroState,
@@ -11,12 +11,12 @@ const INITIAL_STATE = createIdlePomodoroState();
 export const usePomodoroState = (): PomodoroState => {
   const [state, setState] = useState<PomodoroState>(
     () =>
-      desktopBridge.getCompanionBridge()?.getPomodoroState() ??
+      companionDesktopBridge.getCompanionBridge()?.getPomodoroState() ??
       INITIAL_STATE,
   );
 
   useEffect(() => {
-    const bridge = desktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getCompanionBridge();
 
     if (bridge === undefined) {
       return;

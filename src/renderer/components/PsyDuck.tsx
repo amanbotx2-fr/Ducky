@@ -5,7 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import { desktopBridge } from '../../desktop/DesktopBridge';
+import { companionDesktopBridge } from '../../desktop/DesktopBridge';
 import {
   AnimationEngine,
   type PlayAnimationOptions,
@@ -313,7 +313,7 @@ export function PsyDuck({
 
   useEffect(() => {
     const companionWindowBridge =
-      desktopBridge.getCompanionWindowBridge();
+      companionDesktopBridge.getCompanionWindowBridge();
 
     if (companionWindowBridge === undefined || !eyeTrackingEnabled) {
       eyesRef.current?.style.setProperty('--pupil-x', '0px');
@@ -370,7 +370,7 @@ export function PsyDuck({
 
     const handleContextMenu = (event: MouseEvent): void => {
       event.preventDefault();
-      desktopBridge
+      companionDesktopBridge
         .getCompanionBridge()
         ?.showCompanionContextMenu();
     };
@@ -384,7 +384,7 @@ export function PsyDuck({
 
   useEffect(() => {
     const companionWindowBridge =
-      desktopBridge.getCompanionWindowBridge();
+      companionDesktopBridge.getCompanionWindowBridge();
     const stage = stageRef.current;
 
     if (companionWindowBridge === undefined || stage === null) {
