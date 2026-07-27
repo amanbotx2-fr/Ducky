@@ -6,8 +6,8 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.4 — Secret Store Integration
-- Next task: Task 9.5 — OpenAI Provider
+- Last completed task: Task 9.5 — OpenAI Provider
+- Next task: Task 9.6 — Gemini Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
@@ -4556,6 +4556,68 @@ the Phase 9 architecture clarification; Task 9.2 has not started.
 
 - Task 9.2 — Create Native AI Runtime. Do not begin without a separate
   implementation instruction.
+
+### Task 9.5 — OpenAI Provider
+
+**Status:** Native provider complete. Live credential verification and the
+renderer bridge path remain part of the Phase 9 final-response and manual
+verification gates.
+
+**Implementation summary**
+
+- Added the shared native provider request, response, usage, model, bounded
+  error, and final-response contracts.
+- Added a native OpenAI Responses API client with a 30-second timeout, disabled
+  redirects, bearer authentication, bounded response parsing, model discovery,
+  connection testing, usage mapping, and Electron-compatible finish reasons.
+- Preserved the conservative OpenAI text-model filter and excluded audio,
+  image, moderation, realtime, speech, transcription, TTS, and Whisper models.
+- Registered the native OpenAI provider through the singleton registry and
+  restored its persisted selection at startup.
+- Added regression tests for Responses API parsing, usage, finish reasons, and
+  model filtering.
+
+**Files changed**
+
+- `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` — added the native async HTTP
+  dependencies.
+- `src-tauri/src/domain/ai/provider.rs` — shared native provider contract and
+  bounds.
+- `src-tauri/src/domain/ai/openai.rs` — OpenAI provider and tests.
+- `src-tauri/src/domain/ai/registry.rs` — adopted the shared provider
+  abstraction.
+- `src-tauri/src/domain/ai/mod.rs` — registered the provider modules.
+- `src-tauri/src/app_state.rs` — installed OpenAI and restored its selection.
+- `docs/migrating/progress.md` — recorded Task 9.5.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed after applying the formatter.
+- `cargo test`: passed (90 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer network permission exists.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed native OpenAI registration and persisted-selection restoration do
+  not disturb startup.
+- A live OpenAI request is deferred until the final-response DesktopBridge
+  command exists; no credential was exposed or logged.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.6 — Gemini Provider.
 
 ### Task 9.4 — Secret Store Integration
 

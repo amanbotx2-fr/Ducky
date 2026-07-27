@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use super::provider::AiProvider;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum AiProviderId {
@@ -42,11 +44,6 @@ impl std::fmt::Display for AiProviderId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
-}
-
-pub(crate) trait AiProvider: std::fmt::Debug + Send + Sync {
-    fn id(&self) -> AiProviderId;
-    fn display_name(&self) -> &'static str;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
