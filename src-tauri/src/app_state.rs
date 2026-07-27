@@ -7,7 +7,7 @@ use tauri::{
 
 use crate::{
     domain::{
-        ai::{AiProviderId, AiRuntime, OpenAiProvider},
+        ai::{AiProviderId, AiRuntime, GeminiProvider, OpenAiProvider},
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
         settings::SettingsState,
@@ -32,8 +32,11 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let ai_runtime = AiRuntime::new(credential_store.clone());
     ai_runtime.ensure_running()?;
     ai_runtime.register_provider(Arc::new(OpenAiProvider::new()?))?;
-    if settings_state.snapshot()?.ai.provider == AiProviderId::Openai.as_str() {
-        ai_runtime.select_provider(AiProviderId::Openai)?;
+    ai_runtime.register_provider(Arc::new(GeminiProvider::new()?))?;
+    match settings_state.snapshot()?.ai.provider.as_str() {
+        "openai" => ai_runtime.select_provider(AiProviderId::Openai)?,
+        "gemini" => ai_runtime.select_provider(AiProviderId::Gemini)?,
+        _ => {}
     }
     let app_handle = app.handle().clone();
     let reminder_runtime = ReminderRuntime::with_delivery(

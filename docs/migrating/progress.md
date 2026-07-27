@@ -6,8 +6,8 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.5 — OpenAI Provider
-- Next task: Task 9.6 — Gemini Provider
+- Last completed task: Task 9.6 — Gemini Provider
+- Next task: Task 9.7 — Claude Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
@@ -4556,6 +4556,60 @@ the Phase 9 architecture clarification; Task 9.2 has not started.
 
 - Task 9.2 — Create Native AI Runtime. Do not begin without a separate
   implementation instruction.
+
+### Task 9.6 — Gemini Provider
+
+**Status:** Native provider complete. Live credential verification and the
+renderer bridge path remain final Phase 9 gates.
+
+**Implementation summary**
+
+- Added a native Gemini REST provider using `generateContent` with the existing
+  one-final-response contract.
+- Preserved the 30-second timeout, disabled redirects, bounded response
+  parsing, model discovery, connection testing, usage metadata, and
+  `MAX_TOKENS` finish mapping.
+- Filters discovery to models advertising `generateContent` support and
+  preserves display names.
+- Registered Gemini through the singleton provider registry and restored its
+  persisted selection at startup.
+- Added response, finish-reason, and usage regression coverage.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/gemini.rs` — Gemini provider and tests.
+- `src-tauri/src/domain/ai/mod.rs` — exported Gemini.
+- `src-tauri/src/app_state.rs` — registered and restored Gemini selection.
+- `docs/migrating/progress.md` — recorded Task 9.6.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (91 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed Gemini registration and persisted-selection restoration do not
+  disturb native startup.
+- Live Gemini requests remain gated on the final-response DesktopBridge
+  command and final provider verification.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.7 — Claude Provider.
 
 ### Task 9.5 — OpenAI Provider
 
