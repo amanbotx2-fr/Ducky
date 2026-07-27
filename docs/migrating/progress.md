@@ -1,15 +1,17 @@
 # Ducky Tauri v2 Migration Progress
 
-**Last updated:** 27 July 2026
+**Last updated:** 28 July 2026
 
 ## Current Status
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Phase 8 final manual parity verification
-- Next task: Phase 9 — AI Integration Migration
-- Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
-  the migration-wide Electron parity rule.
+- Last completed task: Phase 9 architecture clarification
+- Next task: Task 9.2 — Create Native AI Runtime. Do not begin without a
+  separate implementation instruction.
+- Blockers: None. The Phase 9 contract now follows the Electron final-response,
+  lifecycle-cancellation, connection-diagnostics, and one-request-per-role
+  behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
 
@@ -4396,3 +4398,218 @@ run.
 
 - Phase 9 — AI Integration Migration. Do not begin without a separate
   instruction.
+
+### Task 9.1 — Audit Existing AI System
+
+**Status:** Discovery complete. The source-of-truth conflict was resolved by
+the Phase 9 architecture clarification; Task 9.2 has not started.
+
+**Electron provider architecture**
+
+- `src/ai/AIProvider.ts` defines the provider-independent request, final
+  response, usage, model, connection-test, and nominal stream contracts.
+- `src/ai/AIService.ts` owns one active provider, provider registration and
+  selection, configuration fingerprints, provider disposal, ask/list/test
+  operations, cancellation checks, and output limiting.
+- `src/main/main.ts` registers OpenAI, Gemini, Grok, Ollama, and Custom
+  OpenAI-compatible providers. It synchronizes the selected provider and model
+  from persisted settings and loads credentials only in the privileged main
+  process.
+- OpenAI, Grok, and Custom share
+  `src/ai/providers/OpenAICompatibleProvider.ts`. Gemini and Ollama use their
+  dedicated provider implementations.
+- `src/shared/settings.ts` is the authoritative provider list and settings
+  contract. It currently contains `openai`, `gemini`, `grok`, `ollama`, and
+  `custom`; Claude is not present in the Electron reference and is the one
+  explicitly approved Phase 9 product expansion.
+
+**Provider behavior and security**
+
+- OpenAI uses the Responses API. Custom providers use Chat Completions with a
+  constrained fallback to Responses. Both have bounded timeouts, retries,
+  model discovery, response sizes, and sanitized error handling.
+- Gemini uses `@google/genai` with whole-response `generateContent`, bounded
+  model discovery, connection tests, cancellation signals, and token usage
+  extraction.
+- Grok uses the shared OpenAI-compatible provider with xAI-specific endpoint,
+  model filtering, and sanitized HTTP connection diagnostics.
+- Ollama uses a hardened loopback-only transport. It validates DNS resolution,
+  pins the resolved address, verifies the response socket address, rejects
+  redirects and compressed responses, and enforces strict request, response,
+  and timeout limits.
+- API keys never enter the normal renderer settings projection. Electron uses
+  its protected credential service. Tauri Phase 6 already provides the
+  server-side native credential store and exposes only status/save/delete
+  operations to Preferences.
+
+**Request lifecycle, cancellation, and limits**
+
+- `src/main/AIRequestManager.ts` permits one active operation per renderer
+  role, with Companion and Preferences isolated from each other.
+- Chat is limited to 30 requests per minute. Connection tests and model
+  discovery are each limited to 12 requests per minute.
+- Provider operations receive `AbortSignal`. Electron cancels requests on
+  provider changes, application quit, renderer reload/crash, window close, and
+  navigation lifecycle changes.
+- The renderer has no explicit user-initiated AI cancellation command. Closing
+  a response while generation is pending invalidates the local request state;
+  it does not send a cancel IPC request to the main process.
+
+**Streaming findings**
+
+- Electron does **not** stream AI responses. Every current provider's
+  `streamMessage` implementation immediately throws the shared
+  `unsupported_operation` error.
+- `AIService` exposes no streaming operation. `ai:ask`, the Companion preload,
+  `CompanionBridge.askAI`, `DesktopBridge`, and `App.tsx` exchange one final
+  `AIAskResult`.
+- The existing typewriter effect starts only after that complete response has
+  arrived; it is presentation behavior, not provider streaming.
+- `migration_codex.md` accurately documents this: provider streaming methods
+  exist in the interface, but every current provider reports streaming
+  unsupported and no streaming migration is required for parity.
+
+**Renderer and DesktopBridge integration**
+
+- `src/renderer/App.tsx` owns the conversation lifecycle, 16-message/24,000
+  character context limit, Continue Chat, pin state, response dismissal,
+  request identity, focus, and final-response presentation.
+- The renderer calls only `CompanionBridge.askAI`; it does not import provider
+  SDKs, HTTP clients, Electron, or Tauri APIs.
+- Preferences uses the existing runtime-neutral bridge for configuration,
+  model discovery, and connection tests. Tauri intentionally reports the AI
+  and AI Model Explorer capabilities as unavailable until Phase 9 reaches
+  parity.
+- The current Tauri command registry, authorization table, and capabilities
+  contain no AI provider commands. Phase 6 credential commands are scoped only
+  to the Preferences window.
+
+**AI actions and diagnostics**
+
+- `src/ai/actions/` permits exactly `createReminder` and
+  `setStickyMessage`. Provider output is parsed as untrusted input, validated,
+  and executed through authoritative services in the Electron main process.
+- Provider responses may carry input/output token usage. That metadata is
+  preserved through the provider/action result but is not presented as a
+  renderer diagnostic.
+- Existing diagnostics consist of provider connection tests, sanitized
+  errors, and additional safe HTTP detail for Grok failures. There is no
+  provider-health subsystem and no latency measurement or latency-reporting
+  contract in Electron.
+
+**Native integration state**
+
+- Tauri already stores imported AI settings in the Phase 5 settings document,
+  but the current provider validator accepts only the five Electron provider
+  identifiers.
+- Tauri's Preferences projection redacts stored credentials, and Phase 6
+  native credential operations remain server-side and least privilege.
+- No native AI runtime, provider registry, provider commands, provider events,
+  or AI capability permissions have been added.
+
+**Resolved source-of-truth conflict**
+
+- Task 9.11 and the Phase 9 request require incremental token streaming,
+  chunk-order parity, streaming cancellation, and completion semantics while
+  saying these must match Electron. Electron has no incremental response
+  transport to match.
+- Task 9.13 requires provider health and latency reporting while saying
+  diagnostics must match Electron. Electron has connection tests and sanitized
+  errors, but no health or latency-reporting feature.
+- Task 9.14 lists concurrent requests, while Electron deliberately limits each
+  renderer role to one active operation.
+- Claude is an explicitly approved addition, but requiring its incremental
+  stream to reach the renderer would necessarily add a new IPC, event,
+  DesktopBridge, and React conversation contract that does not exist for any
+  Electron provider.
+- Implementing those former requirements would have redesigned and expanded
+  the Electron contract, contrary to the migration-wide parity rule and the
+  source priority specified for Phase 9.
+
+**Files changed**
+
+- `docs/migrating/progress.md` — recorded the complete Task 9.1 discovery and
+  the source-of-truth blocker.
+
+**Validation performed**
+
+- Inspected the Electron provider implementations, provider registry,
+  request manager, action parser/executor, settings and credential integration,
+  IPC authorization, preloads, DesktopBridge adapters, renderer conversation
+  flow, Tauri settings/credential boundary, command registry, authorization,
+  and capabilities.
+- Confirmed no production source file was modified during discovery.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Not applicable. Task 9.1 is a source audit and no runtime behavior changed.
+
+**Blockers**
+
+- None. The contract now requires whole-response asks, lifecycle cancellation,
+  connection testing and sanitized errors, and one active operation per
+  renderer role.
+- Claude may consume Anthropic streaming internally in Rust, but Rust must
+  aggregate it into the existing final-response contract before DesktopBridge.
+
+**Next task**
+
+- Task 9.2 — Create Native AI Runtime. Do not begin without a separate
+  implementation instruction.
+
+### Phase 9 — Architecture Clarification
+
+**Status:** Complete. Documentation only; Phase 9 implementation has not
+started.
+
+**Implementation summary**
+
+- Aligned the complete Phase 9 execution contract with the migration-wide
+  Electron parity rule.
+- Replaced renderer-side streaming requirements with the existing
+  single-final-response contract.
+- Preserved only Electron's lifecycle cancellation behavior. No explicit
+  renderer cancellation command, IPC channel, event, or DesktopBridge API is
+  authorized.
+- Preserved connection tests, sanitized provider errors, existing safe
+  provider-specific error detail, and existing usage metadata. Provider-health
+  and latency reporting are explicitly outside the parity contract.
+- Preserved one active request per renderer role and removed the conflicting
+  same-role concurrency requirement.
+- Retained Claude as the sole approved product expansion. Claude may consume
+  Anthropic streaming internally, but Rust must aggregate the complete result
+  before returning the same final response used by every provider.
+- Preserved the current provider lifecycle, provider registry, persistence,
+  action allowlist, renderer behavior, and DesktopBridge boundary.
+
+**Files changed**
+
+- `docs/migrating/migration_tasks.md` — corrected the Phase 9 discovery, scope,
+  provider tasks, response transport, diagnostics, execution controls, manual
+  verification, and exit criteria.
+- `docs/migrating/migration_codex.md` — clarified that an upstream streaming
+  API may terminate inside Rust only and does not authorize renderer streaming
+  or new bridge contracts.
+- `docs/migrating/progress.md` — recorded the resolved architecture contract
+  and next-task boundary.
+
+**Validation performed**
+
+- `git diff --check`: passed.
+- Confirmed the diff contains documentation files only.
+- Tests and builds are not required because no production source or runtime
+  behavior changed.
+
+**Manual verification**
+
+- Not applicable. This clarification changes documentation only.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.2 — Create Native AI Runtime. Do not begin without a separate
+  implementation instruction.

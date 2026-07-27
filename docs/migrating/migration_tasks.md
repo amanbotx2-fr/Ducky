@@ -2392,31 +2392,656 @@ Only then may Phase 9 begin.
 
 # PHASE 9
 
-AI System
+AI System Migration
 
-Subtasks
+Goal
 
-OpenAI
+Migrate the complete AI System from Electron to Tauri v2 while preserving
+existing AI behavior, provider architecture, final-response semantics,
+DesktopBridge abstraction, and renderer behavior.
 
-Gemini
+Electron remains the reference implementation.
 
-Grok
+DesktopBridge remains the only renderer abstraction.
 
-Ollama
+AI provider execution belongs entirely to Rust.
+
+The renderer remains runtime agnostic.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- Inspect the existing AI provider architecture.
+- Inspect AIProvider interfaces.
+- Inspect provider registry.
+- Inspect provider selection.
+- Inspect final-response transport and the intentionally unsupported provider
+  streaming methods.
+- Inspect conversation lifecycle.
+- Inspect lifecycle cancellation.
+- Inspect diagnostics.
+- Inspect rate limiting.
+- Inspect token accounting.
+- Inspect secret storage integration.
+- Inspect DesktopBridge contracts.
+- Inspect renderer hooks.
+- Inspect AI actions.
+- Inspect Preferences integration.
+- Document findings inside `docs/migrating/progress.md`.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- native AI runtime
+- provider registry
+- OpenAI
+- Gemini
+- Claude
+- Grok
+- Ollama
+- Custom Provider
+- whole-response provider execution
+- lifecycle cancellation
+- AI actions
+- diagnostics
+- rate limiting
+- DesktopBridge
+- startup restoration
+- provider persistence
+- least-privilege permissions
+
+This phase does NOT include:
+
+- updater
+- release pipeline
+- Electron removal
+- planner redesign
+- new AI capabilities other than the explicitly approved Claude provider
+
+---
+
+## Parity Rule
+
+This phase follows strict Electron parity.
+
+If `migration_tasks.md` conflicts with either
+`migration_codex.md` or the existing Electron implementation,
+the Electron implementation is authoritative unless an explicit redesign has
+been approved beforehand.
+
+Do not redesign the AI system.
+
+Electron exchanges exactly one final AI response with the renderer. Phase 9
+must not add incremental renderer streaming, streaming IPC, streaming events,
+or DesktopBridge streaming APIs.
+
+Providers may consume a streaming upstream API internally, but Rust must
+aggregate the complete response before crossing DesktopBridge.
+
+Electron exposes no renderer cancellation command. Preserve only automatic
+lifecycle cancellation on provider changes, renderer shutdown/reload,
+navigation, and application shutdown.
+
+Preserve one active request per renderer role. Do not add concurrent same-role
+request scheduling.
+
+Preserve existing diagnostics: connection testing and sanitized provider
+errors. Do not add provider-health or latency-reporting features.
+
+---
+
+## Architecture Rules
+
+AI execution belongs entirely to Rust.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Runtime Adapter
+
+↓
+
+Rust
+
+DesktopBridge remains the only renderer abstraction.
+
+Do not expose Tauri APIs directly to React.
+
+Do not expose provider SDKs directly to renderer code.
+
+---
+
+## Task 9.1
+
+Audit Existing AI System
+
+Objective
+
+Document the complete Electron AI implementation.
+
+Acceptance
+
+- provider architecture documented
+- final-response transport and unsupported streaming documented
+- lifecycle cancellation documented
+- one-request-per-renderer-role behavior documented
+- existing connection diagnostics documented
+- registry documented
+- DesktopBridge documented
+- secret integration documented
+- renderer integration documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 9.2
+
+Create Native AI Runtime
+
+Objective
+
+Implement the native Rust AI runtime.
+
+Requirements
+
+- singleton
+- runtime owned
+- provider independent
+- whole-response request execution
+- renderer independent
+
+Acceptance
+
+- runtime initializes
+- runtime shuts down cleanly
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate ai runtime
+
+---
+
+## Task 9.3
+
+Provider Registry
+
+Objective
+
+Implement the native provider registry.
+
+Requirements
+
+- provider registration
+- provider lookup
+- provider selection
+- runtime switching
+- preserve existing architecture
+
+Acceptance
+
+All providers register through one runtime.
+
+Commit
+
+feat(tauri): migrate provider registry
+
+---
+
+## Task 9.4
+
+Secret Store Integration
+
+Objective
+
+Integrate the existing native credential storage.
+
+Requirements
+
+- reuse Phase 6 secret store
+- no plaintext persistence
+- runtime loading
+- provider isolation
+
+Acceptance
+
+All providers obtain credentials through native storage.
+
+Commit
+
+feat(tauri): migrate ai secrets
+
+---
+
+## Task 9.5
+
+OpenAI Provider
+
+Objective
+
+Migrate the existing OpenAI provider.
+
+Requirements
+
+- one final response per request
+- lifecycle cancellation
+- usage reporting
+- model selection
+- DesktopBridge integration
+
+Acceptance
+
+OpenAI behaves exactly as Electron.
+
+Commit
+
+feat(tauri): migrate openai provider
+
+---
+
+## Task 9.6
+
+Gemini Provider
+
+Objective
+
+Migrate the existing Gemini provider.
+
+Requirements
+
+- preserve Electron behavior
+- one final response per request
+- lifecycle cancellation
+- usage reporting
+
+Acceptance
+
+Gemini behaves exactly as Electron.
+
+Commit
+
+feat(tauri): migrate gemini provider
+
+---
+
+## Task 9.7
+
+Claude Provider
+
+Objective
+
+Add Claude provider support using the existing AI provider architecture.
+
+Requirements
+
+- Anthropic API compatibility
+- provider registration
+- one final response per request
+- lifecycle cancellation
+- usage reporting
+- secret store integration
+- DesktopBridge integration
+- no provider-specific renderer UI
+- any Anthropic streaming terminates inside Rust and is aggregated before the
+  DesktopBridge response
+
+Acceptance
+
+- Claude provider selectable
+- Claude returns one complete response through the existing bridge contract
+- lifecycle cancellation works
+- provider switching works
+- architecture consistent with all other providers
+
+Commit
+
+feat(tauri): migrate claude provider
+
+---
+
+## Task 9.8
+
+Grok Provider
+
+Objective
+
+Migrate the Grok provider.
+
+Requirements
+
+- preserve Electron behavior
+- one final response per request
+- lifecycle cancellation
+- usage reporting
+
+Acceptance
+
+Grok behaves exactly as Electron.
+
+Commit
+
+feat(tauri): migrate grok provider
+
+---
+
+## Task 9.9
+
+Ollama Provider
+
+Objective
+
+Migrate the Ollama provider.
+
+Requirements
+
+- local endpoint support
+- one final response per request
+- lifecycle cancellation
+- DesktopBridge integration
+
+Acceptance
+
+Ollama behaves exactly as Electron.
+
+Commit
+
+feat(tauri): migrate ollama provider
+
+---
+
+## Task 9.10
 
 Custom Provider
 
+Objective
+
+Migrate the custom provider implementation.
+
+Requirements
+
+- existing endpoint configuration
+- authentication
+- one final response per request
+- lifecycle cancellation
+- DesktopBridge integration
+
+Acceptance
+
+Custom provider behaves exactly as Electron.
+
+Commit
+
+feat(tauri): migrate custom provider
+
+---
+
+## Task 9.11
+
+Final Response Transport
+
+Objective
+
+Preserve the existing whole-response renderer contract.
+
+Requirements
+
+- exactly one final response per request
+- provider-internal streaming may be aggregated only inside Rust
+- no incremental renderer tokens
+- no streaming IPC or runtime events
+- no DesktopBridge streaming API
+- error propagation
+- provider independence
+
+Acceptance
+
+The renderer receives the same final `AIAskResult` semantics as Electron.
+
+Commit
+
+feat(tauri): migrate ai response transport
+
+---
+
+## Task 9.12
+
 AI Actions
 
-Rate Limiting
+Objective
 
-Cancellation
+Migrate existing AI actions.
+
+Requirements
+
+- preserve existing action architecture
+- provider independent
+- runtime owned
+
+Acceptance
+
+AI actions behave exactly as Electron.
+
+Commit
+
+feat(tauri): migrate ai actions
+
+---
+
+## Task 9.13
 
 Diagnostics
 
-Exit Criteria
+Objective
 
-All providers functional.
+Implement runtime diagnostics.
+
+Requirements
+
+- provider connection testing
+- sanitized provider errors
+- existing safe provider-specific diagnostic detail
+- existing usage metadata
+- no provider-health reporting
+- no latency reporting
+
+Acceptance
+
+Diagnostics match Electron.
+
+Commit
+
+feat(tauri): migrate ai diagnostics
+
+---
+
+## Task 9.14
+
+Rate Limiting & Cancellation
+
+Objective
+
+Preserve provider execution controls.
+
+Requirements
+
+- lifecycle cancellation
+- request isolation
+- one active request per renderer role
+- timeout handling
+- existing rate limiting
+- no explicit renderer cancellation command
+- automatic cancellation on provider changes, renderer shutdown/reload,
+  navigation, and application shutdown
+
+Acceptance
+
+Execution control matches Electron.
+
+Commit
+
+feat(tauri): migrate ai execution controls
+
+---
+
+## Task 9.15
+
+Permissions
+
+Objective
+
+Grant least-privilege permissions.
+
+Requirements
+
+- provider commands only
+- exact window labels
+- no wildcard permissions
+- no unnecessary plugins
+
+Acceptance
+
+Permission validation passes.
+
+Commit
+
+feat(tauri): migrate ai permissions
+
+---
+
+## Deferred
+
+The following functionality is intentionally excluded.
+
+- MCP
+- Agent framework redesign
+- Autonomous agents
+- RAG
+- Vector databases
+- Multi-agent orchestration
+- Planner redesign
+- Updater
+- Electron removal
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix every failure before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- OpenAI works
+- Gemini works
+- Claude works
+- Grok works
+- Ollama works
+- Custom provider works
+- provider switching works
+- each provider returns one final response
+- no renderer streaming API or IPC exists
+- lifecycle cancellation works
+- connection tests and sanitized errors work
+- AI actions work
+- secret loading works
+- DesktopBridge works
+- no renderer console errors
+- no permission warnings
+
+---
+
+## Progress Tracking
+
+Update `docs/migrating/progress.md` after every milestone.
+
+Include:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 9 is complete only if:
+
+✓ Native AI runtime implemented
+
+✓ Provider registry implemented
+
+✓ OpenAI provider functional
+
+✓ Gemini provider functional
+
+✓ Claude provider functional
+
+✓ Grok provider functional
+
+✓ Ollama provider functional
+
+✓ Custom provider functional
+
+✓ Final-response transport preserved
+
+✓ AI actions preserved
+
+✓ Secret store integration complete
+
+✓ Lifecycle cancellation preserved
+
+✓ Diagnostics preserved
+
+✓ DesktopBridge fully migrated
+
+✓ Least-privilege permissions implemented
+
+✓ Electron implementation preserved
+
+✓ All automated validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 10 begin.
 
 ---
 

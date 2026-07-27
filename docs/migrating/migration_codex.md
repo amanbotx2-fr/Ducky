@@ -50,6 +50,12 @@ explicit redesign is documented and approved before implementation. This
 migration preserves implemented product behavior; it does not use migration
 tasks to introduce new features.
 
+For AI providers, an implementation may consume a provider's streaming API
+inside the privileged Rust runtime only when useful. Rust must aggregate that
+stream into the single final response used by Electron before crossing
+DesktopBridge. Internal provider transport does not authorize incremental
+renderer streaming, streaming IPC/events, or a new DesktopBridge contract.
+
 The review covered all tracked top-level areas and all desktop runtime source:
 
 - `.github/`, `assets/`, `character/`, `docs/`, `scripts/`, `src/`, `supabase/`, `tests/`, and `website/`;
