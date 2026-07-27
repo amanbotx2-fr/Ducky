@@ -3541,3 +3541,111 @@ milestone.
 **Next task**
 
 - Phase 7 final manual parity verification. Do not begin Phase 8.
+
+## Phase 7 — Reminder System Migration Complete
+
+**Status:** Complete. Phase 8 has not started.
+
+**Implementation summary**
+
+- Migrated the exact Electron reminder model, validation, stable ordering,
+  CRUD semantics, recurrence advancement, overdue recovery, persistence retry,
+  and duplicate suppression into a singleton native Rust reminder runtime.
+- Connected that runtime to the existing atomic native settings store,
+  startup restoration, native resume resynchronization, and clean shutdown.
+- Added the exact six existing reminder commands behind a narrow
+  `ReminderBridge`. Electron retains its original preload implementation;
+  Tauri dispatches typed commands; React remains runtime agnostic.
+- Preserved the exact `reminders:fired`,
+  `reminders:creation-panel-requested`, and
+  `reminders:manager-panel-requested` contracts and exact Companion targeting.
+  Startup/reload delivery is ordered, retryable, and activated only after the
+  renderer listener is registered.
+- Restored the Electron reminder context-menu hierarchy and callbacks while
+  keeping reminder creation, editing, management, widget presentation,
+  Dismiss, Snooze, and sound behavior in the existing Companion React UI.
+- Applied only exact local Companion command grants and listen/unlisten event
+  authority. Preferences has no reminder command authority, renderers cannot
+  emit native events, and no OS notification plugin or permission was added.
+- Preserved the exact Electron schema. No `enabled` field, Preferences
+  reminder manager, native notification, new lifecycle event, browser
+  scheduler, or later-phase feature was introduced.
+
+**Commits created**
+
+- `cbde02e` — `feat(tauri): migrate reminder engine`
+- `426c02c` — `feat(tauri): migrate reminder persistence`
+- `8d65274` — `feat(tauri): migrate reminder commands`
+- `51c3997` — `feat(tauri): migrate reminder notifications`
+- `fd8903e` — `feat(tauri): migrate reminder companion integration`
+- `36c731d` — `feat(tauri): migrate reminder permissions`
+
+**Automated validation**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (135 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (65 tests).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed.
+- Electron production-output smoke launch: passed.
+- Tauri development smoke launch: passed.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  macOS application bundle.
+- The unchanged Tauri development custom-protocol fallback warning remained
+  present; there were no reminder, renderer, command, event, or permission
+  errors.
+
+**Manual parity verification**
+
+Verification was performed against the exact workspace bundle at
+`src-tauri/target/debug/bundle/macos/Ducky.app`, not the older installed
+`/Applications/Ducky.app` with the same bundle identifier.
+
+- New Reminder context-menu action: passed. The existing Companion creation
+  panel opened.
+- Reminder creation and loading: passed. A one-time reminder with a title,
+  message, and future schedule saved and appeared in Manage Reminders.
+- Reminder editing: passed. Title and schedule changes persisted and were
+  reflected immediately.
+- Restart restoration: passed. The edited reminder remained present after the
+  native Restart action recreated the application.
+- One-time scheduling and fired delivery: passed. The reminder fired once and
+  displayed the existing React widget with the exact stored title and message.
+- Snooze: passed. `Snooze 5 min` dismissed the widget and created the existing
+  five-minute one-time occurrence in Manage Reminders.
+- Recurrence: passed. The snoozed reminder was edited to Hourly, fired at the
+  scheduled occurrence, and advanced to the same minute in the next hour
+  without changing its visible identity.
+- Dismiss: passed. The recurring fired widget closed and the existing
+  personality acknowledgement appeared.
+- Delete and persistence: passed. Both Phase 7 test reminders were deleted
+  through the existing confirmation flow and disappeared from the native
+  store. The user's pre-existing `Creators session` reminder was preserved.
+- Manage Reminders context-menu action: passed. The existing Companion manager
+  panel opened and correctly grouped upcoming/completed reminders.
+- Notification sound: passed. Notification Sounds remained enabled with Soft
+  Bell at 70%; the fired reminder exercised the unchanged reminder sound path,
+  and the dedicated Test Sound control reported `Soft Bell is playing.`
+- Preferences: passed. It retained the existing General, Notification Sounds,
+  Hydration, Updates, and AI sections with no reminder CRUD or schema UI.
+- Runtime integrity: passed. No renderer console error, reminder error, or
+  permission warning appeared during the workspace-bundle verification.
+
+**Blockers**
+
+- None.
+
+**Phase 7 exit criteria**
+
+- Native reminder engine, Electron-parity scheduler, typed persistence,
+  startup restoration, CRUD, fired event delivery, React widget behavior,
+  Dismiss, Snooze, sound path, Companion panels/context menu, exact schema,
+  DesktopBridge boundary, least-privilege permissions, Electron preservation,
+  automated validation, manual verification, and repository builds all pass.
+- Phase 7 is complete.
+
+**Next task**
+
+- Phase 8 — Pomodoro. Do not begin automatically.
