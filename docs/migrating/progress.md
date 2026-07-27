@@ -5,11 +5,11 @@
 ## Current Status
 
 - Active phase: Phase 2 — Desktop Window Migration
-- Last completed task: Task 2.7 — Cursor channel
-- Next task: Phase 2 exit validation
-- Blockers: Physical visual/input parity cannot be validated in the current
-  locked macOS session, and Windows/Linux validation hosts are unavailable.
-  Phase 3 has not started.
+- Last completed task: Phase 2 validation fix — Startup window lifecycle
+- Next task: Remaining Phase 2 visual/input validation
+- Blockers: The macOS startup regression is resolved. Windows/Linux visual
+  validation hosts remain unavailable, so the full Phase 2 exit gate is not
+  yet satisfied and Phase 3 has not started.
 
 ## Completed Tasks
 
@@ -636,6 +636,64 @@
 
 - Phase 2 exit validation.
 
+### Phase 2 validation fix — Startup window lifecycle
+
+**Status:** Complete
+
+**Root cause**
+
+- `src-tauri/tauri.conf.json` declaratively created the Preferences window
+  without `visible: false`, so Tauri opened and focused it automatically.
+- The companion was created successfully, its renderer mounted, and the
+  native window reported visible. However, its hidden-window physical
+  `set_position` call during `setup` did not apply correctly on macOS.
+  On the Retina primary display, the companion remained centered at physical
+  `(1490, 468)` instead of bottom-right `(2932, 1584)`.
+- The auto-visible Preferences window occupied `(1070, 252)` at
+  `1280 × 1300`, completely covering the centered `440 × 440` companion.
+  This made the companion appear absent even though creation and rendering
+  both succeeded.
+
+**Files changed**
+
+- `src-tauri/tauri.conf.json` — made the configured Preferences window hidden
+  on startup. It remains available for the explicit open flow that will be
+  connected during native menu/tray IPC migration.
+- `src-tauri/src/desktop/windows/companion.rs` — computes initial placement
+  in Tauri builder logical coordinates, including Retina and negative monitor
+  origins. The companion remains hidden until the first
+  `PageLoadEvent::Finished`, then a one-shot callback shows it. Reloads cannot
+  unexpectedly reopen it, and a native show failure is logged.
+- `docs/migrating/progress.md` — recorded the diagnosis, fix, and validation.
+
+**Validation performed**
+
+- `npm run tauri:dev`: passed with the final implementation.
+- Native runtime diagnostics confirmed the companion starts visible at
+  physical `(2932, 1584)` with size `440 × 440` on the 2× primary display.
+- After renderer content measurement, the companion settled at
+  `(2932, 1480)` with size `440 × 544`, preserving the same bottom edge.
+- A native desktop capture confirmed that the transparent companion is
+  visible at the bottom-right and Preferences is not present.
+- Added/updated focused Rust coverage for standard, negative-coordinate,
+  Retina, and constrained-work-area initial placement.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (12 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- Parsed `tauri.conf.json` and asserted that `preferences.visible` is exactly
+  `false`.
+- `npm run typecheck`: passed.
+- `npm test`: passed (118 tests across 33 suites).
+- `npm run build`: passed.
+
+**Blockers**
+
+- None for the startup-window issue.
+
+**Next task**
+
+- Continue the remaining Phase 2 visual/input matrix.
+
 ## Phase 2 Exit Gate
 
 **Status:** Blocked
@@ -656,9 +714,12 @@ The following hands-on checks remain required:
   monitor arrangements;
 - equivalent behavior on macOS, Windows, and Linux system WebViews.
 
-The current Mac session is locked, so native visual and pointer interaction
-cannot be observed. No Windows or Linux validation host is available in this
-workspace. Unit, build, capability, and launch checks cannot establish visual
+The macOS startup path now passes visual validation: Preferences stays hidden,
+the transparent companion appears at the expected bottom-right location, and
+dynamic height remains bottom-anchored. The remaining macOS interaction cases
+and equivalent Windows/Linux checks still require hands-on validation. No
+Windows or Linux validation host is available in this workspace, and unit,
+build, capability, and launch checks cannot establish cross-platform visual
 parity on their own.
 
 Per the migration execution rules, Phase 3 has not started. Resume with the
