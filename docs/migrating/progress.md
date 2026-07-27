@@ -6,13 +6,69 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.7 — Claude Provider
-- Next task: Task 9.8 — Grok Provider
+- Last completed task: Task 9.8 — Grok Provider
+- Next task: Task 9.9 — Ollama Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.8 — Grok Provider
+
+**Status:** Native provider complete. Live credential verification and the
+renderer bridge path remain final Phase 9 gates.
+
+**Implementation summary**
+
+- Added a native Grok provider using xAI's fixed API endpoint and the same
+  Responses API behavior as the Electron provider.
+- Preserved one final response, usage metadata, finish-reason mapping,
+  provider-scoped protected credentials, the 30-second timeout, disabled
+  redirects, and bounded parsing.
+- Preserved Electron's `/language-models` discovery behavior, including text
+  modality filtering and model aliases.
+- Registered Grok through the singleton provider registry and restored its
+  persisted selection at startup. Existing Electron Grok code was unchanged.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/grok.rs` — native Grok provider plus response and
+  model-discovery tests.
+- `src-tauri/src/domain/ai/mod.rs` — exported Grok.
+- `src-tauri/src/app_state.rs` — registered and restored Grok selection.
+- `docs/migrating/progress.md` — recorded Task 9.8.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (94 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer network authority was
+  introduced.
+- Electron production-output smoke launch: passed through the unchanged Grok
+  implementation.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed Grok registration and persisted-selection restoration do not
+  disturb native startup.
+- Live Grok requests remain part of final credentialed verification after the
+  final-response bridge command is available.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.9 — Ollama Provider.
 
 ### Task 9.7 — Claude Provider
 
