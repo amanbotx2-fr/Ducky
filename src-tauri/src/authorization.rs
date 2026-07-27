@@ -96,6 +96,8 @@ pub(crate) const START_POMODORO: CommandAuthorization =
     CommandAuthorization::companion_only("start_pomodoro");
 pub(crate) const CUSTOM_POMODORO_PANEL_CLOSED: CommandAuthorization =
     CommandAuthorization::companion_only("custom_pomodoro_panel_closed");
+pub(crate) const ACTIVATE_POMODORO_EVENTS: CommandAuthorization =
+    CommandAuthorization::companion_only("activate_pomodoro_events");
 pub(crate) const GET_COMPANION_WINDOW_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_companion_window_position");
 pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
@@ -129,6 +131,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     ACTIVATE_REMINDER_EVENTS,
     START_POMODORO,
     CUSTOM_POMODORO_PANEL_CLOSED,
+    ACTIVATE_POMODORO_EVENTS,
     GET_COMPANION_WINDOW_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
@@ -159,6 +162,7 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     ACTIVATE_REMINDER_EVENTS.name(),
     START_POMODORO.name(),
     CUSTOM_POMODORO_PANEL_CLOSED.name(),
+    ACTIVATE_POMODORO_EVENTS.name(),
     GET_COMPANION_WINDOW_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
@@ -226,6 +230,7 @@ mod tests {
                 "activate_reminder_events",
                 "start_pomodoro",
                 "custom_pomodoro_panel_closed",
+                "activate_pomodoro_events",
                 "get_companion_window_position",
                 "move_companion_window",
                 "set_companion_content_height",

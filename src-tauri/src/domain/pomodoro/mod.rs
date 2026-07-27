@@ -136,19 +136,89 @@ pub(crate) trait PomodoroEvents: Send + Sync {
     fn completed(&self);
 }
 
-#[derive(Debug, Default)]
-struct PendingEvents {
-    latest_state: Option<PomodoroState>,
-    pending_completion: bool,
-    custom_panel_visible: bool,
+type PomodoroStateEmitter = Arc<dyn Fn(PomodoroState) -> Result<(), String> + Send + Sync>;
+type PomodoroSignalEmitter = Arc<dyn Fn() -> Result<(), String> + Send + Sync>;
+
+#[derive(Clone)]
+struct PomodoroEmitters {
+    state_changed: PomodoroStateEmitter,
+    completed: PomodoroSignalEmitter,
+    custom_duration_requested: PomodoroSignalEmitter,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum PendingPomodoroEvent {
+    StateChanged(PomodoroState),
+    Completed,
+    CustomDurationRequested,
+}
+
+#[derive(Debug, Default)]
+struct PendingEvents {
+    active: bool,
+    generation: u64,
+    latest_state: Option<PomodoroState>,
+    state_pending: bool,
+    pending_completion: bool,
+    custom_panel_visible: bool,
+    custom_panel_pending: bool,
+}
+
+#[derive(Clone, Default)]
 pub(crate) struct PomodoroEventQueue {
     pending: Arc<Mutex<PendingEvents>>,
+    emitters: Option<PomodoroEmitters>,
+}
+
+impl std::fmt::Debug for PomodoroEventQueue {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PomodoroEventQueue")
+            .field("pending", &self.pending)
+            .field("emitters_configured", &self.emitters.is_some())
+            .finish()
+    }
 }
 
 impl PomodoroEventQueue {
+    pub(crate) fn with_emitters(
+        state_changed: PomodoroStateEmitter,
+        completed: PomodoroSignalEmitter,
+        custom_duration_requested: PomodoroSignalEmitter,
+    ) -> Self {
+        Self {
+            pending: Arc::new(Mutex::new(PendingEvents::default())),
+            emitters: Some(PomodoroEmitters {
+                state_changed,
+                completed,
+                custom_duration_requested,
+            }),
+        }
+    }
+
+    pub(crate) fn activate(&self) -> Result<(), PomodoroError> {
+        let generation = {
+            let mut pending = self.pending.lock()?;
+            pending.generation = pending.generation.wrapping_add(1);
+            pending.active = false;
+            pending.state_pending = pending.latest_state.is_some();
+            pending.custom_panel_pending = pending.custom_panel_visible;
+            pending.generation
+        };
+
+        self.flush(generation);
+        Ok(())
+    }
+
+    pub(crate) fn deactivate(&self) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.generation = pending.generation.wrapping_add(1);
+            pending.active = false;
+            pending.state_pending = pending.latest_state.is_some();
+            pending.custom_panel_pending = pending.custom_panel_visible;
+        }
+    }
+
     pub(crate) fn latest_state(&self) -> Result<Option<PomodoroState>, PomodoroError> {
         Ok(self.pending.lock()?.latest_state.clone())
     }
@@ -158,32 +228,128 @@ impl PomodoroEventQueue {
     }
 
     pub(crate) fn close_custom_panel(&self) -> Result<(), PomodoroError> {
-        self.pending.lock()?.custom_panel_visible = false;
+        let mut pending = self.pending.lock()?;
+        pending.custom_panel_visible = false;
+        pending.custom_panel_pending = false;
         Ok(())
+    }
+
+    pub(crate) fn request_custom_panel(&self) {
+        self.enqueue(PendingPomodoroEvent::CustomDurationRequested);
+    }
+
+    fn enqueue(&self, event: PendingPomodoroEvent) {
+        let flush_generation = match self.pending.lock() {
+            Ok(mut pending) => {
+                match event {
+                    PendingPomodoroEvent::StateChanged(state) => {
+                        pending.latest_state = Some(state);
+                        pending.state_pending = true;
+                    }
+                    PendingPomodoroEvent::Completed => {
+                        pending.pending_completion = true;
+                    }
+                    PendingPomodoroEvent::CustomDurationRequested => {
+                        pending.custom_panel_visible = true;
+                        pending.custom_panel_pending = true;
+                    }
+                }
+
+                if pending.active {
+                    pending.active = false;
+                    Some(pending.generation)
+                } else {
+                    None
+                }
+            }
+            Err(_) => {
+                eprintln!("[pomodoro] event_queue_unavailable");
+                None
+            }
+        };
+
+        if let Some(generation) = flush_generation {
+            self.flush(generation);
+        }
+    }
+
+    fn flush(&self, generation: u64) {
+        let Some(emitters) = self.emitters.as_ref() else {
+            return;
+        };
+
+        loop {
+            let event = match self.pending.lock() {
+                Ok(mut pending) if pending.generation == generation => {
+                    if pending.state_pending {
+                        pending.state_pending = false;
+                        pending
+                            .latest_state
+                            .clone()
+                            .map(PendingPomodoroEvent::StateChanged)
+                    } else if pending.pending_completion {
+                        pending.pending_completion = false;
+                        Some(PendingPomodoroEvent::Completed)
+                    } else if pending.custom_panel_pending {
+                        pending.custom_panel_pending = false;
+                        Some(PendingPomodoroEvent::CustomDurationRequested)
+                    } else {
+                        pending.active = true;
+                        return;
+                    }
+                }
+                Ok(_) => return,
+                Err(_) => {
+                    eprintln!("[pomodoro] event_queue_unavailable");
+                    return;
+                }
+            };
+
+            let Some(event) = event else {
+                continue;
+            };
+            let delivery = match &event {
+                PendingPomodoroEvent::StateChanged(state) => {
+                    (emitters.state_changed)(state.clone())
+                }
+                PendingPomodoroEvent::Completed => (emitters.completed)(),
+                PendingPomodoroEvent::CustomDurationRequested => {
+                    (emitters.custom_duration_requested)()
+                }
+            };
+
+            if let Err(error) = delivery {
+                eprintln!("[pomodoro] event_delivery_failed: {error}");
+
+                if let Ok(mut pending) = self.pending.lock() {
+                    if pending.generation == generation {
+                        match event {
+                            PendingPomodoroEvent::StateChanged(_) => {
+                                pending.state_pending = true;
+                            }
+                            PendingPomodoroEvent::Completed => {
+                                pending.pending_completion = true;
+                            }
+                            PendingPomodoroEvent::CustomDurationRequested => {
+                                pending.custom_panel_pending = pending.custom_panel_visible;
+                            }
+                        }
+                        pending.active = false;
+                    }
+                }
+                return;
+            }
+        }
     }
 }
 
 impl PomodoroEvents for PomodoroEventQueue {
     fn state_changed(&self, state: PomodoroState) {
-        match self.pending.lock() {
-            Ok(mut pending) => {
-                pending.latest_state = Some(state);
-            }
-            Err(_) => {
-                eprintln!("[pomodoro] state_event_queue_unavailable");
-            }
-        }
+        self.enqueue(PendingPomodoroEvent::StateChanged(state));
     }
 
     fn completed(&self) {
-        match self.pending.lock() {
-            Ok(mut pending) => {
-                pending.pending_completion = true;
-            }
-            Err(_) => {
-                eprintln!("[pomodoro] completion_event_queue_unavailable");
-            }
-        }
+        self.enqueue(PendingPomodoroEvent::Completed);
     }
 }
 
@@ -983,5 +1149,82 @@ mod tests {
 
         assert_eq!(events.latest_state().expect("latest state"), Some(state));
         assert!(events.has_pending_completion().expect("pending completion"));
+    }
+
+    #[test]
+    fn event_queue_recovers_state_completion_and_custom_panel_after_activation() {
+        let delivered = Arc::new(Mutex::new(Vec::<String>::new()));
+        let state_delivered = Arc::clone(&delivered);
+        let completion_delivered = Arc::clone(&delivered);
+        let custom_delivered = Arc::clone(&delivered);
+        let events = PomodoroEventQueue::with_emitters(
+            Arc::new(move |state| {
+                state_delivered
+                    .lock()
+                    .unwrap()
+                    .push(format!("state:{}", state.remaining_seconds));
+                Ok(())
+            }),
+            Arc::new(move || {
+                completion_delivered
+                    .lock()
+                    .unwrap()
+                    .push("completed".to_owned());
+                Ok(())
+            }),
+            Arc::new(move || {
+                custom_delivered.lock().unwrap().push("custom".to_owned());
+                Ok(())
+            }),
+        );
+
+        events.state_changed(running_state(60, 1_000));
+        events.completed();
+        events.completed();
+        events.request_custom_panel();
+        assert!(delivered.lock().unwrap().is_empty());
+
+        events.activate().unwrap();
+        assert_eq!(
+            *delivered.lock().unwrap(),
+            ["state:60", "completed", "custom"]
+        );
+
+        events.close_custom_panel().unwrap();
+        events.deactivate();
+        events.activate().unwrap();
+        assert_eq!(
+            *delivered.lock().unwrap(),
+            ["state:60", "completed", "custom", "state:60"]
+        );
+    }
+
+    #[test]
+    fn failed_completion_delivery_remains_pending_for_next_activation() {
+        let should_fail = Arc::new(Mutex::new(true));
+        let delivered = Arc::new(Mutex::new(0_usize));
+        let failure_state = Arc::clone(&should_fail);
+        let completion_count = Arc::clone(&delivered);
+        let events = PomodoroEventQueue::with_emitters(
+            Arc::new(|_| Ok(())),
+            Arc::new(move || {
+                if *failure_state.lock().unwrap() {
+                    return Err("renderer unavailable".to_owned());
+                }
+                *completion_count.lock().unwrap() += 1;
+                Ok(())
+            }),
+            Arc::new(|| Ok(())),
+        );
+
+        events.completed();
+        events.activate().unwrap();
+        assert_eq!(*delivered.lock().unwrap(), 0);
+        assert!(events.has_pending_completion().unwrap());
+
+        *should_fail.lock().unwrap() = false;
+        events.activate().unwrap();
+        assert_eq!(*delivered.lock().unwrap(), 1);
+        assert!(!events.has_pending_completion().unwrap());
     }
 }

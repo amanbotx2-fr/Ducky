@@ -14,6 +14,7 @@ const permissionDirectory = path.join(
 
 const companionCommandPermissions = [
   'allow-activate-reminder-events',
+  'allow-activate-pomodoro-events',
   'allow-create-reminder',
   'allow-update-reminder',
   'allow-delete-reminder',

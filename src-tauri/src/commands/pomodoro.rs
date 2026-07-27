@@ -38,6 +38,17 @@ pub(crate) fn custom_pomodoro_panel_closed<R: tauri::Runtime>(
         .map_err(|_| PomodoroCommandError::PomodoroUnavailable)
 }
 
+#[tauri::command]
+pub(crate) fn activate_pomodoro_events<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    events: State<'_, PomodoroEventQueue>,
+) -> Result<(), PomodoroCommandError> {
+    authorize(&window, authorization::ACTIVATE_POMODORO_EVENTS)?;
+    events
+        .activate()
+        .map_err(|_| PomodoroCommandError::PomodoroUnavailable)
+}
+
 fn authorize<R: tauri::Runtime>(
     window: &WebviewWindow<R>,
     command: authorization::CommandAuthorization,

@@ -22,6 +22,7 @@ import type { ScreenPoint } from '../shared/types';
  * be added here as placeholders.
  */
 export const TAURI_COMMANDS = Object.freeze({
+  activatePomodoroEvents: 'activate_pomodoro_events',
   activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
   customPomodoroPanelClosed: 'custom_pomodoro_panel_closed',
@@ -52,6 +53,7 @@ type TauriCommandName =
   (typeof TAURI_COMMANDS)[keyof typeof TAURI_COMMANDS];
 
 interface TauriCommandArguments {
+  readonly activate_pomodoro_events: Record<string, never>;
   readonly activate_reminder_events: Record<string, never>;
   readonly create_reminder: {
     readonly input: CreateReminderInput;
@@ -111,6 +113,7 @@ interface TauriCommandArguments {
 }
 
 interface TauriCommandResults {
+  readonly activate_pomodoro_events: void;
   readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;
   readonly custom_pomodoro_panel_closed: void;

@@ -41,7 +41,27 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let legacy_pomodoro_path = legacy_electron_data_path(app, POMODORO_FILE_NAME)?;
     let pomodoro_store = PomodoroStore::new(pomodoro_path);
     pomodoro_store.import_legacy_if_missing(legacy_pomodoro_path.as_deref())?;
-    let pomodoro_events = PomodoroEventQueue::default();
+    let state_app_handle = app.handle().clone();
+    let completion_app_handle = app.handle().clone();
+    let custom_panel_app_handle = app.handle().clone();
+    let pomodoro_events = PomodoroEventQueue::with_emitters(
+        Arc::new(move |state| {
+            events::emit(&state_app_handle, DesktopEvent::PomodoroStateChanged, state)
+                .map_err(|error| error.to_string())
+        }),
+        Arc::new(move || {
+            events::emit(&completion_app_handle, DesktopEvent::PomodoroCompleted, ())
+                .map_err(|error| error.to_string())
+        }),
+        Arc::new(move || {
+            events::emit(
+                &custom_panel_app_handle,
+                DesktopEvent::CustomPomodoroDurationRequested,
+                (),
+            )
+            .map_err(|error| error.to_string())
+        }),
+    );
     let pomodoro_runtime =
         PomodoroRuntime::new(Arc::new(pomodoro_store), Arc::new(pomodoro_events.clone()));
     pomodoro_runtime.start()?;
@@ -63,6 +83,9 @@ pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageL
 
     if let Some(runtime) = webview.app_handle().try_state::<ReminderRuntime>() {
         runtime.pending_deliveries.deactivate();
+    }
+    if let Some(events) = webview.app_handle().try_state::<PomodoroEventQueue>() {
+        events.deactivate();
     }
 }
 

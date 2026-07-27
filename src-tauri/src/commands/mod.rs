@@ -33,6 +33,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             reminders::activate_reminder_events,
             pomodoro::start_pomodoro,
             pomodoro::custom_pomodoro_panel_closed,
+            pomodoro::activate_pomodoro_events,
             settings::get_runtime_settings,
             settings::get_preferences_settings,
             settings::update_user_name,

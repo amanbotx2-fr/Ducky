@@ -163,6 +163,27 @@ describe('DesktopBridge renderer boundary', () => {
     );
   });
 
+  it('registers all Pomodoro event routes before activating recovery', async () => {
+    const adapter = await readFile(
+      path.join(sourceRoot, 'desktop', 'tauriPomodoroBridge.ts'),
+      'utf8',
+    );
+
+    for (const event of [
+      'pomodoroStateChanged',
+      'pomodoroCompleted',
+      'customPomodoroDurationRequested',
+    ]) {
+      assert.match(adapter, new RegExp(`'${event}'`));
+    }
+    assert.match(adapter, /registeredListenerCount !== 3/);
+    assert.match(
+      adapter,
+      /TAURI_COMMANDS\.activatePomodoroEvents/,
+    );
+    assert.doesNotMatch(adapter, /setInterval|setTimeout/);
+  });
+
   it('routes settings hooks through settings-only bridge views', async () => {
     const runtimeSettingsHook = await readFile(
       path.join(

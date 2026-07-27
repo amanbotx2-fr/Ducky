@@ -20,6 +20,7 @@ import {
   subscribeToTauriCursorPositions,
 } from './tauriCursorStream';
 import { subscribeToTauriEvent } from './tauriEvents';
+import { tauriPomodoroBridge } from './tauriPomodoroBridge';
 
 const companionWindowBridge: CompanionWindowBridge = Object.freeze({
   getCursorPosition: getTauriCursorPosition,
@@ -178,7 +179,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,
   getReminderBridge: () => reminderBridge,
-  getPomodoroBridge: () => undefined,
+  getPomodoroBridge: () => tauriPomodoroBridge,
   getPreferencesBridge: () => undefined,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
   getCredentialBridge: () => credentialBridge,
