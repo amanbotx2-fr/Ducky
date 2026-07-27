@@ -3421,3 +3421,67 @@ milestone.
 - Task 7.6 — complete the two existing reminder panel-request event producers,
   followed by Task 7.7 Companion context-menu integration. Do not begin
   Task 7.8 until those exact Electron entry points pass validation.
+
+### Tasks 7.6–7.7 — Reminder Events and Companion Integration
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Restored the exact Electron reminder entry points in the native Companion
+  context menu: `Personal Assistant` → `Reminders` →
+  `New Reminder…` / `Manage Reminders…`.
+- Kept each native callback entirely in Rust. It shows and focuses the
+  Companion window, then emits exactly one existing
+  `reminders:creation-panel-requested` or
+  `reminders:manager-panel-requested` event to that window.
+- Reused the Phase 3 event registry and the Task 7.4 narrow
+  `ReminderBridge` subscriptions. The existing Companion React effects remain
+  the owners of panel presentation and reminder CRUD UI.
+- Preserved the Phase 4 tray menu and static context-menu actions unchanged.
+  Neighboring Personal Assistant, Pomodoro, Planner, Sticky Message, water,
+  and runtime-settings entries remain assigned to their owning migration
+  phases.
+- Added no renderer runtime detection, Tauri import in React, reminder
+  lifecycle event, Preferences UI, or native notification behavior.
+
+**Files changed**
+
+- `src-tauri/src/desktop/menus.rs` — exact reminder submenu structure, native
+  action IDs, Companion focus/event dispatch, closed action mapping, and menu
+  parity tests.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (135 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (65 tests, including exact reminder submenu labels,
+  unique action IDs, and closed native action dispatch).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed; native menu callbacks require no new
+  renderer permission and renderer event emission remains denied.
+- Electron production-output smoke launch: passed with its original reminder
+  context menu and panel events unchanged.
+- `npx tauri dev --no-watch`: passed; the native context menu compiled,
+  launched, and reported no menu, event, renderer, or permission error.
+  Existing development custom-protocol fallback warnings were unchanged.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  macOS application bundle.
+
+**Manual verification**
+
+- Electron and Tauri runtime smoke launches passed.
+- Direct visual activation of both native reminder menu entries remains in the
+  Phase 7 final manual parity gate, after Task 7.8 enables the CRUD commands
+  used by the opened panels.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 7.8 — grant only the six existing reminder CRUD commands to the exact
+  Companion capability, then run the complete Phase 7 parity gate.
