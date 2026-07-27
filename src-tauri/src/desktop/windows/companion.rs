@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use tauri::{
-    webview::PageLoadEvent, App, LogicalPosition, LogicalSize, Monitor, PhysicalPosition,
+    webview::PageLoadEvent, LogicalPosition, LogicalSize, Manager, Monitor, PhysicalPosition,
     PhysicalRect, PhysicalSize, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 
@@ -15,8 +15,25 @@ const WIDTH: f64 = 220.0;
 const HEIGHT: f64 = 220.0;
 const MARGIN: f64 = 24.0;
 
-pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
-    let primary_monitor = app.primary_monitor()?;
+pub fn create<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
+    create_with_focus(manager, false)
+}
+
+pub fn show<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
+    if let Some(window) = manager.get_webview_window(LABEL) {
+        window.show()?;
+        window.set_focus()?;
+        return Ok(window);
+    }
+
+    create_with_focus(manager, true)
+}
+
+fn create_with_focus<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    focus_after_load: bool,
+) -> tauri::Result<WebviewWindow<R>> {
+    let primary_monitor = manager.app_handle().primary_monitor()?;
     let initial_height = primary_monitor
         .as_ref()
         .map(companion_height_for)
@@ -27,7 +44,7 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
     let startup_handled = Arc::new(AtomicBool::new(false));
 
     let mut window_builder =
-        WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
+        WebviewWindowBuilder::new(manager, LABEL, WebviewUrl::App("index.html".into()))
             .title(TITLE)
             .inner_size(WIDTH, initial_height)
             .transparent(true)
@@ -53,7 +70,7 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
                     .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
                     .is_ok()
             {
-                show_after_page_load(&window);
+                show_after_page_load(&window, focus_after_load);
             }
         })
         .build()?;
@@ -61,9 +78,16 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<WebviewWindow<R>> {
     Ok(window)
 }
 
-fn show_after_page_load<R: Runtime>(window: &WebviewWindow<R>) {
+fn show_after_page_load<R: Runtime>(window: &WebviewWindow<R>, focus: bool) {
     if let Err(error) = window.show() {
         eprintln!("[window] companion_show_failed: {error}");
+        return;
+    }
+
+    if focus {
+        if let Err(error) = window.set_focus() {
+            eprintln!("[window] companion_focus_failed: {error}");
+        }
     }
 }
 

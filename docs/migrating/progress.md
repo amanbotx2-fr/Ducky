@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 4 — Tray + Native Menu Migration
-- Last completed task: Task 4.4 — Migrate Static Native Menus
-- Next task: Task 4.5 — Migrate Native Menu Actions
+- Last completed task: Task 4.5 — Migrate Native Menu Actions
+- Next task: Task 4.6 — Renderer Context Menu Bridge
 - Blockers: None. The revised Phase 4 contract limits this phase to native
   lifecycle, static menus/actions, and the renderer-requested context-menu
   transport; feature-domain menu state remains deferred.
@@ -1495,3 +1495,78 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 4.5 — Migrate Native Menu Actions.
+
+### Task 4.5 — Migrate Native Menu Actions
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added a closed Rust dispatch table for the four custom tray action IDs.
+  Unknown menu IDs are ignored and cannot reach a native operation.
+- Show Ducky now shows and focuses an existing companion or recreates it with
+  the original positioning, size, security, and page-load behavior after the
+  window has been destroyed.
+- Preferences… now shows and focuses the declarative hidden Preferences
+  window. If that window was destroyed, Rust recreates the same label, URL,
+  dimensions, minimum dimensions, title, resizability, and hidden-before-load
+  behavior.
+- Restart uses `AppHandle::request_restart`, allowing Tauri to deliver
+  `ExitRequested` and `Exit` so tray cleanup occurs before the process is
+  relaunched.
+- Quit uses `AppHandle::exit(0)`, allowing the same shutdown cleanup.
+- About Ducky remains Tauri's native predefined About action with backend-owned
+  metadata. macOS Quit Ducky remains the native quit role.
+- macOS `RunEvent::Reopen` now shows/focuses or recreates the companion,
+  preserving Electron's `activate` behavior.
+- Menu failures are logged at the Rust boundary without involving a renderer.
+- No DesktopBridge method, feature-domain state, or Electron implementation
+  was changed.
+
+**Files changed**
+
+- `src-tauri/src/desktop/menus.rs` — added closed native action dispatch and
+  tray callbacks.
+- `src-tauri/src/desktop/lifecycle.rs` — dispatches native menu events and
+  handles macOS reopen.
+- `src-tauri/src/desktop/windows/companion.rs` — added reusable native
+  show/focus/recreate behavior.
+- `src-tauri/src/desktop/windows/preferences.rs` — added native
+  show/focus/recreate behavior for Preferences.
+- `src-tauri/src/desktop/windows/mod.rs` — registered the Preferences window
+  module.
+- `docs/migrating/progress.md` — recorded Task 4.5.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (127 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (26 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; native callbacks require no renderer
+  permission.
+- Electron development smoke launch: passed with its original native actions
+  and lifecycle unchanged.
+- Tauri development smoke launch: passed. Native dispatch registered, the
+  companion loaded, and no menu action or permission warning was logged.
+
+**Manual verification**
+
+- Native action IDs and their dispatch targets are covered by focused Rust
+  tests, including rejection of unknown IDs.
+- Window recreation constants are locked against the declarative Preferences
+  configuration by a focused Rust test.
+- The final Phase 4 interactive pass verifies each tray/application menu item,
+  restart, and quit from a packaged native app so it can be selected
+  independently from the installed Electron reference.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 4.6 — Renderer Context Menu Bridge.

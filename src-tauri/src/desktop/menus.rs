@@ -1,7 +1,9 @@
 use tauri::{
-    menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, SubmenuBuilder},
-    App, Runtime,
+    menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, SubmenuBuilder},
+    App, AppHandle, Runtime,
 };
+
+use super::windows::{companion, preferences};
 
 pub const SHOW_COMPANION_ID: &str = "ducky.show-companion";
 pub const SHOW_PREFERENCES_ID: &str = "ducky.show-preferences";
@@ -42,6 +44,14 @@ const TRAY_MENU_ENTRIES: [TrayMenuEntry; 6] = [
         label: "Quit",
     },
 ];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NativeMenuAction {
+    ShowCompanion,
+    ShowPreferences,
+    Restart,
+    Quit,
+}
 
 pub fn create_tray_menu<R: Runtime>(app: &App<R>) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
@@ -100,6 +110,39 @@ pub fn install_application_menu<R: Runtime>(_app: &App<R>) -> tauri::Result<()> 
     Ok(())
 }
 
+pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) -> tauri::Result<()> {
+    let Some(action) = action_for_id(event.id().as_ref()) else {
+        return Ok(());
+    };
+
+    match action {
+        NativeMenuAction::ShowCompanion => {
+            companion::show(app)?;
+        }
+        NativeMenuAction::ShowPreferences => {
+            preferences::show(app)?;
+        }
+        NativeMenuAction::Restart => {
+            app.request_restart();
+        }
+        NativeMenuAction::Quit => {
+            app.exit(0);
+        }
+    }
+
+    Ok(())
+}
+
+fn action_for_id(id: &str) -> Option<NativeMenuAction> {
+    match id {
+        SHOW_COMPANION_ID => Some(NativeMenuAction::ShowCompanion),
+        SHOW_PREFERENCES_ID => Some(NativeMenuAction::ShowPreferences),
+        RESTART_ID => Some(NativeMenuAction::Restart),
+        QUIT_ID => Some(NativeMenuAction::Quit),
+        _ => None,
+    }
+}
+
 fn about_metadata<R: Runtime>(app: &App<R>) -> AboutMetadata<'static> {
     AboutMetadata {
         name: Some(APP_NAME.to_string()),
@@ -114,8 +157,8 @@ fn about_metadata<R: Runtime>(app: &App<R>) -> AboutMetadata<'static> {
 #[cfg(test)]
 mod tests {
     use super::{
-        TrayMenuEntry, QUIT_ID, RESTART_ID, SHOW_COMPANION_ID, SHOW_PREFERENCES_ID,
-        TRAY_MENU_ENTRIES,
+        action_for_id, NativeMenuAction, TrayMenuEntry, QUIT_ID, RESTART_ID, SHOW_COMPANION_ID,
+        SHOW_PREFERENCES_ID, TRAY_MENU_ENTRIES,
     };
 
     #[test]
@@ -151,5 +194,21 @@ mod tests {
         let unique = ids.into_iter().collect::<std::collections::HashSet<_>>();
 
         assert_eq!(ids.len(), unique.len());
+    }
+
+    #[test]
+    fn native_action_dispatch_is_closed_to_unknown_ids() {
+        assert_eq!(
+            action_for_id(SHOW_COMPANION_ID),
+            Some(NativeMenuAction::ShowCompanion)
+        );
+        assert_eq!(
+            action_for_id(SHOW_PREFERENCES_ID),
+            Some(NativeMenuAction::ShowPreferences)
+        );
+        assert_eq!(action_for_id(RESTART_ID), Some(NativeMenuAction::Restart));
+        assert_eq!(action_for_id(QUIT_ID), Some(NativeMenuAction::Quit));
+        assert_eq!(action_for_id("ducky.settings"), None);
+        assert_eq!(action_for_id(""), None);
     }
 }

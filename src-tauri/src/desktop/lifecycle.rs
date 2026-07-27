@@ -1,6 +1,6 @@
 use tauri::{AppHandle, RunEvent, Runtime};
 
-use super::tray;
+use super::{menus, tray, windows::companion};
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     match event {
@@ -9,6 +9,17 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
         }
         RunEvent::Exit => {
             tray::destroy(app);
+        }
+        RunEvent::MenuEvent(event) => {
+            if let Err(error) = menus::handle_menu_event(app, &event) {
+                eprintln!("[menu] native_action_failed: {error}");
+            }
+        }
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => {
+            if let Err(error) = companion::show(app) {
+                eprintln!("[menu] companion_reopen_failed: {error}");
+            }
         }
         _ => {}
     }
