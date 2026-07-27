@@ -18,4 +18,4 @@ tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-tauri = { version = "2.11.3", features = ["macos-private-api"] }
+tauri = { version = "2.11.3", features = ["macos-private-api", "tray-icon"] }

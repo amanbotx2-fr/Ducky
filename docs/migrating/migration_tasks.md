@@ -295,11 +295,468 @@ All 36 IPC channels migrated.
 
 # PHASE 4
 
-Tray + Menu
+Tray + Native Menu Migration
 
-...
+Goal
+
+Migrate the native system tray and native application menu to Tauri v2 while
+preserving existing Electron behaviour.
+
+Electron remains the reference implementation until Phase 12.
+
+DesktopBridge remains the only renderer abstraction.
+
+Native tray callbacks remain inside the runtime and are never routed through
+the renderer.
 
 ---
+
+## Discovery
+
+Before implementation:
+
+- Inspect the existing Electron tray implementation.
+- Inspect tray lifecycle.
+- Inspect tray icon loading.
+- Inspect native application menu.
+- Inspect tray menu.
+- Inspect renderer interactions.
+- Inspect DesktopBridge integration points.
+- Document findings inside docs/migrating/progress.md.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- native tray creation
+- tray lifecycle
+- tray destruction
+- tray icon loading
+- tray startup integration
+- static tray menu
+- macOS application menu
+- native menu callbacks
+- show companion
+- focus companion
+- show preferences
+- about
+- restart
+- quit
+- DesktopBridge support for renderer-requested context menus
+- least-privilege permissions
+
+This phase does NOT include:
+
+- dynamic companion context menu
+- settings
+- runtime settings
+- reminder system
+- water reminders
+- pomodoro
+- daily planner
+- sticky message
+- user profile
+- credentials
+- AI
+- updater
+- release pipeline
+- Electron removal
+
+---
+
+## Architecture Rules
+
+Native tray events belong to the runtime.
+
+Examples:
+
+- tray click
+- menu selection
+- restart
+- quit
+- show companion
+- show preferences
+
+These actions execute directly inside Rust.
+
+DesktopBridge is only used when the renderer requests native functionality,
+such as opening a companion context menu.
+
+Renderer-originated requests:
+
+Renderer
+↓
+
+DesktopBridge
+↓
+
+Runtime Adapter
+↓
+
+Rust
+
+Native-originated callbacks:
+
+Rust
+↓
+
+Native Window APIs
+
+Do not route native callbacks back through DesktopBridge.
+
+---
+
+## Task 4.1
+
+Audit Existing Tray Behaviour
+
+Objective
+
+Document the Electron implementation.
+
+Acceptance
+
+- tray lifecycle documented
+- menu hierarchy documented
+- renderer integration documented
+- DesktopBridge touch points documented
+- platform differences documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 4.2
+
+Create Native Tray Infrastructure
+
+Objective
+
+Implement the native Tauri tray.
+
+Requirements
+
+- tray owned by Rust
+- singleton lifecycle
+- preserve Electron implementation
+- renderer unchanged
+
+Acceptance
+
+- tray initializes
+- tray survives startup
+- tray destroyed during shutdown
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate tray infrastructure
+
+---
+
+## Task 4.3
+
+Migrate Tray Icon
+
+Objective
+
+Implement native tray icon loading.
+
+Requirements
+
+- preserve existing icon
+- preserve platform sizing
+- preserve icon quality
+- no duplicate assets
+
+Acceptance
+
+- tray icon visible
+- icon matches Electron
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate tray icons
+
+---
+
+## Task 4.4
+
+Migrate Static Native Menus
+
+Objective
+
+Implement the static tray menu and macOS application menu.
+
+This task includes only static menus.
+
+Requirements
+
+Preserve:
+
+- ordering
+- labels
+- separators
+- native roles
+
+Do not migrate:
+
+- dynamic companion context menu
+- checked runtime state
+- reminder actions
+- pomodoro actions
+- settings actions
+
+Acceptance
+
+- tray menu matches Electron
+- macOS application menu matches Electron
+- menu hierarchy preserved
+
+Commit
+
+feat(tauri): migrate native menus
+
+---
+
+## Task 4.5
+
+Migrate Native Menu Actions
+
+Objective
+
+Implement native callbacks.
+
+Includes
+
+- show companion
+- focus companion
+- show preferences
+- about
+- restart
+- quit
+
+Requirements
+
+- callbacks execute inside Rust
+- renderer remains runtime agnostic
+- Electron preserved
+
+Acceptance
+
+All existing static menu actions function correctly.
+
+Commit
+
+feat(tauri): migrate menu actions
+
+---
+
+## Task 4.6
+
+Renderer Context Menu Bridge
+
+Objective
+
+Implement only the bridge required for renderer-requested companion context
+menus.
+
+This task does NOT migrate the dynamic menu itself.
+
+Requirements
+
+- renderer requests native context menu
+- DesktopBridge used only for request dispatch
+- no menu state implemented
+- no Settings integration
+- no Pomodoro integration
+- no Reminder integration
+
+Acceptance
+
+Renderer can request a native companion context menu.
+
+Dynamic menu content remains deferred.
+
+Commit
+
+feat(tauri): migrate context menu bridge
+
+---
+
+## Task 4.7
+
+Permissions
+
+Objective
+
+Grant minimum required permissions.
+
+Requirements
+
+- exact window labels
+- no wildcard permissions
+- no filesystem permissions
+- no shell permissions
+- no process permissions
+- no unnecessary plugins
+
+Acceptance
+
+Permission validation passes.
+
+Commit
+
+feat(tauri): migrate tray permissions
+
+---
+
+## Deferred
+
+The following functionality is intentionally excluded from Phase 4 and will be
+implemented during their owning feature phases.
+
+Settings
+
+- runtime settings
+- eye tracking
+- always on top
+
+Pomodoro
+
+- timer menu
+- pause
+- resume
+- stop
+- custom duration
+
+Reminder System
+
+- reminder creation
+- reminder management
+- water reminders
+
+Daily Planner
+
+- planner actions
+
+Profile
+
+- user name
+
+Sticky Message
+
+- set
+- clear
+
+These features remain Electron-only until their migration phase.
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix all failures before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- tray icon visible
+- tray survives startup
+- tray survives restart
+- tray menu opens
+- menu labels correct
+- menu ordering correct
+- separators correct
+- macOS application menu correct
+- Show Companion works
+- Show Preferences works
+- About works
+- Restart works
+- Quit works
+- no permission warnings
+- no renderer console errors
+
+Dynamic companion context menu is intentionally excluded from this verification.
+
+---
+
+## Progress Tracking
+
+Update docs/migrating/progress.md with:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 4 is complete only if:
+
+✓ Native tray created
+
+✓ Tray lifecycle matches Electron
+
+✓ Tray icon matches Electron
+
+✓ Static tray menu matches Electron
+
+✓ macOS application menu matches Electron
+
+✓ Show Companion works
+
+✓ Show Preferences works
+
+✓ About works
+
+✓ Restart works
+
+✓ Quit works
+
+✓ Native callbacks remain inside Rust
+
+✓ DesktopBridge used only for renderer-originated requests
+
+✓ Dynamic companion context menu explicitly deferred
+
+✓ Electron implementation preserved
+
+✓ All validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 5 begin.
 
 # PHASE 5
 

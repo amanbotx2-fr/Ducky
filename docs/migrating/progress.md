@@ -4,10 +4,12 @@
 
 ## Current Status
 
-- Active phase: Phase 3 — IPC Migration (infrastructure complete)
-- Last completed task: Task 3.5 — DesktopBridge → Tauri
-- Next task: Phase 4 — not started; executable task definitions are required
-- Blockers: None for Task 3.5.
+- Active phase: Phase 4 — Tray + Native Menu Migration
+- Last completed task: Task 4.2 — Create Native Tray Infrastructure
+- Next task: Task 4.3 — Migrate Tray Icon
+- Blockers: None. The revised Phase 4 contract limits this phase to native
+  lifecycle, static menus/actions, and the renderer-requested context-menu
+  transport; feature-domain menu state remains deferred.
 
 ## Completed Tasks
 
@@ -1098,3 +1100,269 @@ or Electron event implementation changed. Task 3.3 was not started.
 **Next task**
 
 - Phase 4 — not started.
+
+## Phase 4 — Tray + Native Menu Migration
+
+### Task 4.1 — Audit Existing Tray Behaviour
+
+**Status:** Complete — contract clarification applied
+
+**Electron tray lifecycle**
+
+- `src/main/main.ts` owns one process-wide `Tray | null`.
+- Startup waits for `app.whenReady()`, loads every current service, registers
+  IPC, applies settings, and creates the companion before calling
+  `createSystemTray()`.
+- Tray creation is best effort. A load/construction failure is logged as
+  `[tray] create_failed`; it does not terminate startup and is not retried.
+- `src/main/tray.ts` creates exactly one tray icon, sets the `Ducky` tooltip,
+  assigns one context menu, and returns the retained native tray object.
+- There is no tray click, double-click, balloon, drag, visibility toggle, or
+  icon-state event.
+- There is no `window-all-closed` quit handler. Closing both windows leaves
+  the process and tray alive. macOS `activate` shows or recreates the
+  companion.
+- `before-quit` removes application listeners, disposes the current services
+  and IPC handlers, explicitly destroys the tray, and clears its reference.
+- Restart cancels active AI work, disposes Pomodoro, calls `app.relaunch()`,
+  then exits. Quit calls `app.quit()`, which reaches the shared shutdown path.
+
+**Tray icon**
+
+- Electron uses only `assets/icons/icon.png`; there are no alternate,
+  selected, disabled, light/dark, or animated tray states.
+- `nativeImage.createFromPath()` loads the packaged/development application
+  icon. An empty image aborts tray creation.
+- Electron resizes the icon with `quality: "best"` to `18 × 18` on macOS and
+  `20 × 20` on Windows/Linux.
+- Electron does not mark the macOS image as a template image, so the existing
+  full-color artwork is the parity reference.
+- Tauri already contains generated application icons under
+  `src-tauri/icons/`, but no tray-specific asset or loader exists.
+
+**Native menu hierarchy**
+
+- The static tray menu is created once at startup:
+  1. `Show Ducky`
+  2. `Preferences…`
+  3. `About Ducky`
+  4. separator
+  5. `Restart`
+  6. `Quit`
+- The macOS application menu is created before `whenReady()`:
+  - `Ducky`: `About Ducky`, separator, Services, separator, Hide Ducky,
+    Hide Others, Show All, separator, Quit Ducky.
+  - the standard Edit menu, which preserves native text-editing shortcuts.
+- The companion context menu is rebuilt on every renderer right-click so its
+  dynamic state is current:
+  - `Pomodoro`: `25 min` and `50 min` radio items, separator, `Custom…`
+    radio item, separator, and enabled-state-aware Pause/Resume/Stop items.
+  - separator.
+  - `Personal Assistant`: Set My Name, separator, Reminders
+    (New/Manage), Daily Planner, separator, Sticky Message
+    (Set/Clear, with Clear enabled only when a message exists).
+  - separator.
+  - `Water Reminders`: Enabled checkbox and Reminder Interval
+    (`30/45/60 min` radio items).
+  - separator.
+  - Eye Tracking and Always On Top checkboxes.
+  - separator.
+  - Preferences, About Ducky.
+  - separator.
+  - Restart, Quit.
+
+**Menu state and actions**
+
+- The application and tray menus are static; neither is rebuilt after
+  startup and neither contains checked or disabled state.
+- The context menu snapshots `AppSettings` and `PomodoroState` every time it
+  opens. There is no subscription-driven native-menu state cache.
+- Tray actions show/focus or recreate the companion, show/focus the existing
+  Preferences window or create it, show About, restart, and quit.
+- Context-menu actions additionally mutate water/eye/always-on-top/sticky
+  settings, control Pomodoro, request a custom Pomodoro duration, and request
+  the name, sticky-message, reminder creation/management, and daily-planner
+  renderer panels.
+- The Electron reference has no Hide Companion or Hide Preferences menu
+  action. Its macOS Hide Ducky item is the standard application-level role,
+  not a window-specific tray command.
+
+**Renderer and DesktopBridge integration**
+
+- `PsyDuck.tsx` prevents the browser context menu and calls
+  `companionDesktopBridge.getCompanionBridge()?.showCompanionContextMenu()`.
+- Electron adapts that operation to the authorized
+  `psyduck:show-context-menu` preload event. The main process validates the
+  companion role and opens the native menu against the companion window.
+- Native panel actions return to the companion through the existing targeted
+  events for user name, sticky message, reminder creation, reminder
+  management, daily planner, and custom Pomodoro duration.
+- `App.tsx` subscribes to those actions through `CompanionBridge`; it contains
+  no Electron/Tauri detection.
+- The Tauri adapter intentionally returns `undefined` for the full
+  `CompanionBridge` until its later feature domains are migrated. It currently
+  exposes only the completed Phase 1–3 `CompanionWindowBridge`.
+- The architecture-compatible Phase 4 request path would place a scoped
+  `show_companion_context_menu` command behind the companion DesktopBridge
+  view, authorize only the exact companion webview, build the menu in
+  `src-tauri/src/desktop/menus.rs`, and retain the tray in
+  `src-tauri/src/desktop/tray.rs`. Native-only window/quit/restart callbacks
+  belong in Rust; panel requests use the existing targeted event
+  infrastructure.
+- Backend-created tray/menu objects require no renderer plugin permission.
+  Only a renderer-requested companion context-menu command needs a generated,
+  companion-only application-command permission. No generic menu/tray,
+  filesystem, shell, process, or wildcard capability is required.
+
+**Source-of-truth discrepancies**
+
+1. Phase 4 requires the complete native menu, identical dynamic checked and
+   enabled state, and every action to function. The Electron context menu
+   obtains that state from Settings and Pomodoro and mutates Settings,
+   Pomodoro, Reminders, and Daily Planner. The same Phase 4 contract expressly
+   prohibits migrating Settings, Reminders, and Pomodoro before their later
+   phases. A static/default/disabled menu would be a production placeholder
+   and would fail parity.
+2. Task 4.6 requires Hide Companion and Hide Preferences. Neither operation
+   exists in the Electron tray or companion context menus. Adding them would
+   invent new behavior instead of matching Electron.
+3. Task 4.5 says every native menu action must route “through DesktopBridge.”
+   `migration_codex.md` defines DesktopBridge as the renderer-to-runtime
+   boundary while the Rust application core owns windows/tray/menus. Native
+   show/focus/quit/restart callbacks therefore should remain inside Rust;
+   only renderer context-menu requests and targeted panel events cross the
+   bridge. Routing native-only callbacks through a renderer would reverse the
+   prescribed trust boundary.
+
+**Required contract decision**
+
+- Either limit Phase 4 parity to the static tray menu, macOS application
+  menu, native lifecycle, and their existing window/About/restart/quit
+  actions, explicitly deferring the dynamic companion context menu to its
+  Settings/Reminder/Pomodoro phases; or
+- authorize the minimum Settings, Reminder, Daily Planner, and Pomodoro
+  services to move early with the context menu, which changes the mandated
+  phase order; and
+- clarify that DesktopBridge covers renderer-originated menu requests and
+  targeted renderer events, while native-only actions remain in Rust.
+- Remove the two non-reference hide actions from Task 4.6 or identify the
+  Electron behavior they are intended to preserve.
+
+No application, Electron, Tauri, renderer, asset, dependency, capability, or
+test file was changed. Per the architecture rule, implementation stopped
+before Task 4.2 rather than guessing.
+
+**Validation performed**
+
+- Static source audit covered `src/main/main.ts`, `src/main/tray.ts`,
+  `src/main/menus.ts`, both window constructors, branding, preload/IPC
+  authorization, renderer menu subscriptions, DesktopBridge adapters, the
+  Tauri command/event/authorization infrastructure, capabilities, icons, and
+  Tauri configuration.
+- Confirmed no direct Electron or Tauri API is used by the renderer for menu
+  behavior.
+- No build or runtime validation was required because Task 4.1 made no
+  production-code change.
+
+**Commits**
+
+- None. Task 4.1 explicitly requires no commit.
+
+**Contract clarification**
+
+- The updated `docs/migrating/migration_tasks.md` resolves every discrepancy
+  recorded during discovery.
+- Phase 4 now covers Rust-owned tray lifecycle, the static tray and macOS
+  application menus, their native callbacks, the renderer-requested context
+  menu transport, and least-privilege authorization.
+- Dynamic Settings, Pomodoro, Reminder, Daily Planner, Profile, Sticky
+  Message, AI, and Updater menu behavior remains deferred to the feature phase
+  that owns each domain.
+- DesktopBridge is used only for renderer-originated context-menu requests.
+  Native tray and application-menu callbacks remain in Rust.
+- No new hide actions are required.
+
+**Blockers**
+
+- None. The clarified Phase 4 execution contract is architecture-compatible.
+
+**Next task**
+
+- Task 4.2 — Create Native Tray Infrastructure.
+
+### Task 4.2 — Create Native Tray Infrastructure
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added `src-tauri/src/desktop/tray.rs` as the Rust-owned tray lifecycle
+  module.
+- The tray uses a stable `ducky-tray` identifier and returns the existing
+  native instance when initialization is requested more than once.
+- Startup creates the tray after the companion window is created. The tray is
+  retained by Tauri's native resource table and remains independent of every
+  renderer.
+- An empty native menu is attached during this infrastructure task so Linux
+  status notifier implementations can display the tray. Task 4.4 replaces it
+  with Ducky's static menu.
+- Added `src-tauri/src/desktop/lifecycle.rs`. Closing the final window on
+  Windows/Linux does not terminate the tray application; explicit exit and
+  restart requests remain authoritative. macOS retains its native
+  application lifecycle.
+- `RunEvent::Exit` removes and drops the registered tray, matching Electron's
+  explicit `before-quit` cleanup.
+- Enabled only Tauri's built-in `tray-icon` feature. No renderer plugin,
+  renderer permission, filesystem permission, shell permission, or process
+  permission was introduced.
+- The Electron tray, renderer, DesktopBridge, and application behavior were
+  not changed.
+
+**Files changed**
+
+- `docs/migrating/migration_tasks.md` — accepted the clarified Phase 4
+  execution contract as the source of truth.
+- `src-tauri/Cargo.toml` — enabled Tauri's built-in `tray-icon` feature.
+- `src-tauri/src/desktop/mod.rs` — registered the lifecycle and tray modules.
+- `src-tauri/src/desktop/lifecycle.rs` — added tray-resident application
+  lifecycle and shutdown cleanup.
+- `src-tauri/src/desktop/tray.rs` — added singleton native tray creation and
+  destruction.
+- `src-tauri/src/lib.rs` — created the tray during setup and connected the
+  native run-event lifecycle.
+- `docs/migrating/progress.md` — recorded the clarified contract and Task 4.2.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (127 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (21 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; no tray/menu renderer capability was
+  added.
+- Electron development smoke launch: passed. The unchanged companion renderer
+  loaded from the repository build and Electron stayed alive until stopped
+  manually.
+- Tauri development smoke launch: passed. Rust compiled, the companion loaded,
+  and the process stayed alive with the native tray registered until stopped
+  manually.
+
+**Manual verification**
+
+- Confirmed the Tauri companion remains the startup window; Preferences stays
+  hidden.
+- Confirmed the Tauri process remains alive after startup with no tray
+  construction error or permission warning.
+- Native menu hierarchy and actions are intentionally verified in Tasks
+  4.4–4.5 after they exist.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 4.3 — Migrate Tray Icon.

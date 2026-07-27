@@ -8,11 +8,14 @@ mod events;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    commands::register(tauri::Builder::default())
+    let app = commands::register(tauri::Builder::default())
         .setup(|app| {
             desktop::windows::companion::create(app)?;
+            desktop::tray::create(app)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(desktop::lifecycle::handle_run_event);
 }
