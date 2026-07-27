@@ -1919,9 +1919,474 @@ Only then may Phase 8 begin.
 
 # PHASE 8
 
-Pomodoro
+Pomodoro Migration
 
-...
+Goal
+
+Migrate the existing Pomodoro focus timer from Electron to Tauri v2 while
+preserving timer accuracy, duration selection, pause/resume/stop semantics,
+completion behavior, DesktopBridge architecture, and renderer behavior.
+
+Electron remains the reference implementation.
+
+DesktopBridge remains the only renderer abstraction.
+
+Timer execution belongs entirely to Rust.
+
+The renderer remains runtime agnostic.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- Inspect the existing `PomodoroManager`.
+- Inspect timer lifecycle.
+- Inspect preset and custom duration selection.
+- Inspect pause/resume behavior.
+- Inspect stop behavior.
+- Inspect completion flow.
+- Inspect notification flow.
+- Inspect startup restoration.
+- Inspect persistence.
+- Inspect IPC.
+- Inspect DesktopBridge contracts.
+- Inspect renderer hooks.
+- Inspect Preferences integration.
+- Inspect tray/context-menu interactions.
+- Document findings inside `docs/migrating/progress.md`.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- native Pomodoro engine
+- timer scheduler
+- timer persistence
+- startup restoration
+- focus sessions
+- preset and custom durations
+- pause
+- resume
+- stop
+- timer completion
+- DesktopBridge
+- runtime events
+- Companion integration
+- existing notification widget
+- existing sounds
+- existing Pomodoro context-menu actions
+- least-privilege permissions
+
+This phase does NOT include:
+
+- AI
+- updater
+- release pipeline
+- Electron removal
+- planner
+- reminder redesign
+
+---
+
+## Parity Rule
+
+This phase follows strict Electron parity.
+
+If `migration_tasks.md` conflicts with either
+`migration_codex.md` or the existing Electron implementation,
+the Electron implementation is authoritative unless an explicit redesign has
+been approved beforehand.
+
+Do not redesign Pomodoro behavior. In particular, do not add short-break,
+long-break, reset, skip, auto-start, session-cycle, or Preferences behavior
+that does not exist in Electron.
+
+---
+
+## Architecture Rules
+
+Timer execution belongs to Rust.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Runtime Adapter
+
+↓
+
+Rust
+
+The renderer must never own production timer execution.
+
+Do not use browser timers as the production timer.
+
+DesktopBridge remains the only renderer abstraction.
+
+Do not expose Tauri APIs directly to React.
+
+---
+
+## Task 8.1
+
+Audit Existing Pomodoro System
+
+Objective
+
+Document the existing Electron implementation.
+
+Acceptance
+
+- timer lifecycle documented
+- session transitions documented
+- persistence documented
+- DesktopBridge documented
+- startup restoration documented
+- renderer integration documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 8.2
+
+Create Native Pomodoro Engine
+
+Objective
+
+Implement the native Rust Pomodoro engine.
+
+Requirements
+
+- singleton
+- runtime owned
+- survives restart
+- deterministic timer state
+- renderer independent
+
+Acceptance
+
+- engine starts
+- engine stops
+- state restored
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate pomodoro engine
+
+---
+
+## Task 8.3
+
+Pomodoro Persistence
+
+Objective
+
+Implement the existing separate native `pomodoro.json` store.
+
+Requirements
+
+- preserve Electron schema
+- preserve the separate file name and document version
+- atomic persistence
+- startup restoration
+- owner-only file permissions where supported
+- preserve missing, invalid, and failed-load behavior
+
+Acceptance
+
+- state persists
+- restart restores state
+- Electron parity maintained
+
+Commit
+
+feat(tauri): migrate pomodoro persistence
+
+---
+
+## Task 8.4
+
+DesktopBridge Commands
+
+Objective
+
+Expose Pomodoro commands through DesktopBridge.
+
+Includes
+
+- start
+- custom-duration panel closed
+- state snapshot/event activation required for startup and reload recovery
+
+Requirements
+
+- typed commands
+- DesktopBridge only
+- renderer unchanged
+- pause, resume, and stop remain Rust-owned native menu actions
+- no additional renderer command surface
+
+Acceptance
+
+Renderer controls Pomodoro exclusively through DesktopBridge.
+
+Commit
+
+feat(tauri): migrate pomodoro commands
+
+---
+
+## Task 8.5
+
+Runtime Events
+
+Objective
+
+Implement existing Pomodoro runtime events.
+
+Requirements
+
+- preserve Electron event contract
+- preserve only `pomodoro:custom-duration-requested`,
+  `pomodoro:state-changed`, and `pomodoro:completed`
+- exact window targeting
+- DesktopBridge abstraction
+- no renderer polling
+- preserve startup/reload buffering for state, completion, and custom-duration
+  requests
+
+Acceptance
+
+Renderer receives timer updates exactly as Electron.
+
+Commit
+
+feat(tauri): migrate pomodoro events
+
+---
+
+## Task 8.6
+
+Companion Integration
+
+Objective
+
+Reconnect the existing Companion UI.
+
+Requirements
+
+- preserve UI
+- preserve UX
+- preserve the existing custom-duration panel
+- preserve the existing running/paused timer widget
+- preserve the existing native context-menu presets, checked state,
+  Pause/Resume enabled state, Stop enabled state, and Custom… entry point
+- keep all native context-menu callbacks inside Rust
+
+Acceptance
+
+Companion behaves identically to Electron.
+
+Commit
+
+feat(tauri): migrate pomodoro companion
+
+---
+
+## Task 8.7
+
+Timer Completion
+
+Objective
+
+Preserve completion behavior.
+
+Requirements
+
+- existing React completion widget
+- existing sounds
+- existing transitions
+- existing completion flow
+
+Do not introduce:
+
+- native OS notifications
+- notification plugins
+- notification permissions
+
+Acceptance
+
+Completion behavior matches Electron exactly.
+
+Commit
+
+feat(tauri): migrate pomodoro completion
+
+---
+
+## Task 8.8
+
+Permissions
+
+Objective
+
+Grant least-privilege permissions.
+
+Requirements
+
+- Pomodoro commands only
+- exact window labels
+- no wildcard capabilities
+- no unnecessary plugins
+
+Acceptance
+
+Permission validation passes.
+
+Commit
+
+feat(tauri): migrate pomodoro permissions
+
+---
+
+## Deferred
+
+The following functionality is intentionally excluded.
+
+AI
+
+- AI coaching
+- AI productivity suggestions
+- AI session planning
+
+Updater
+
+- update reminders
+- release prompts
+
+Planner
+
+- planner integration
+
+Electron Removal
+
+- deferred to Phase 12
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix every failure before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- 25, 50, and 90 minute focus sessions start
+- custom focus duration starts
+- starting a duration replaces the current session exactly as Electron
+- selected-duration radio state matches Electron
+- pause works
+- resume works
+- stop works
+- timer survives restart
+- startup restoration works
+- elapsed time is materialized correctly after restart
+- expired restored sessions complete exactly once
+- completion widget appears
+- sounds play
+- Companion controls work
+- DesktopBridge works
+- no renderer console errors
+- no permission warnings
+
+---
+
+## Progress Tracking
+
+Update `docs/migrating/progress.md` after every milestone.
+
+Include:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 8 is complete only if:
+
+✓ Native Pomodoro engine implemented
+
+✓ Timer execution owned by Rust
+
+✓ Startup restoration works
+
+✓ Persistence matches Electron
+
+✓ Pause/Resume matches Electron
+
+✓ Stop matches Electron
+
+✓ Preset/custom duration behavior matches Electron
+
+✓ Native Pomodoro context-menu behavior matches Electron
+
+✓ Companion integration preserved
+
+✓ DesktopBridge fully migrated
+
+✓ Existing completion widget preserved
+
+✓ Existing sounds preserved
+
+✓ Least-privilege permissions implemented
+
+✓ Electron implementation preserved
+
+✓ All automated validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 9 begin.
 
 ---
 

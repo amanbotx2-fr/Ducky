@@ -4,14 +4,12 @@
 
 ## Current Status
 
-- Active work: Phase 7 execution contract aligned with strict Electron parity;
-  implementation has not started.
-- Last completed phase: Phase 6 — Credential and Secret Storage Migration
-- Last completed task: Task 6.5 — Credential Preferences Integration
-- Next task: Task 7.2 — Create Native Reminder Engine, only when explicitly
-  requested.
-- Blockers: None. The Phase 7 source-of-truth conflict was resolved by making
-  the existing Electron implementation authoritative.
+- Active work: Phase 8 — Pomodoro Migration
+- Last completed phase: Phase 7 — Reminder System Migration
+- Last completed task: Task 8.1 — Audit Existing Pomodoro System
+- Next task: Task 8.2 — Create Native Pomodoro Engine
+- Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
+  the migration-wide Electron parity rule.
 
 ## Completed Tasks
 
@@ -3649,3 +3647,132 @@ Verification was performed against the exact workspace bundle at
 **Next task**
 
 - Phase 8 — Pomodoro. Do not begin automatically.
+
+## Phase 8 — Pomodoro Migration
+
+### Task 8.1 — Audit Existing Pomodoro System
+
+**Status:** Complete. The Phase 8 contract is aligned with strict Electron
+parity; production implementation has not started.
+
+**Electron timer lifecycle and state**
+
+- `src/main/PomodoroManager.ts` is the authoritative timer service. It owns
+  one focus session, one scheduled wake timer, serialized persistence, state
+  listeners, and completion listeners.
+- `src/shared/pomodoro.ts` defines the exact state:
+  `running`, `paused`, `selectedDurationMinutes`, `durationMinutes`,
+  `remainingSeconds`, and `startedAt`.
+- A session starts with a whole-minute duration from 1 through 720. Electron
+  exposes 25, 50, and 90 minute presets plus the existing custom-duration
+  panel.
+- Starting while a session is active replaces that session. Pause first
+  materializes elapsed wall-clock time and then freezes the remaining time.
+  Resume keeps the frozen remaining time and starts a new wall-clock
+  baseline. Stop returns to an idle state while retaining the selected
+  duration.
+- The manager has no work/break mode, short break, long break, reset, skip,
+  automatic cycle, session counter, or Preferences integration.
+
+**Scheduling and time materialization**
+
+- Electron schedules exactly one timeout aligned to the next one-second
+  boundary. Every wake materializes remaining time from `Date.now()` and the
+  persisted `startedAt` baseline rather than decrementing stored state.
+- Delayed timers, sleep, renderer closure, and relaunch therefore reconcile
+  from elapsed wall-clock time. `powerMonitor.resume` does not invoke a
+  special Pomodoro operation; the deadline-based tick/get-state path is
+  authoritative.
+- Completion clears the timer, persists the idle state, emits the idle state,
+  and then invokes completion listeners exactly once.
+
+**Persistence and startup restoration**
+
+- `FilePomodoroPersistence` stores a separate version-1 `pomodoro.json` under
+  Electron's user-data directory. It does not store Pomodoro state inside
+  `settings.json`.
+- The exact document is `{ "version": 1, "state": PomodoroState }`.
+  Temporary-file writes use mode `0600` and rename over the authoritative
+  file.
+- A missing file starts idle and queues the default document. A valid running
+  or paused document is restored and materialized. An expired running session
+  completes during load. Invalid or failed loads fall back to idle and are
+  logged without inventing a schema migration.
+- State-changing persistence operations are serialized and persistence
+  failures are logged without crashing the timer.
+
+**IPC, DesktopBridge, and renderer integration**
+
+- Electron exposes only `pomodoro:start` and
+  `pomodoro:custom-panel-closed` as renderer-originated operations.
+  Pause, resume, stop, and preset starts originate in the native context menu
+  and remain runtime-owned.
+- The existing backend events are exactly
+  `pomodoro:custom-duration-requested`, `pomodoro:state-changed`, and
+  `pomodoro:completed`, all targeted to the Companion.
+- Electron main buffers one pending completion and resynchronizes the current
+  state plus a visible custom-duration request after Companion load. The
+  preload separately buffers early state, completion, and custom-duration
+  delivery until React listeners register.
+- `usePomodoroState.ts`, `PomodoroDurationPanel.tsx`,
+  `PomodoroWidget.tsx`, and `App.tsx` own presentation only. The widget shows
+  Focus or Paused, the custom panel validates 1–720 minutes, and completion
+  retains the existing celebration, personality message, and
+  `NotificationSoundService` playback.
+- The current broad `CompanionBridge` contains the Electron Pomodoro methods.
+  Phase 8 will extract an exact narrow `PomodoroBridge`, preserve the Electron
+  adapter, and activate the Tauri adapter without adding runtime detection to
+  React.
+
+**Native menu and permissions**
+
+- `src/main/menus.ts` builds the Pomodoro submenu on every context-menu open.
+  It contains 25/50/90 minute radio items, Custom…, Pause, Resume, and Stop.
+  Checked/enabled state comes from the current authoritative timer snapshot.
+- The existing Tauri context menu deliberately deferred this submenu. Phase 8
+  must restore it using Rust-owned callbacks and current native state.
+- Electron authorizes only the Companion renderer's two Pomodoro requests.
+  Tauri currently reserves the three event routes but has no Pomodoro
+  commands, grants, or notification plugin. Phase 8 will add only exact
+  Companion command/listen authority and no OS notification permission.
+
+**Contract clarification**
+
+- The user-supplied Phase 8 contract mentioned short/long breaks, reset,
+  skip, session transitions, and moving Pomodoro into the native settings
+  store. None exists in Electron, while `migration_codex.md` explicitly
+  requires preservation of the separate `pomodoro.json` format.
+- The migration-wide parity rule therefore removes those feature-expansion
+  requirements. Phase 8 migrates only the existing focus timer,
+  preset/custom duration behavior, pause/resume/stop behavior, separate
+  persistence, three events, existing React completion UI/sound, and existing
+  context-menu integration.
+
+**Files changed**
+
+- `docs/migrating/migration_tasks.md` — aligned the Phase 8 execution contract
+  with the authoritative Electron implementation.
+- `docs/migrating/progress.md` — recorded the complete Phase 8 discovery.
+
+**Validation performed**
+
+- Reviewed the Electron manager, persistence, main-process startup/shutdown,
+  IPC authorization, preload buffering, shared DTOs/events, renderer hook,
+  custom-duration panel, timer widget, completion/sound flow, native context
+  menu, tests, DesktopBridge adapters, Tauri event registry, command
+  authorization, persistence infrastructure, menus, capabilities, and
+  lifecycle.
+- Documentation validation will run before the discovery clarification is
+  committed. No production source or dependency was changed.
+
+**Manual verification**
+
+- Not applicable to discovery. No production implementation was attempted.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 8.2 — Create Native Pomodoro Engine.
