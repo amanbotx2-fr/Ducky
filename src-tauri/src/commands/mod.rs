@@ -18,6 +18,9 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             companion::show_companion_context_menu,
             companion::stream_cursor_positions,
             companion::stop_cursor_positions,
-            settings::get_runtime_settings
+            settings::get_runtime_settings,
+            settings::update_user_name,
+            settings::update_sticky_message,
+            settings::update_preferences_settings
         ])
 }

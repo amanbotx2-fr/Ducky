@@ -13,6 +13,8 @@
     "allow-show-companion-context-menu",
     "allow-stream-cursor-positions",
     "allow-stop-cursor-positions",
+    "allow-update-user-name",
+    "allow-update-sticky-message",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

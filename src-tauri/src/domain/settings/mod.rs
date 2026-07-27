@@ -1,6 +1,6 @@
 use std::{
     net::IpAddr,
-    sync::{PoisonError, RwLock},
+    sync::{Mutex, PoisonError, RwLock},
 };
 
 use serde::{Deserialize, Serialize};
@@ -115,13 +115,37 @@ impl SettingsDocument {
             notification_sounds: self.notification_sounds.clone(),
         }
     }
+
+    pub(crate) fn preferences_projection(&self) -> PreferencesSettings {
+        PreferencesSettings {
+            user_name: self.user_name.clone(),
+            general: self.general.clone(),
+            water: self.water.clone(),
+            notification_sounds: self.notification_sounds.clone(),
+            updates: self.updates.clone(),
+            ai: PreferencesAiSettings {
+                enabled: self.ai.enabled,
+                provider: self.ai.provider.clone(),
+                model: self.ai.model.clone(),
+                api_key_configured: self.credential.is_some()
+                    || self
+                        .ai
+                        .api_key
+                        .as_ref()
+                        .is_some_and(|api_key| !api_key.trim().is_empty()),
+                endpoint: self.ai.endpoint.clone(),
+                base_url: self.ai.base_url.clone(),
+            },
+            ai_model_explorer: self.ai_model_explorer.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub(crate) struct SettingsState {
-    #[allow(dead_code)] // Used by mutation commands beginning in Task 5.5.
     pub(crate) store: SettingsStore,
     pub(crate) settings: RwLock<SettingsDocument>,
+    mutation_lock: Mutex<()>,
 }
 
 impl SettingsState {
@@ -129,6 +153,7 @@ impl SettingsState {
         Self {
             store,
             settings: RwLock::new(settings),
+            mutation_lock: Mutex::new(()),
         }
     }
 
@@ -137,6 +162,100 @@ impl SettingsState {
             .read()
             .map(|settings| settings.clone())
             .map_err(SettingsStateError::from)
+    }
+
+    pub(crate) fn update_user_name(
+        &self,
+        value: String,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        let user_name = normalize_required_text(&value, MAXIMUM_USER_NAME_LENGTH, "userName")?;
+        self.persist_update(move |settings| {
+            let mut next = settings.clone();
+            next.user_name = user_name;
+            next
+        })
+    }
+
+    pub(crate) fn update_sticky_message(
+        &self,
+        value: Option<String>,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        let sticky_message = value
+            .map(|message| {
+                normalize_required_text(&message, MAXIMUM_STICKY_MESSAGE_LENGTH, "stickyMessage")
+            })
+            .transpose()?;
+
+        self.persist_update(move |settings| {
+            let mut next = settings.clone();
+            next.sticky_message = sticky_message;
+            next
+        })
+    }
+
+    pub(crate) fn update_preferences(
+        &self,
+        patch: PreferencesSettingsPatch,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        self.persist_update(move |settings| {
+            let mut next = settings.clone();
+
+            if let Some(general) = patch.general {
+                if let Some(always_on_top) = general.always_on_top {
+                    next.general.always_on_top = always_on_top;
+                }
+                if let Some(launch_at_startup) = general.launch_at_startup {
+                    next.general.launch_at_startup = launch_at_startup;
+                }
+                if let Some(eye_tracking) = general.eye_tracking {
+                    next.general.eye_tracking = eye_tracking;
+                }
+            }
+
+            if let Some(notification_sounds) = patch.notification_sounds {
+                if let Some(enabled) = notification_sounds.enabled {
+                    next.notification_sounds.enabled = enabled;
+                }
+                if let Some(sound) = notification_sounds.sound {
+                    next.notification_sounds.sound = sound;
+                }
+                if let Some(volume) = notification_sounds.volume {
+                    next.notification_sounds.volume = volume;
+                }
+            }
+
+            next
+        })
+    }
+
+    fn persist_update(
+        &self,
+        update: impl FnOnce(&SettingsDocument) -> SettingsDocument,
+    ) -> Result<SettingsUpdate, SettingsMutationError> {
+        let _mutation_guard = self
+            .mutation_lock
+            .lock()
+            .map_err(SettingsStateError::from)?;
+        let current = self.snapshot()?;
+        let next = update(&current);
+        next.validate()?;
+
+        if next == current {
+            return Ok(SettingsUpdate {
+                settings: current,
+                changed: false,
+            });
+        }
+
+        // The read/write lock is deliberately not held across filesystem I/O.
+        // The mutation mutex serializes writers while snapshots remain cheap.
+        self.store.save(&next)?;
+        *self.settings.write().map_err(SettingsStateError::from)? = next.clone();
+
+        Ok(SettingsUpdate {
+            settings: next,
+            changed: true,
+        })
     }
 }
 
@@ -148,6 +267,103 @@ pub(crate) struct RuntimeSettings {
     pub(crate) general: GeneralSettings,
     pub(crate) water: WaterSettings,
     pub(crate) notification_sounds: NotificationSoundSettings,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PreferencesSettings {
+    pub(crate) user_name: String,
+    pub(crate) general: GeneralSettings,
+    pub(crate) water: WaterSettings,
+    pub(crate) notification_sounds: NotificationSoundSettings,
+    pub(crate) updates: UpdateSettings,
+    pub(crate) ai: PreferencesAiSettings,
+    pub(crate) ai_model_explorer: AiModelExplorerSettings,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PreferencesAiSettings {
+    pub(crate) enabled: bool,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    pub(crate) api_key_configured: bool,
+    pub(crate) endpoint: String,
+    pub(crate) base_url: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PreferencesSettingsPatch {
+    #[serde(default)]
+    pub(crate) general: Option<GeneralSettingsPatch>,
+    #[serde(default)]
+    pub(crate) notification_sounds: Option<NotificationSoundSettingsPatch>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct GeneralSettingsPatch {
+    #[serde(default)]
+    pub(crate) always_on_top: Option<bool>,
+    #[serde(default)]
+    pub(crate) launch_at_startup: Option<bool>,
+    #[serde(default)]
+    pub(crate) eye_tracking: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct NotificationSoundSettingsPatch {
+    #[serde(default)]
+    pub(crate) enabled: Option<bool>,
+    #[serde(default)]
+    pub(crate) sound: Option<NotificationSoundId>,
+    #[serde(default)]
+    pub(crate) volume: Option<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SettingsUpdate {
+    pub(crate) settings: SettingsDocument,
+    pub(crate) changed: bool,
+}
+
+#[derive(Debug)]
+pub(crate) enum SettingsMutationError {
+    State(SettingsStateError),
+    Validation(SettingsValidationError),
+    Store(crate::infrastructure::persistence::SettingsStoreError),
+}
+
+impl std::fmt::Display for SettingsMutationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::State(error) => error.fmt(formatter),
+            Self::Validation(error) => error.fmt(formatter),
+            Self::Store(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl std::error::Error for SettingsMutationError {}
+
+impl From<SettingsStateError> for SettingsMutationError {
+    fn from(error: SettingsStateError) -> Self {
+        Self::State(error)
+    }
+}
+
+impl From<SettingsValidationError> for SettingsMutationError {
+    fn from(error: SettingsValidationError) -> Self {
+        Self::Validation(error)
+    }
+}
+
+impl From<crate::infrastructure::persistence::SettingsStoreError> for SettingsMutationError {
+    fn from(error: crate::infrastructure::persistence::SettingsStoreError) -> Self {
+        Self::Store(error)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -493,7 +709,10 @@ fn validate_model_references(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use serde_json::json;
+    use tempfile::tempdir;
 
     use super::*;
 
@@ -609,5 +828,121 @@ mod tests {
 
         assert_eq!(serialized["credential"], credential);
         assert_eq!(serialized["reminders"][0], reminder);
+    }
+
+    #[test]
+    fn mutations_persist_before_replacing_the_shared_snapshot() {
+        let directory = tempdir().expect("temporary directory");
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        store
+            .save(&SettingsDocument::default())
+            .expect("initial settings save");
+        let state = SettingsState::new(store.clone(), SettingsDocument::default());
+
+        let update = state
+            .update_preferences(PreferencesSettingsPatch {
+                general: Some(GeneralSettingsPatch {
+                    always_on_top: Some(false),
+                    ..GeneralSettingsPatch::default()
+                }),
+                notification_sounds: Some(NotificationSoundSettingsPatch {
+                    volume: Some(25),
+                    ..NotificationSoundSettingsPatch::default()
+                }),
+            })
+            .expect("settings mutation");
+
+        assert!(update.changed);
+        assert!(!state.snapshot().unwrap().general.always_on_top);
+        assert_eq!(store.load().unwrap().notification_sounds.volume, 25);
+    }
+
+    #[test]
+    fn no_op_mutations_skip_persistence() {
+        let directory = tempdir().expect("temporary directory");
+        let blocked_parent = directory.path().join("not-a-directory");
+        std::fs::write(&blocked_parent, "blocked").expect("blocking file");
+        let store = SettingsStore::new(blocked_parent.join("settings.json"));
+        let defaults = SettingsDocument::default();
+        let state = SettingsState::new(store, defaults);
+
+        let update = state
+            .update_preferences(PreferencesSettingsPatch {
+                general: Some(GeneralSettingsPatch {
+                    always_on_top: Some(true),
+                    ..GeneralSettingsPatch::default()
+                }),
+                notification_sounds: None,
+            })
+            .expect("no-op mutation");
+
+        assert!(!update.changed);
+        assert!(matches!(
+            state.update_user_name("Changed".to_owned()),
+            Err(SettingsMutationError::Store(_))
+        ));
+    }
+
+    #[test]
+    fn concurrent_mutations_are_serialized_without_lost_updates() {
+        let directory = tempdir().expect("temporary directory");
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        store
+            .save(&SettingsDocument::default())
+            .expect("initial settings save");
+        let state = Arc::new(SettingsState::new(store, SettingsDocument::default()));
+        let name_state = Arc::clone(&state);
+        let sound_state = Arc::clone(&state);
+
+        let name_update =
+            std::thread::spawn(move || name_state.update_user_name("Aman".to_owned()));
+        let sound_update = std::thread::spawn(move || {
+            sound_state.update_preferences(PreferencesSettingsPatch {
+                general: None,
+                notification_sounds: Some(NotificationSoundSettingsPatch {
+                    sound: Some(NotificationSoundId::Pop),
+                    ..NotificationSoundSettingsPatch::default()
+                }),
+            })
+        });
+
+        name_update.join().unwrap().unwrap();
+        sound_update.join().unwrap().unwrap();
+        let snapshot = state.snapshot().unwrap();
+        assert_eq!(snapshot.user_name, "Aman");
+        assert_eq!(snapshot.notification_sounds.sound, NotificationSoundId::Pop);
+    }
+
+    #[test]
+    fn preferences_patch_rejects_deferred_or_unknown_fields() {
+        assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
+            "water": { "enabled": false }
+        }))
+        .is_err());
+        assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
+            "updates": { "automatic": true }
+        }))
+        .is_err());
+        assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
+            "notificationSounds": { "volume": 101 }
+        }))
+        .is_ok());
+
+        let invalid = PreferencesSettingsPatch {
+            general: None,
+            notification_sounds: Some(NotificationSoundSettingsPatch {
+                volume: Some(101),
+                ..NotificationSoundSettingsPatch::default()
+            }),
+        };
+        let directory = tempdir().unwrap();
+        let state = SettingsState::new(
+            SettingsStore::new(directory.path().join("settings.json")),
+            SettingsDocument::default(),
+        );
+        assert!(matches!(
+            state.update_preferences(invalid),
+            Err(SettingsMutationError::Validation(_))
+        ));
     }
 }

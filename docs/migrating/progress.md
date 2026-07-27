@@ -2314,3 +2314,84 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 5.5 — Settings Persistence.
+
+### Task 5.5 — Settings Persistence
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added serialized native mutations for the companion user name, sticky
+  message, Preferences general settings, and notification-sound settings.
+- Every mutation validates the complete next document, persists it
+  atomically, and only then replaces the synchronized in-memory snapshot.
+  Exact no-op updates skip filesystem writes.
+- A dedicated mutation mutex prevents concurrent read/modify/write cycles
+  from losing updates without holding the shared settings read/write lock
+  during filesystem I/O.
+- Successful mutations emit the existing targeted
+  `runtime-settings:changed` event only after persistence. General native
+  behavior is then applied best-effort; a listener or platform-application
+  failure cannot roll back an already saved setting.
+- Added exact companion-only permissions for user-name and sticky-message
+  mutations and a Preferences-only permission for settings updates. Rust
+  also checks the invoking renderer label.
+- The Preferences mutation boundary owns only Phase 5 infrastructure:
+  `general` and `notificationSounds`. Water, updater, AI, model, reminder,
+  Pomodoro, and credential fields are retained in the full document but
+  rejected at this mutation boundary for their later phases.
+- Activated the narrow Tauri companion settings mutation adapter. Electron
+  continues through its unchanged preload implementation.
+
+**Files changed**
+
+- `src-tauri/src/domain/settings/mod.rs` — serialized persist-before-publish
+  mutation engine, strict Phase 5 patch DTOs, projections, and regression
+  tests.
+- `src-tauri/src/commands/settings.rs` and
+  `src-tauri/src/commands/mod.rs` — role-authorized mutation commands,
+  post-persistence native application, and targeted change emission.
+- `src-tauri/src/desktop/settings.rs` — reusable post-mutation native general
+  settings application.
+- `src-tauri/src/authorization.rs`,
+  `src-tauri/capabilities/companion.json`,
+  `src-tauri/capabilities/preferences.json`, and the three generated
+  permission manifests — exact least-privilege command access.
+- `src/desktop/tauriCommands.ts` and `src/desktop/tauriBridge.ts` — typed
+  companion settings mutations through DesktopBridge.
+- `tests/tauri-ipc-authorization.test.cjs` — exact role separation coverage.
+- `docs/migrating/progress.md` — recorded Task 5.5.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (133 tests across 38 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (46 tests),
+  including persistence-before-publication, no-op write suppression,
+  concurrent mutation serialization, deferred-field rejection, and
+  secret-redaction coverage.
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed and generated the exact three mutation
+  permissions.
+- Electron production-output smoke launch: passed through the unchanged
+  preload settings implementation.
+- `npm run tauri:dev`: passed; Tauri launched with no settings command,
+  authorization, or capability error. The known development custom-protocol
+  fallback warning remained unchanged.
+
+**Manual verification**
+
+- Native tests prove persisted values survive a repository reload and that
+  failed persistence cannot change the shared snapshot.
+- Full interactive Preferences save/restart verification remains Task 5.6,
+  when its narrow adapter is connected.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 5.6 — Preferences Integration.

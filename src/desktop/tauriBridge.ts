@@ -1,4 +1,5 @@
 import type {
+  CompanionSettingsBridge,
   CompanionWindowBridge,
   RuntimeSettingsChangeListener,
   RuntimeSettingsBridge,
@@ -64,6 +65,16 @@ const runtimeSettingsBridge: RuntimeSettingsBridge = Object.freeze({
     ),
 });
 
+const companionSettingsBridge: CompanionSettingsBridge = Object.freeze({
+  ...runtimeSettingsBridge,
+  updateUserName: (name: string) =>
+    dispatchTauriCommand(TAURI_COMMANDS.updateUserName, { name }),
+  updateStickyMessage: (message: string | null) =>
+    dispatchTauriCommand(TAURI_COMMANDS.updateStickyMessage, {
+      message,
+    }),
+});
+
 /**
  * Exposes only Tauri capabilities that have completed their migration.
  * Unmigrated domain bridges intentionally remain unavailable until their
@@ -71,7 +82,7 @@ const runtimeSettingsBridge: RuntimeSettingsBridge = Object.freeze({
  */
 export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionBridge: () => undefined,
-  getCompanionSettingsBridge: () => undefined,
+  getCompanionSettingsBridge: () => companionSettingsBridge,
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,
   getPreferencesBridge: () => undefined,

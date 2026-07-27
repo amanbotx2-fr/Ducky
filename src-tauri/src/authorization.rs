@@ -2,6 +2,7 @@ pub(crate) const COMPANION_LABEL: &str = "companion";
 pub(crate) const PREFERENCES_LABEL: &str = "preferences";
 
 const COMPANION_ONLY: &[RendererRole] = &[RendererRole::Companion];
+const PREFERENCES_ONLY: &[RendererRole] = &[RendererRole::Preferences];
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum RendererRole {
@@ -40,6 +41,13 @@ impl CommandAuthorization {
         }
     }
 
+    const fn preferences_only(name: &'static str) -> Self {
+        Self {
+            name,
+            allowed_roles: PREFERENCES_ONLY,
+        }
+    }
+
     // The build script compiles this module separately to generate command
     // permissions, so the application library does not call this directly.
     #[allow(dead_code)]
@@ -56,6 +64,12 @@ pub(crate) const GET_CURSOR_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_cursor_position");
 pub(crate) const GET_RUNTIME_SETTINGS: CommandAuthorization =
     CommandAuthorization::companion_only("get_runtime_settings");
+pub(crate) const UPDATE_USER_NAME: CommandAuthorization =
+    CommandAuthorization::companion_only("update_user_name");
+pub(crate) const UPDATE_STICKY_MESSAGE: CommandAuthorization =
+    CommandAuthorization::companion_only("update_sticky_message");
+pub(crate) const UPDATE_PREFERENCES_SETTINGS: CommandAuthorization =
+    CommandAuthorization::preferences_only("update_preferences_settings");
 pub(crate) const GET_COMPANION_WINDOW_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_companion_window_position");
 pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
@@ -73,6 +87,9 @@ pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CURSOR_POSITION,
     GET_RUNTIME_SETTINGS,
+    UPDATE_USER_NAME,
+    UPDATE_STICKY_MESSAGE,
+    UPDATE_PREFERENCES_SETTINGS,
     GET_COMPANION_WINDOW_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
@@ -87,6 +104,9 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
 pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CURSOR_POSITION.name(),
     GET_RUNTIME_SETTINGS.name(),
+    UPDATE_USER_NAME.name(),
+    UPDATE_STICKY_MESSAGE.name(),
+    UPDATE_PREFERENCES_SETTINGS.name(),
     GET_COMPANION_WINDOW_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
@@ -138,6 +158,9 @@ mod tests {
             [
                 "get_cursor_position",
                 "get_runtime_settings",
+                "update_user_name",
+                "update_sticky_message",
+                "update_preferences_settings",
                 "get_companion_window_position",
                 "move_companion_window",
                 "set_companion_content_height",
@@ -149,8 +172,21 @@ mod tests {
     }
 
     #[test]
-    fn migrated_commands_are_companion_only() {
+    fn migrated_commands_have_exact_renderer_roles() {
         for command in MIGRATED_COMMANDS {
+            if command == &UPDATE_PREFERENCES_SETTINGS {
+                assert_eq!(command.allowed_roles(), [RendererRole::Preferences]);
+                assert_eq!(
+                    authorize_command(PREFERENCES_LABEL, *command),
+                    Ok(RendererRole::Preferences),
+                );
+                assert_eq!(
+                    authorize_command(COMPANION_LABEL, *command),
+                    Err(AuthorizationError::CapabilityDenied),
+                );
+                continue;
+            }
+
             assert_eq!(command.allowed_roles(), [RendererRole::Companion]);
             assert_eq!(
                 authorize_command(COMPANION_LABEL, *command),

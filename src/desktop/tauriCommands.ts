@@ -1,6 +1,10 @@
 import { invoke, type Channel } from '@tauri-apps/api/core';
 
-import type { RuntimeSettings } from '../shared/settings';
+import type {
+  PreferencesSettings,
+  PreferencesSettingsPatch,
+  RuntimeSettings,
+} from '../shared/settings';
 import type { ScreenPoint } from '../shared/types';
 
 /**
@@ -17,6 +21,9 @@ export const TAURI_COMMANDS = Object.freeze({
   showCompanionContextMenu: 'show_companion_context_menu',
   streamCursorPositions: 'stream_cursor_positions',
   stopCursorPositions: 'stop_cursor_positions',
+  updatePreferencesSettings: 'update_preferences_settings',
+  updateStickyMessage: 'update_sticky_message',
+  updateUserName: 'update_user_name',
 } as const);
 
 type TauriCommandName =
@@ -37,6 +44,15 @@ interface TauriCommandArguments {
     readonly onPosition: Channel<ScreenPoint>;
   };
   readonly stop_cursor_positions: Record<string, never>;
+  readonly update_preferences_settings: {
+    readonly patch: PreferencesSettingsPatch;
+  };
+  readonly update_sticky_message: {
+    readonly message: string | null;
+  };
+  readonly update_user_name: {
+    readonly name: string;
+  };
 }
 
 interface TauriCommandResults {
@@ -48,6 +64,9 @@ interface TauriCommandResults {
   readonly show_companion_context_menu: void;
   readonly stream_cursor_positions: void;
   readonly stop_cursor_positions: void;
+  readonly update_preferences_settings: PreferencesSettings;
+  readonly update_sticky_message: string | null;
+  readonly update_user_name: string;
 }
 
 /**
