@@ -4,12 +4,14 @@
 
 ## Current Status
 
-- Active work: Paused after Phase 4
-- Last completed phase: Phase 4 — Tray + Native Menu Migration
-- Last completed correction: Phase 2 native drag-anchor position
-- Next task: Phase 5, only when explicitly requested
-- Blockers: None. Phase 4, mixed-DPI cursor revalidation, and native
-  drag-anchor correction are complete. Phase 5 has not started.
+- Active work: Phase 7 execution contract aligned with strict Electron parity;
+  implementation has not started.
+- Last completed phase: Phase 6 — Credential and Secret Storage Migration
+- Last completed task: Task 6.5 — Credential Preferences Integration
+- Next task: Task 7.2 — Create Native Reminder Engine, only when explicitly
+  requested.
+- Blockers: None. The Phase 7 source-of-truth conflict was resolved by making
+  the existing Electron implementation authoritative.
 
 ## Completed Tasks
 
@@ -2896,3 +2898,214 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Phase 7 — Reminder System. Do not begin automatically.
+
+### Task 7.1 — Audit Existing Reminder System
+
+**Status:** Complete. The discovered contract conflicts were resolved through
+the strict Electron-parity clarification. Task 7.2 has not started.
+
+**Electron reminder lifecycle**
+
+- `src/main/ReminderService.ts` is the authoritative reminder domain service.
+  It serializes all mutations, creates UUIDs, validates input, performs CRUD,
+  advances recurrence, marks one-time reminders complete, preserves recurring
+  reminder IDs, sorts reminders deterministically, and persists through
+  `SettingsService`.
+- `src/shared/reminders.ts` defines the persisted schema:
+  `id`, `title`, `message`, `scheduledAt`, `recurrence`,
+  `lastTriggeredAt`, `nextOccurrence`, `completed`, `createdAt`, and
+  `updatedAt`.
+- The schema and Electron service have no per-reminder `enabled` field and no
+  enable/disable operation. An incomplete reminder is schedulable; a completed
+  one-time reminder is not.
+- `src/shared/reminderRecurrence.ts` implements `none`, `hourly`, `daily`,
+  `weekly`, `monthly`, and custom interval recurrence with calendar-aware
+  advancement where applicable.
+
+**Scheduler and startup restoration**
+
+- `src/main/ReminderScheduler.ts` owns exactly one wake timer. It validates
+  the wall clock at most every 60 seconds, processes reminders no more than 24
+  hours overdue, suppresses duplicate delivery, advances recurring reminders,
+  retries failed completion persistence without re-emitting the notification,
+  and resynchronizes after reminder changes.
+- `src/main/main.ts` creates `ReminderService` and `ReminderScheduler` after
+  settings load, subscribes delivery before starting the scheduler, and starts
+  it before renderer window initialization. `powerMonitor.resume` triggers
+  resynchronization. Shutdown removes the resume listener, stops the
+  scheduler, unsubscribes events, and clears the pending delivery queue.
+- Startup restoration is therefore settings restoration followed by a
+  scheduler rescan; there is no separate reminder database.
+
+**Persistence**
+
+- Electron stores reminders inside `settings.json` through
+  `src/main/SettingsService.ts`. Writes use a same-directory temporary file,
+  mode `0600`, and atomic rename. Mutations are serialized and listeners run
+  only after persistence succeeds.
+- Strict parsing in `src/shared/settings.ts` and
+  `src/shared/reminders.ts` rejects malformed or duplicate reminder records
+  and preserves deterministic ordering.
+- The native settings document in
+  `src-tauri/src/domain/settings/mod.rs` currently retains reminders as
+  deferred opaque JSON objects. Phase 7 must replace that deferred
+  representation with the exact typed Electron schema without changing it.
+
+**IPC and DesktopBridge**
+
+- Electron exposes companion-only commands for create, update, delete, get,
+  list, and mark-completed through `src/shared/events.ts`,
+  `src/main/main.ts`, `src/main/preload.ts`, and
+  `src/main/ipcAuthorization.ts`.
+- `src/shared/types.ts` currently places those operations and the fired/panel
+  listeners on the broad legacy `CompanionBridge`.
+- `src/desktop/DesktopBridge.ts` is the renderer boundary. The Electron
+  adapter returns the existing preload bridge; the Tauri adapter intentionally
+  returns no `CompanionBridge` because reminder-domain commands have not been
+  migrated.
+- `src/desktop/tauriEvents.ts` already reserves exact companion-targeted
+  routes for creation-panel requested, manager-panel requested, and
+  `reminders:fired`. No created, updated, deleted, enabled, or disabled event
+  exists in the Electron contract.
+- `src/desktop/tauriCommands.ts` and the native command registry contain no
+  reminder commands yet.
+
+**Notification flow**
+
+- `src/main/ReminderEvents.ts` defines only the `reminder-fired` domain event.
+  The Electron main process converts it to `ReminderFiredNotification`, queues
+  it until the companion renderer is loaded, and sends it over the targeted
+  preload event.
+- `src/main/preload.ts` adds a second short-lived buffer so a fired reminder
+  is not lost before React registers its listener.
+- `src/renderer/hooks/useReminderNotifications.ts` deduplicates and queues
+  fired reminders. `src/renderer/components/ReminderWidget.tsx` renders the
+  in-app notification with Dismiss and Snooze; snooze creates a new one-time
+  reminder. `src/renderer/App.tsx` plays the configured reminder sound through
+  `NotificationSoundService`.
+- Electron does not instantiate its native `Notification` API. There is no OS
+  notification permission, native notification title/body contract, or
+  native notification click callback in the reference implementation.
+
+**Renderer, Preferences, and tray integration**
+
+- Smart-reminder creation, schedule/recurrence editing, listing, and deletion
+  live in companion renderer panels:
+  `ReminderCreationPanel.tsx`, `ReminderManagerPanel.tsx`, and `App.tsx`.
+- `PreferencesApp.tsx` has hydration settings and notification-sound settings,
+  but no smart-reminder CRUD, schedule, or per-reminder enable/disable
+  controls.
+- Electron's companion context menu opens the New Reminder and Manage
+  Reminders panels through native actions in `src/main/menus.ts`.
+- The Phase 4 Tauri menu deliberately deferred those reminder-owned actions.
+  The current Phase 7 task list does not state whether restoring those context
+  menu entries is part of Phase 7, despite their being required to reach the
+  Electron reminder UI.
+
+**Permissions**
+
+- Electron authorizes reminder CRUD only for the companion renderer.
+- Tauri's companion capability has no reminder command permissions yet and
+  Preferences has none, as expected before Phase 7.
+- No Tauri notification plugin or notification capability is installed.
+  `migration_codex.md` explicitly classifies native notifications as
+  `NOT NEEDED` and warns against adding the plugin or an OS permission prompt.
+
+**Architecture clarification**
+
+The discovered source-of-truth conflicts are resolved by the migration-wide
+parity rule: when migration documents conflict, the existing Electron
+implementation is authoritative unless an explicit redesign was approved
+before implementation.
+
+The corrected Phase 7 contract now requires:
+
+1. The exact Electron reminder schema, without an `enabled` field.
+2. The existing Rust-owned scheduler migration without recurrence,
+   persistence, ordering, overdue, retry, or duplicate-suppression changes.
+3. The existing Companion CRUD panels and the existing New Reminder and
+   Manage Reminders context-menu entry points; Preferences remains unchanged.
+4. Only the existing `reminders:fired`,
+   `reminders:creation-panel-requested`, and
+   `reminders:manager-panel-requested` event contracts.
+5. The existing React reminder widget, Dismiss, Snooze, and notification-sound
+   behavior. Native OS notifications, click callbacks, plugins, and
+   permissions are prohibited.
+6. Only the existing reminder operations through DesktopBridge; no additional
+   APIs or renderer runtime detection.
+
+`migration_tasks.md` now assigns Companion/context-menu parity explicitly and
+removes all feature-expansion requirements. No production code was changed and
+Task 7.2 was not started.
+
+**Files changed**
+
+- `docs/migrating/migration_codex.md` — added the migration-wide parity rule.
+- `docs/migrating/migration_tasks.md` — aligned the full Phase 7 execution
+  contract and exit criteria with Electron.
+- `docs/migrating/progress.md` — recorded the discovery resolution and cleared
+  the documentation blocker.
+
+**Validation performed**
+
+- Full source review completed for reminder domain, scheduler, persistence,
+  startup/shutdown, IPC authorization, preload buffering, DesktopBridge
+  adapters, renderer panels/hooks/widget, Preferences, tray/context menu,
+  native settings, command/event registries, and capabilities.
+- Documentation diff validation is recorded below. No production files or
+  dependencies changed, so build/runtime validation was not required.
+
+**Manual verification**
+
+- Not applicable to discovery. No implementation was attempted.
+
+**Commit**
+
+- None, as required by Task 7.1.
+
+**Blockers**
+
+- None. The architecture clarification resolves the discovery findings.
+
+**Next task**
+
+- Task 7.2 — Create Native Reminder Engine, only when explicitly requested.
+
+## Phase 7 Architecture Clarification
+
+**Status:** Complete. Documentation only; Phase 7 implementation remains
+unstarted.
+
+**Summary**
+
+- Added a migration-wide rule making the existing Electron implementation
+  authoritative when migration documents conflict and no redesign was
+  explicitly approved.
+- Corrected Phase 7 to preserve the current schema, scheduler, recurrence,
+  persistence, Companion CRUD UI, DesktopBridge surface, reminder events,
+  React notification widget, Dismiss/Snooze flow, sound behavior, and existing
+  native context-menu actions.
+- Removed requirements for per-reminder enable/disable, native OS
+  notifications, notification click callbacks, new lifecycle events, and
+  Preferences reminder management.
+
+**Production code**
+
+- No production source file was modified.
+- Task 7.2 was not started.
+
+**Validation**
+
+- `git diff --check`: passed.
+- The documentation diff contains only
+  `docs/migrating/migration_codex.md`,
+  `docs/migrating/migration_tasks.md`, and
+  `docs/migrating/progress.md`.
+
+**Commit**
+
+- `docs(tauri): align phase 7 with electron parity`
+
+**Next task**
+
+- Task 7.2 — Create Native Reminder Engine. Do not begin automatically.

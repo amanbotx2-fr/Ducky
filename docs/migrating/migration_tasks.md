@@ -1417,9 +1417,503 @@ Only then may Phase 7 begin.
 
 # PHASE 7
 
-Reminder System
+Reminder System Migration
 
-...
+Goal
+
+Migrate the complete Reminder System from Electron to Tauri v2 while preserving
+existing reminder behaviour, scheduling, persistence, notifications, and
+DesktopBridge architecture.
+
+Electron remains the authoritative reference implementation until Phase 12.
+When this contract or another migration document conflicts with Electron,
+Electron behavior takes precedence unless an explicit redesign was approved
+before implementation.
+
+DesktopBridge remains the only renderer abstraction.
+
+Reminder scheduling, timers, recurrence advancement, persistence, and fired
+event production execute inside Rust.
+
+The renderer remains runtime agnostic.
+
+The existing React reminder widget and notification-sound service remain the
+user-facing notification implementation. Phase 7 does not add native OS
+notifications or new reminder capabilities.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- Inspect the existing ReminderService.
+- Inspect reminder scheduling.
+- Inspect reminder persistence.
+- Inspect reminder lifecycle.
+- Inspect reminder notification flow.
+- Inspect runtime startup order.
+- Inspect reminder IPC.
+- Inspect DesktopBridge reminder interfaces.
+- Confirm reminder CRUD remains in the Companion renderer.
+- Inspect tray interactions.
+- Confirm no native notification plugin or permission is required.
+- Document findings inside docs/migrating/progress.md.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- reminder engine
+- reminder scheduler
+- reminder persistence integration
+- reminder startup restoration
+- reminder creation
+- reminder editing
+- reminder deletion
+- reminder lookup and completion
+- recurring reminders
+- one-time reminders
+- existing `reminders:fired` notification dispatch
+- existing React reminder widget, Dismiss, and Snooze behavior
+- reminder DesktopBridge
+- existing reminder runtime events
+- existing New Reminder and Manage Reminders context-menu actions
+- least-privilege permissions
+
+This phase does NOT include:
+
+- Pomodoro
+- AI
+- updater
+- release pipeline
+- credentials
+- sticky messages
+- planner
+- Electron removal
+- per-reminder enable/disable
+- native OS notifications
+- native notification click callbacks
+- new reminder lifecycle events
+- reminder management in Preferences
+- reminder schema changes
+
+---
+
+## Architecture Rules
+
+Reminder scheduling belongs to Rust.
+
+Examples:
+
+- timer creation
+- timer cancellation
+- recurring scheduling
+- fired-event production
+- startup restoration
+
+DesktopBridge is only used when the renderer requests reminder operations.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Runtime Adapter
+
+↓
+
+Rust
+
+The existing `reminders:fired` event originates inside Rust and is delivered
+to the Companion renderer through the established event architecture. The
+existing React widget presents the notification and the renderer-owned sound
+service plays the configured sound.
+
+Do not execute reminder timing inside the renderer.
+
+Do not implement browser timers as the production scheduler.
+
+Do not install a Tauri notification plugin or request OS notification
+permission.
+
+Preserve the exact Electron reminder schema. Do not add an `enabled` field.
+
+---
+
+## Task 7.1
+
+Audit Existing Reminder System
+
+Objective
+
+Document the Electron reminder implementation.
+
+Acceptance
+
+- reminder lifecycle documented
+- scheduler documented
+- persistence documented
+- DesktopBridge documented
+- notification flow documented
+- startup restoration documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 7.2
+
+Create Native Reminder Engine
+
+Objective
+
+Implement the Rust reminder scheduler.
+
+Requirements
+
+- runtime owned
+- singleton
+- survives startup
+- survives restart
+- scheduler independent of renderer
+
+Acceptance
+
+- engine starts
+- engine stops cleanly
+- scheduler registered
+- Electron unchanged
+
+Commit
+
+feat(tauri): migrate reminder engine
+
+---
+
+## Task 7.3
+
+Reminder Persistence
+
+Objective
+
+Connect reminders to the existing native settings store.
+
+Requirements
+
+- preserve current schema
+- preserve reminder IDs
+- preserve ordering
+- atomic persistence
+- startup restoration
+
+Acceptance
+
+- reminders persist
+- reminders reload
+- restart restores reminders
+
+Commit
+
+feat(tauri): migrate reminder persistence
+
+---
+
+## Task 7.4
+
+Reminder Commands
+
+Objective
+
+Expose reminder management through DesktopBridge.
+
+Includes
+
+- list reminders
+- create reminder
+- update reminder
+- delete reminder
+- get reminder
+- mark reminder completed
+
+Requirements
+
+- typed commands
+- existing request and response contracts only
+- no renderer runtime detection
+- Electron preserved
+
+Acceptance
+
+Renderer manages reminders through DesktopBridge.
+
+Commit
+
+feat(tauri): migrate reminder commands
+
+---
+
+## Task 7.5
+
+Reminder Notifications
+
+Objective
+
+Migrate the existing fired-reminder delivery path.
+
+Requirements
+
+- existing `reminders:fired` event name and payload
+- exact Companion window targeting
+- pending delivery survives renderer startup/reload
+- duplicate suppression
+- existing React reminder widget remains unchanged
+- existing Dismiss and Snooze behavior remains unchanged
+- existing notification sound behavior remains unchanged
+- no native OS notification plugin
+- no OS notification permission
+
+Acceptance
+
+The React reminder notification matches Electron behavior and no fired
+reminder is lost or delivered twice.
+
+Commit
+
+feat(tauri): migrate reminder notifications
+
+---
+
+## Task 7.6
+
+Reminder Events
+
+Objective
+
+Implement reminder runtime events.
+
+Includes
+
+- `reminders:fired`
+- `reminders:creation-panel-requested`
+- `reminders:manager-panel-requested`
+
+Requirements
+
+- existing event names and payloads only
+- exact window targeting
+- DesktopBridge abstraction
+- no renderer polling
+- no additional reminder lifecycle events
+
+Acceptance
+
+The Companion renderer receives the existing Electron reminder events
+correctly.
+
+Commit
+
+feat(tauri): migrate reminder events
+
+---
+
+## Task 7.7
+
+Companion Integration
+
+Objective
+
+Connect the existing Companion reminder panels and native context-menu
+actions.
+
+Requirements
+
+- runtime agnostic
+- DesktopBridge only
+- renderer unchanged
+- reminder creation and schedule/recurrence editing remain in the Companion
+  renderer
+- reminder management remains in the Companion renderer
+- New Reminder and Manage Reminders context-menu actions match Electron
+- Preferences remains unchanged
+
+Acceptance
+
+Reminder CRUD and the existing context-menu entry points work in the Companion
+window exactly as they do in Electron.
+
+Commit
+
+feat(tauri): migrate reminder companion integration
+
+---
+
+## Task 7.8
+
+Permissions
+
+Objective
+
+Grant least-privilege permissions.
+
+Requirements
+
+- existing companion reminder commands only
+- existing companion event-listen permission only
+- exact window labels
+- no wildcard permissions
+- no unnecessary plugins
+- no notification permission
+
+Acceptance
+
+Permission validation passes.
+
+Commit
+
+feat(tauri): migrate reminder permissions
+
+---
+
+## Deferred
+
+The following functionality is intentionally excluded.
+
+Pomodoro
+
+- work timer
+- break timer
+- pause
+- resume
+
+AI
+
+- reminder generation
+- AI scheduling
+- smart reminders
+
+Planner
+
+- planner reminders
+- planner integration
+
+Updater
+
+- update reminders
+
+Electron Removal
+
+- deferred to Phase 12
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix every failure before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- reminders load
+- reminders save
+- reminder edits save
+- reminder deletes persist
+- reminders survive restart
+- React reminder widgets appear
+- reminder widget title and message match Electron
+- Dismiss works
+- Snooze creates the existing five-minute one-time reminder
+- configured reminder sound plays once
+- recurring reminders trigger
+- one-time reminders trigger
+- New Reminder context-menu action opens the existing Companion panel
+- Manage Reminders context-menu action opens the existing Companion panel
+- Preferences remains unchanged
+- no renderer console errors
+- no permission warnings
+
+---
+
+## Progress Tracking
+
+Update docs/migrating/progress.md with:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 7 is complete only if:
+
+✓ Native reminder engine implemented
+
+✓ Scheduler matches Electron
+
+✓ Reminder persistence matches Electron
+
+✓ Startup restoration works
+
+✓ Reminder CRUD works
+
+✓ Existing `reminders:fired` event contract works
+
+✓ React reminder widget, Dismiss, Snooze, and notification sound match
+Electron
+
+✓ Existing Companion reminder panels and context-menu actions work
+
+✓ Reminder schema is unchanged
+
+✓ No native OS notification capability was added
+
+✓ DesktopBridge used for renderer requests only
+
+✓ Native scheduling remains inside Rust
+
+✓ Least-privilege permissions implemented
+
+✓ Electron implementation preserved
+
+✓ All automated validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 8 begin.
 
 ---
 

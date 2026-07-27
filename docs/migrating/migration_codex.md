@@ -42,6 +42,14 @@ For one engineer already familiar with the codebase, a responsible estimate is *
 
 ## Review Method and Source of Truth
 
+### Parity Rule
+
+When migration documents conflict with the existing Electron implementation,
+the existing Electron implementation is the authoritative behavior unless an
+explicit redesign is documented and approved before implementation. This
+migration preserves implemented product behavior; it does not use migration
+tasks to introduce new features.
+
 The review covered all tracked top-level areas and all desktop runtime source:
 
 - `.github/`, `assets/`, `character/`, `docs/`, `scripts/`, `src/`, `supabase/`, `tests/`, and `website/`;
@@ -1033,4 +1041,3 @@ Tauri is a sound target for Ducky because the UI is already a Vite web applicati
 - [Logging plugin](https://v2.tauri.app/plugin/logging/)
 - [GitHub Actions distribution](https://v2.tauri.app/distribute/pipelines/github/)
 - [Tauri Rust API documentation](https://docs.rs/tauri/latest/tauri/)
-
