@@ -3,10 +3,11 @@ use std::io::{Error as IoError, ErrorKind};
 use image::imageops::FilterType;
 use tauri::{
     image::Image,
-    menu::Menu,
     tray::{TrayIcon, TrayIconBuilder},
     App, AppHandle, Runtime,
 };
+
+use super::menus;
 
 pub const ID: &str = "ducky-tray";
 
@@ -24,8 +25,7 @@ pub fn create<R: Runtime>(app: &App<R>) -> tauri::Result<TrayIcon<R>> {
     }
 
     // Linux status notifier implementations may hide icons without a menu.
-    // Task 4.4 replaces this empty native menu with Ducky's static tray menu.
-    let menu = Menu::new(app)?;
+    let menu = menus::create_tray_menu(app)?;
     let icon = load_icon()?;
 
     TrayIconBuilder::with_id(ID)

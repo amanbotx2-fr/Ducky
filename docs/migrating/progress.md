@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 4 — Tray + Native Menu Migration
-- Last completed task: Task 4.3 — Migrate Tray Icon
-- Next task: Task 4.4 — Migrate Static Native Menus
+- Last completed task: Task 4.4 — Migrate Static Native Menus
+- Next task: Task 4.5 — Migrate Native Menu Actions
 - Blockers: None. The revised Phase 4 contract limits this phase to native
   lifecycle, static menus/actions, and the renderer-requested context-menu
   transport; feature-domain menu state remains deferred.
@@ -1427,3 +1427,71 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 4.4 — Migrate Static Native Menus.
+
+### Task 4.4 — Migrate Static Native Menus
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added a Rust-owned static tray menu with the Electron ordering and labels:
+  Show Ducky, Preferences…, About Ducky, separator, Restart, Quit.
+- About uses Tauri's native predefined About item with Ducky name, version,
+  description, copyright, and runtime credits. It does not pass through a
+  renderer.
+- On macOS, startup installs the two-menu Electron hierarchy:
+  - Ducky: About Ducky, separator, Services, separator, Hide Ducky, Hide
+    Others, Show All, separator, Quit Ducky.
+  - Edit: Undo, Redo, separator, Cut, Copy, Paste, Select All.
+- Services, hide, hide-others, show-all, quit, and all Edit operations use
+  native predefined roles so platform shortcuts and responder-chain behavior
+  remain native.
+- Windows and Linux retain Electron parity by not installing an application
+  menu. Their tray menu is still native.
+- Static action identifiers are centralized in `desktop/menus.rs`; focused
+  tests lock the tray hierarchy and ensure IDs cannot collide.
+- No dynamic companion context menu, checked state, Settings, Pomodoro,
+  Reminder, Daily Planner, Sticky Message, AI, or Updater behavior was added.
+
+**Files changed**
+
+- `src-tauri/src/desktop/menus.rs` — added static tray and macOS application
+  menu construction.
+- `src-tauri/src/desktop/mod.rs` — registered the native menu module.
+- `src-tauri/src/desktop/tray.rs` — replaced the Linux compatibility menu with
+  Ducky's static tray menu.
+- `src-tauri/src/lib.rs` — installs the macOS application menu during native
+  setup.
+- `docs/migrating/progress.md` — recorded Task 4.4.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (127 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (24 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; all menu construction remains backend
+  owned.
+- Electron development smoke launch: passed with its original application and
+  Edit menus unchanged.
+- Tauri development smoke launch: passed. Both native menus installed without
+  a construction error, the companion loaded, and the process remained alive
+  until stopped manually.
+
+**Manual verification**
+
+- The Electron menu hierarchy was read from the running reference application
+  and matched against the Rust menu specification.
+- The Tauri native menu hierarchy will receive its complete interactive pass
+  together with Task 4.5 callbacks, when every static item is actionable.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 4.5 — Migrate Native Menu Actions.

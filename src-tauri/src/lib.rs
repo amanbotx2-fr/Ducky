@@ -10,6 +10,7 @@ mod events;
 pub fn run() {
     let app = commands::register(tauri::Builder::default())
         .setup(|app| {
+            desktop::menus::install_application_menu(app)?;
             desktop::windows::companion::create(app)?;
             desktop::tray::create(app)?;
             Ok(())
