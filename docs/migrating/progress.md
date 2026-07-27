@@ -4,15 +4,14 @@
 
 ## Current Status
 
-- Active phase: Phase 4 — Tray + Native Menu Migration
-- Last completed task: Task 4.7 — Migrate Tray and Menu Permissions
-- Next task: Phase 4 final manual parity verification
-- Blockers: The packaged-app verification passed for startup, application
-  menus, About, Preferences, Restart, Quit, and the renderer context bridge.
-  The macOS accessibility service does not expose menu-bar status items, so
-  tray-icon visibility, opening the tray menu, and selecting Show Ducky from
-  that menu still require one human-observed check. The Mac locked before that
-  check could be completed. Phase 4 is therefore not marked complete.
+- Active work: Phase 2 cursor-position regression investigation
+- Last completed phase: Phase 4 — Tray + Native Menu Migration
+- Next task: Correct and revalidate the Phase 2 cursor coordinate contract
+  before beginning Phase 5
+- Blockers: Phase 4 has no remaining blocker. Manual verification exposed a
+  separate mixed-DPI cursor conversion defect in the Phase 2 eye-tracking
+  pipeline. The root cause is documented below; no implementation was changed
+  during the investigation, and Phase 5 has not started.
 
 ## Completed Tasks
 
@@ -1679,8 +1678,7 @@ before Task 4.2 rather than guessing.
 
 ### Phase 4 Final Verification Gate
 
-**Status:** Blocked — implementation and automated validation complete;
-tray-only human observation remains.
+**Status:** Complete
 
 **Packaged application verification completed**
 
@@ -1717,18 +1715,14 @@ tray-only human observation remains.
   dispatcher; Preferences, About, Restart, and Quit were exercised
   interactively through that shared path.
 
-**Manual checks still required**
+**Tray-only manual verification completed**
 
-- Visually confirm the 18 × 18 full-color Ducky tray icon is present.
-- Open the tray menu and confirm Show Ducky, Preferences…, About Ducky,
-  separator, Restart, and Quit in that order.
-- Hide or cover the companion, then select Show Ducky and confirm it is shown
-  and focused.
-
-The Computer Use accessibility tree exposes application menus and native popup
-menus but not macOS menu-bar status items. Before an external observation could
-be completed, macOS locked and automatic unlock was unavailable. No source
-change is justified by this verification limitation.
+- Confirmed the 18 × 18 full-color Ducky tray icon is visible in the macOS menu
+  bar.
+- Confirmed the tray menu contains Show Ducky, Preferences…, About Ducky,
+  separator, Restart, and Quit in the expected order.
+- Confirmed Show Ducky shows and focuses the companion after it is hidden or
+  covered.
 
 **Final validation performed**
 
@@ -1749,12 +1743,79 @@ change is justified by this verification limitation.
 
 **Phase 4 completion**
 
-- Not yet declared complete because the Phase 4 contract explicitly requires
-  direct tray-icon, tray-menu, and Show Ducky manual verification.
+- Phase 4 is complete. Native tray lifecycle, icon, menu hierarchy, actions,
+  context-menu bridge, permissions, Electron parity, and the required manual
+  verification all passed.
 - Phase 5 has not been started.
 
 **Next task**
 
-- Unlock macOS and complete the three tray-only observations above. If they
-  pass, record Phase 4 complete and proceed no further until Phase 5 is
-  explicitly requested.
+- Resolve and revalidate the Phase 2 cursor-position regression documented
+  below. Do not begin Phase 5 until the existing eye-tracking parity defect is
+  corrected.
+
+### Phase 2 Cursor-Position Regression Investigation
+
+**Status:** Root cause identified; implementation unchanged
+
+**Observed regression**
+
+- Cursor samples continue reaching the companion and `EyeTracker` continues
+  animating the pupils.
+- On a mixed-DPI desktop, the pupils point toward a consistently offset
+  location instead of the actual cursor.
+
+**Environment reproduced**
+
+- The primary display is 1710 × 1112 logical points at scale factor 2.
+- A secondary display is 1920 × 1080 logical points at virtual-desktop origin
+  `(1710, 32)` and scale factor 1.
+- This is the exact class of mixed-DPI layout required by the Phase 2 exit
+  criteria.
+
+**Root cause**
+
+- Tao's macOS cursor implementation reads `NSEvent.mouseLocation`, converts it
+  to top-left logical desktop coordinates, and then converts the complete
+  global point to `PhysicalPosition` using the **primary monitor** scale
+  factor.
+- `src-tauri/src/commands/companion.rs` receives that physical point from
+  `window.cursor_position()` but converts it back to logical coordinates using
+  the **companion window** scale factor.
+- When the primary display and companion window use different scale factors,
+  the resulting cursor point is multiplied by
+  `primary_scale / companion_scale`. The conversion also scales the virtual
+  monitor origin, producing the observed stable offset.
+- `src/renderer/components/PsyDuck.tsx` correctly computes the eye origin from
+  `window.screenX`, `window.screenY`, and DOM bounds in CSS logical pixels.
+  `src/engine/EyeTracker.ts` correctly subtracts and normalizes the two input
+  points. The defect is that the Rust cursor point is not guaranteed to use
+  that same logical coordinate space.
+- Electron is unaffected because `screen.getCursorScreenPoint()` already
+  returns desktop DIP coordinates matching the renderer's screen-coordinate
+  contract.
+
+**Coverage gap**
+
+- The existing Rust conversion test uses one physical point and one scale
+  factor. It proves a same-scale division but does not model distinct primary,
+  cursor-monitor, and companion-window scale factors or monitor origins.
+- Phase 2 development smoke validation proved that the channel operated, but
+  the locked-session gate explicitly left mixed-DPI visual/input parity for
+  later manual verification.
+
+**Required correction**
+
+- Keep the renderer and `EyeTracker` in CSS logical desktop coordinates.
+- Normalize the native cursor sample to that coordinate system without using
+  the companion window's scale factor as a global-desktop conversion factor.
+- Add focused coverage for primary/companion scale-factor mismatches, cursor
+  movement across monitor origins, negative origins, and same-scale behavior.
+- Re-run Electron and Tauri eye-tracking parity on Retina, 1×, and mixed-DPI
+  monitor arrangements before resuming the migration.
+
+**Scope**
+
+- No Phase 4 tray, menu, permission, or lifecycle implementation was changed.
+- No Phase 2 implementation was changed during this investigation.
+- Phase 5 has not started.
