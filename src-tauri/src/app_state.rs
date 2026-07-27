@@ -7,20 +7,24 @@ use tauri::{
 
 use crate::{
     domain::{
+        pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
         settings::SettingsState,
     },
     events::{self, DesktopEvent},
-    infrastructure::{credentials::CredentialStore, persistence::SettingsStore},
+    infrastructure::{
+        credentials::CredentialStore, persistence::SettingsStore, pomodoro::PomodoroStore,
+    },
 };
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
+const POMODORO_FILE_NAME: &str = "pomodoro.json";
 
 pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error::Error>> {
     let settings_path = app.path().app_data_dir()?.join(SETTINGS_FILE_NAME);
-    let legacy_path = legacy_electron_settings_path(app)?;
+    let legacy_settings_path = legacy_electron_data_path(app, SETTINGS_FILE_NAME)?;
     let store = SettingsStore::new(settings_path);
-    let settings = store.load_with_legacy(legacy_path.as_deref())?;
+    let settings = store.load_with_legacy(legacy_settings_path.as_deref())?;
 
     let settings_state = SettingsState::new(store, settings);
     let app_handle = app.handle().clone();
@@ -33,9 +37,20 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     );
     reminder_runtime.start()?;
 
+    let pomodoro_path = app.path().app_data_dir()?.join(POMODORO_FILE_NAME);
+    let legacy_pomodoro_path = legacy_electron_data_path(app, POMODORO_FILE_NAME)?;
+    let pomodoro_store = PomodoroStore::new(pomodoro_path);
+    pomodoro_store.import_legacy_if_missing(legacy_pomodoro_path.as_deref())?;
+    let pomodoro_events = PomodoroEventQueue::default();
+    let pomodoro_runtime =
+        PomodoroRuntime::new(Arc::new(pomodoro_store), Arc::new(pomodoro_events.clone()));
+    pomodoro_runtime.start()?;
+
     app.manage(CredentialStore::native());
     app.manage(settings_state);
     app.manage(reminder_runtime);
+    app.manage(pomodoro_events);
+    app.manage(pomodoro_runtime);
     Ok(())
 }
 
@@ -51,8 +66,9 @@ pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageL
     }
 }
 
-fn legacy_electron_settings_path<R: Runtime>(
+fn legacy_electron_data_path<R: Runtime>(
     app: &App<R>,
+    file_name: &str,
 ) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
     let directory = if cfg!(target_os = "macos") {
         app.path()
@@ -63,8 +79,8 @@ fn legacy_electron_settings_path<R: Runtime>(
     } else {
         app.path().config_dir()?.join("Ducky")
     };
-    let candidate = directory.join(SETTINGS_FILE_NAME);
-    let native = app.path().app_data_dir()?.join(SETTINGS_FILE_NAME);
+    let candidate = directory.join(file_name);
+    let native = app.path().app_data_dir()?.join(file_name);
 
     Ok((candidate != native).then_some(candidate))
 }

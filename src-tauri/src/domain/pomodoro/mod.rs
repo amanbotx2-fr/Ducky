@@ -136,6 +136,51 @@ pub(crate) trait PomodoroEvents: Send + Sync {
     fn completed(&self);
 }
 
+#[derive(Debug, Default)]
+struct PendingEvents {
+    latest_state: Option<PomodoroState>,
+    pending_completion: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PomodoroEventQueue {
+    pending: Arc<Mutex<PendingEvents>>,
+}
+
+impl PomodoroEventQueue {
+    pub(crate) fn latest_state(&self) -> Result<Option<PomodoroState>, PomodoroError> {
+        Ok(self.pending.lock()?.latest_state.clone())
+    }
+
+    pub(crate) fn has_pending_completion(&self) -> Result<bool, PomodoroError> {
+        Ok(self.pending.lock()?.pending_completion)
+    }
+}
+
+impl PomodoroEvents for PomodoroEventQueue {
+    fn state_changed(&self, state: PomodoroState) {
+        match self.pending.lock() {
+            Ok(mut pending) => {
+                pending.latest_state = Some(state);
+            }
+            Err(_) => {
+                eprintln!("[pomodoro] state_event_queue_unavailable");
+            }
+        }
+    }
+
+    fn completed(&self) {
+        match self.pending.lock() {
+            Ok(mut pending) => {
+                pending.pending_completion = true;
+            }
+            Err(_) => {
+                eprintln!("[pomodoro] completion_event_queue_unavailable");
+            }
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum PomodoroError {
     InvalidDuration,
@@ -919,5 +964,18 @@ mod tests {
         let saves = repository.saved.lock().expect("saves");
         assert!(saves.len() >= 5);
         assert!(!saves.last().expect("last save").state.running);
+    }
+
+    #[test]
+    fn pending_event_queue_retains_latest_state_and_one_completion() {
+        let events = PomodoroEventQueue::default();
+        let state = running_state(60, 1_000);
+
+        events.state_changed(state.clone());
+        events.completed();
+        events.completed();
+
+        assert_eq!(events.latest_state().expect("latest state"), Some(state));
+        assert!(events.has_pending_completion().expect("pending completion"));
     }
 }

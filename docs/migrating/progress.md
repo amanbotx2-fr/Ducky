@@ -3846,3 +3846,83 @@ startup registration remain Task 8.3.
 - Task 8.3 — implement the separate native `pomodoro.json` repository,
   register/start the runtime before the Companion, and stop it during native
   shutdown.
+
+### Task 8.3 — Pomodoro Persistence and Startup Restoration
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added a dedicated native `PomodoroStore` for the exact Electron
+  `pomodoro.json` version-1 document. Pomodoro remains separate from
+  `settings.json`.
+- The store performs same-directory temporary writes, owner-only permissions,
+  file sync, atomic replacement, and directory sync. It distinguishes missing,
+  invalid, and failed reads so the runtime can preserve Electron's different
+  fallback behavior.
+- A missing file materializes the idle document during runtime load. An
+  invalid file remains untouched for diagnosis while the runtime uses idle
+  state. A valid running or paused document restores exactly, and an expired
+  running document completes once during startup.
+- Added a one-time, source-preserving import from Electron's platform data
+  directory when the native file does not yet exist. A native file always
+  wins, making the handoff idempotent.
+- Tauri now constructs and starts one Pomodoro runtime before menus and the
+  Companion renderer. The runtime is managed by Rust application state and
+  its scheduler is stopped and joined during native exit.
+- Added a pending native event queue that retains the latest state and one
+  completion flag before the Companion event listener exists. Task 8.5 will
+  activate and flush it without losing an expired restored session.
+- Electron persistence, files, manager, preload, renderer, and menus remain
+  unchanged.
+
+**Files changed**
+
+- `src-tauri/src/infrastructure/pomodoro.rs` — exact file repository,
+  one-time legacy import, atomic persistence, and focused tests.
+- `src-tauri/src/infrastructure/mod.rs` — registered the Pomodoro
+  infrastructure module.
+- `src-tauri/src/domain/pomodoro/mod.rs` — pending state/completion queue.
+- `src-tauri/src/app_state.rs` — native path resolution, import, singleton
+  runtime startup, and state management.
+- `src-tauri/src/desktop/lifecycle.rs` — clean Pomodoro scheduler shutdown.
+- `docs/migrating/progress.md` — recorded Task 8.3.
+
+**Validation performed**
+
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (78 tests, including exact schema round trip, missing
+  and invalid behavior, owner-only permissions, idempotent legacy import, and
+  pending event retention).
+- `cargo build`: passed. Only expected warnings for command/event methods
+  deferred to the immediately following milestones remain.
+- `npx tauri permission list`: passed; native storage and startup require no
+  renderer permission.
+- `npm run typecheck`: passed.
+- `npm test`: passed (135 tests).
+- `npm run build`: passed.
+- Electron production-output smoke launch: passed through the unchanged
+  Electron timer and persistence implementation.
+- `npx tauri dev --no-watch`: passed. The first native run imported the valid
+  Electron `pomodoro.json`, started the singleton scheduler before the
+  renderer, and remained alive without persistence or runtime errors.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  current macOS application bundle.
+
+**Manual verification**
+
+- Confirmed the one-time development handoff selected the existing Electron
+  file and logged only its path, never its contents.
+- End-to-end start/pause/resume/stop and restart UI verification remains
+  deferred until the exact bridge, event recovery, and context-menu actions
+  are connected.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 8.4 — expose only the existing Companion Pomodoro bridge operations
+  and typed native commands. Do not grant the final renderer permissions
+  before Task 8.8.

@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager, RunEvent, Runtime};
 
 use super::{menus, tray, windows::companion};
-use crate::domain::reminders::ReminderRuntime;
+use crate::domain::{pomodoro::PomodoroRuntime, reminders::ReminderRuntime};
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     match event {
@@ -12,6 +12,11 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
             if let Some(reminders) = app.try_state::<ReminderRuntime>() {
                 if let Err(error) = reminders.stop() {
                     eprintln!("[reminder-scheduler] shutdown_failed: {error}");
+                }
+            }
+            if let Some(pomodoro) = app.try_state::<PomodoroRuntime>() {
+                if let Err(error) = pomodoro.stop() {
+                    eprintln!("[pomodoro] shutdown_failed: {error}");
                 }
             }
             tray::destroy(app);
