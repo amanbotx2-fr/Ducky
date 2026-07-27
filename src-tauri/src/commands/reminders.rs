@@ -84,6 +84,18 @@ pub(crate) fn mark_reminder_completed<R: tauri::Runtime>(
         .map_err(map_service_error)
 }
 
+#[tauri::command]
+pub(crate) fn activate_reminder_events<R: tauri::Runtime>(
+    window: WebviewWindow<R>,
+    runtime: State<'_, ReminderRuntime>,
+) -> Result<(), ReminderCommandError> {
+    authorize(&window, authorization::ACTIVATE_REMINDER_EVENTS)?;
+    runtime
+        .pending_deliveries
+        .activate()
+        .map_err(|_| ReminderCommandError::RemindersUnavailable)
+}
+
 fn authorize<R: tauri::Runtime>(
     window: &WebviewWindow<R>,
     command: authorization::CommandAuthorization,

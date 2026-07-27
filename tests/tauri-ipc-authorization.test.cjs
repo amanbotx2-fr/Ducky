@@ -13,6 +13,7 @@ const permissionDirectory = path.join(
 );
 
 const companionCommandPermissions = [
+  'allow-activate-reminder-events',
   'allow-get-cursor-position',
   'allow-get-runtime-settings',
   'allow-get-companion-window-position',

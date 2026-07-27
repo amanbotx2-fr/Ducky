@@ -145,7 +145,16 @@ const reminderBridge = Object.freeze({
       listener,
     ),
   onReminderFired: (listener) =>
-    subscribeToTauriEvent('companion', 'reminderFired', listener),
+    subscribeToTauriEvent(
+      'companion',
+      'reminderFired',
+      listener,
+      () =>
+        dispatchTauriCommand(
+          TAURI_COMMANDS.activateReminderEvents,
+          {},
+        ),
+    ),
 } satisfies ReminderBridge);
 
 const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({

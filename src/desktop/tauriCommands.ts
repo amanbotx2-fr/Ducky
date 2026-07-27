@@ -22,6 +22,7 @@ import type { ScreenPoint } from '../shared/types';
  * be added here as placeholders.
  */
 export const TAURI_COMMANDS = Object.freeze({
+  activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
   deleteReminder: 'delete_reminder',
   getCursorPosition: 'get_cursor_position',
@@ -49,6 +50,7 @@ type TauriCommandName =
   (typeof TAURI_COMMANDS)[keyof typeof TAURI_COMMANDS];
 
 interface TauriCommandArguments {
+  readonly activate_reminder_events: Record<string, never>;
   readonly create_reminder: {
     readonly input: CreateReminderInput;
   };
@@ -103,6 +105,7 @@ interface TauriCommandArguments {
 }
 
 interface TauriCommandResults {
+  readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;
   readonly delete_reminder: boolean;
   readonly get_cursor_position: ScreenPoint;

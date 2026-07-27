@@ -1,9 +1,16 @@
 use std::{path::PathBuf, sync::Arc};
 
-use tauri::{App, Manager, Runtime};
+use tauri::{
+    webview::{PageLoadEvent, PageLoadPayload},
+    App, Manager, Runtime, Webview,
+};
 
 use crate::{
-    domain::{reminders::ReminderRuntime, settings::SettingsState},
+    domain::{
+        reminders::{ReminderFiredNotification, ReminderRuntime},
+        settings::SettingsState,
+    },
+    events::{self, DesktopEvent},
     infrastructure::{credentials::CredentialStore, persistence::SettingsStore},
 };
 
@@ -16,13 +23,32 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let settings = store.load_with_legacy(legacy_path.as_deref())?;
 
     let settings_state = SettingsState::new(store, settings);
-    let reminder_runtime = ReminderRuntime::new(Arc::new(settings_state.clone()));
+    let app_handle = app.handle().clone();
+    let reminder_runtime = ReminderRuntime::with_delivery(
+        Arc::new(settings_state.clone()),
+        Arc::new(move |notification: ReminderFiredNotification| {
+            events::emit(&app_handle, DesktopEvent::ReminderFired, notification)
+                .map_err(|error| error.to_string())
+        }),
+    );
     reminder_runtime.start()?;
 
     app.manage(CredentialStore::native());
     app.manage(settings_state);
     app.manage(reminder_runtime);
     Ok(())
+}
+
+pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) {
+    if webview.label() != crate::authorization::COMPANION_LABEL
+        || payload.event() != PageLoadEvent::Started
+    {
+        return;
+    }
+
+    if let Some(runtime) = webview.app_handle().try_state::<ReminderRuntime>() {
+        runtime.pending_deliveries.deactivate();
+    }
 }
 
 fn legacy_electron_settings_path<R: Runtime>(

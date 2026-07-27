@@ -378,6 +378,8 @@ impl<T> From<PoisonError<T>> for ReminderServiceError {
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 type IdGenerator = Arc<dyn Fn() -> String + Send + Sync>;
+pub(crate) type DeliveryEmitter =
+    Arc<dyn Fn(ReminderFiredNotification) -> Result<(), String> + Send + Sync>;
 
 pub(crate) struct ReminderService {
     repository: Arc<dyn ReminderRepository>,
@@ -704,31 +706,121 @@ pub(crate) trait ReminderEventSink: Send + Sync {
     fn emit(&self, notification: ReminderFiredNotification);
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(crate) struct PendingReminderDeliveries {
-    notifications: Mutex<VecDeque<ReminderFiredNotification>>,
+    state: Mutex<ReminderDeliveryState>,
+    emitter: Option<DeliveryEmitter>,
+}
+
+impl std::fmt::Debug for PendingReminderDeliveries {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PendingReminderDeliveries")
+            .field("state", &self.state)
+            .field("emitter_configured", &self.emitter.is_some())
+            .finish()
+    }
 }
 
 impl PendingReminderDeliveries {
-    pub(crate) fn drain(&self) -> Result<Vec<ReminderFiredNotification>, ReminderSchedulerError> {
-        self.notifications
-            .lock()
-            .map(|mut notifications| notifications.drain(..).collect())
-            .map_err(ReminderSchedulerError::from)
+    fn with_emitter(emitter: DeliveryEmitter) -> Self {
+        Self {
+            state: Mutex::new(ReminderDeliveryState::default()),
+            emitter: Some(emitter),
+        }
+    }
+
+    pub(crate) fn activate(&self) -> Result<(), ReminderSchedulerError> {
+        let generation = {
+            let mut state = self.state.lock()?;
+            state.generation = state.generation.wrapping_add(1);
+            state.active = false;
+            state.generation
+        };
+
+        self.flush(generation);
+        Ok(())
+    }
+
+    pub(crate) fn deactivate(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.generation = state.generation.wrapping_add(1);
+            state.active = false;
+        }
+    }
+
+    fn enqueue(&self, notification: ReminderFiredNotification) {
+        let flush_generation = match self.state.lock() {
+            Ok(mut state) => {
+                state.notifications.push_back(notification);
+
+                if !state.active {
+                    None
+                } else {
+                    state.active = false;
+                    Some(state.generation)
+                }
+            }
+            Err(_) => {
+                eprintln!("[reminder-scheduler] delivery_queue_unavailable");
+                None
+            }
+        };
+
+        if let Some(generation) = flush_generation {
+            self.flush(generation);
+        }
+    }
+
+    fn flush(&self, generation: u64) {
+        let Some(emitter) = self.emitter.as_ref() else {
+            return;
+        };
+
+        loop {
+            let notification = match self.state.lock() {
+                Ok(mut state) if state.generation == generation => {
+                    match state.notifications.pop_front() {
+                        Some(notification) => notification,
+                        None => {
+                            state.active = true;
+                            return;
+                        }
+                    }
+                }
+                Ok(_) => return,
+                Err(_) => {
+                    eprintln!("[reminder-scheduler] delivery_queue_unavailable");
+                    return;
+                }
+            };
+
+            if let Err(error) = emitter(notification.clone()) {
+                eprintln!("[reminder-scheduler] delivery_failed: {error}");
+
+                if let Ok(mut state) = self.state.lock() {
+                    if state.generation == generation {
+                        state.notifications.push_front(notification);
+                        state.active = false;
+                    }
+                }
+                return;
+            }
+        }
     }
 }
 
 impl ReminderEventSink for PendingReminderDeliveries {
     fn emit(&self, notification: ReminderFiredNotification) {
-        match self.notifications.lock() {
-            Ok(mut notifications) => {
-                notifications.push_back(notification);
-            }
-            Err(_) => {
-                eprintln!("[reminder-scheduler] delivery_queue_unavailable");
-            }
-        }
+        self.enqueue(notification);
     }
+}
+
+#[derive(Debug, Default)]
+struct ReminderDeliveryState {
+    active: bool,
+    generation: u64,
+    notifications: VecDeque<ReminderFiredNotification>,
 }
 
 #[derive(Debug, Default)]
@@ -958,9 +1050,19 @@ pub(crate) struct ReminderRuntime {
 }
 
 impl ReminderRuntime {
-    pub(crate) fn new(repository: Arc<dyn ReminderRepository>) -> Self {
+    pub(crate) fn with_delivery(
+        repository: Arc<dyn ReminderRepository>,
+        emitter: DeliveryEmitter,
+    ) -> Self {
+        Self::build(repository, Some(emitter))
+    }
+
+    fn build(repository: Arc<dyn ReminderRepository>, emitter: Option<DeliveryEmitter>) -> Self {
         let service = Arc::new(ReminderService::new(repository));
-        let pending_deliveries = Arc::new(PendingReminderDeliveries::default());
+        let pending_deliveries = Arc::new(emitter.map_or_else(
+            PendingReminderDeliveries::default,
+            PendingReminderDeliveries::with_emitter,
+        ));
         let scheduler = ReminderScheduler::new(service.clone(), pending_deliveries.clone());
 
         Self {
@@ -980,10 +1082,6 @@ impl ReminderRuntime {
 
     pub(crate) fn resynchronize(&self) {
         self.scheduler.resynchronize();
-    }
-
-    pub(crate) fn is_running(&self) -> bool {
-        self.scheduler.is_running()
     }
 }
 
@@ -1466,6 +1564,25 @@ mod tests {
         }
     }
 
+    fn fired_notification(id: &str) -> ReminderFiredNotification {
+        ReminderFiredNotification {
+            reminder: Reminder {
+                id: id.to_owned(),
+                title: id.to_owned(),
+                message: String::new(),
+                scheduled_at: "2030-01-02T12:00:00.000Z".to_owned(),
+                recurrence: ReminderRecurrence::None,
+                last_triggered_at: None,
+                next_occurrence: Some("2030-01-02T12:00:00.000Z".to_owned()),
+                completed: false,
+                created_at: "2030-01-01T12:00:00.000Z".to_owned(),
+                updated_at: "2030-01-01T12:00:00.000Z".to_owned(),
+            },
+            fired_at: "2030-01-02T12:00:00.000Z".to_owned(),
+            overdue: false,
+        }
+    }
+
     #[test]
     fn stored_reminders_preserve_electron_legacy_defaults() {
         let reminder = serde_json::from_value::<Reminder>(serde_json::json!({
@@ -1497,6 +1614,57 @@ mod tests {
             "updatedAt": "2030-01-01T12:00:00Z"
         }));
         assert!(invalid_null_recurrence.is_err());
+    }
+
+    #[test]
+    fn pending_deliveries_survive_startup_reload_and_emit_in_order() {
+        let delivered = Arc::new(Mutex::new(Vec::<String>::new()));
+        let delivery_log = Arc::clone(&delivered);
+        let queue = PendingReminderDeliveries::with_emitter(Arc::new(move |notification| {
+            delivery_log.lock().unwrap().push(notification.reminder.id);
+            Ok(())
+        }));
+
+        queue.emit(fired_notification("startup"));
+        assert!(delivered.lock().unwrap().is_empty());
+
+        queue.activate().unwrap();
+        assert_eq!(*delivered.lock().unwrap(), ["startup"]);
+
+        queue.deactivate();
+        queue.emit(fired_notification("reload-first"));
+        queue.emit(fired_notification("reload-second"));
+        assert_eq!(*delivered.lock().unwrap(), ["startup"]);
+
+        queue.activate().unwrap();
+        assert_eq!(
+            *delivered.lock().unwrap(),
+            ["startup", "reload-first", "reload-second"]
+        );
+    }
+
+    #[test]
+    fn failed_delivery_stays_queued_until_the_next_activation() {
+        let should_fail = Arc::new(Mutex::new(true));
+        let delivered = Arc::new(Mutex::new(Vec::<String>::new()));
+        let failure_state = Arc::clone(&should_fail);
+        let delivery_log = Arc::clone(&delivered);
+        let queue = PendingReminderDeliveries::with_emitter(Arc::new(move |notification| {
+            if *failure_state.lock().unwrap() {
+                return Err("renderer unavailable".to_owned());
+            }
+
+            delivery_log.lock().unwrap().push(notification.reminder.id);
+            Ok(())
+        }));
+        queue.emit(fired_notification("retry"));
+
+        queue.activate().unwrap();
+        assert!(delivered.lock().unwrap().is_empty());
+
+        *should_fail.lock().unwrap() = false;
+        queue.activate().unwrap();
+        assert_eq!(*delivered.lock().unwrap(), ["retry"]);
     }
 
     #[test]

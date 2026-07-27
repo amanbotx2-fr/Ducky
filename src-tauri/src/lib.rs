@@ -21,6 +21,7 @@ pub fn run() {
     ));
 
     let app = commands::register(builder)
+        .on_page_load(app_state::handle_page_load)
         .setup(|app| {
             app_state::initialize(app)?;
             desktop::menus::install_application_menu(app)?;

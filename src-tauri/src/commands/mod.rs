@@ -29,6 +29,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             reminders::get_reminder,
             reminders::list_reminders,
             reminders::mark_reminder_completed,
+            reminders::activate_reminder_events,
             settings::get_runtime_settings,
             settings::get_preferences_settings,
             settings::update_user_name,

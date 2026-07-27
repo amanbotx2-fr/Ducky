@@ -97,6 +97,7 @@ export const subscribeToTauriEvent = <Event extends TauriEventKey>(
   target: TauriRendererTarget,
   event: Event,
   listener: TauriEventListener<Event>,
+  onRegistered?: () => void | Promise<void>,
 ): (() => void) => {
   const route = TAURI_EVENTS[event];
 
@@ -128,6 +129,17 @@ export const subscribeToTauriEvent = <Event extends TauriEventKey>(
       }
 
       unlisten = registeredUnlisten;
+
+      if (onRegistered !== undefined) {
+        void Promise.resolve(onRegistered()).catch(
+          (error: unknown) => {
+            console.error(
+              `[tauri] Unable to activate "${route.name}".`,
+              error,
+            );
+          },
+        );
+      }
     })
     .catch((error: unknown) => {
       console.error(
