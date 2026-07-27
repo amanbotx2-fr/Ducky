@@ -1,5 +1,6 @@
 // Provider milestones make the registry runtime-reachable incrementally.
 // Keep the completed registry contract compiled and tested between milestones.
+mod actions;
 mod claude;
 mod custom;
 mod gemini;
@@ -12,17 +13,16 @@ mod provider;
 mod registry;
 mod runtime;
 
+pub(crate) use actions::{AiConversationRequest, AssistantActionError, AssistantActionProcessor};
 pub(crate) use claude::ClaudeProvider;
 pub(crate) use custom::CustomProvider;
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use grok::GrokProvider;
 pub(crate) use ollama::OllamaProvider;
 pub(crate) use openai::OpenAiProvider;
-#[cfg(test)]
-pub(crate) use provider::AiFinishReason;
 pub(crate) use provider::{
-    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode, AiRequest,
-    AiResponse,
+    AiFinishReason, AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode,
+    AiRequest, AiResponse,
 };
 pub(crate) use registry::{AiProviderId, AiProviderRegistry, AiRegistryError};
 pub(crate) use runtime::{AiExecutionError, AiRuntime};

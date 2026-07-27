@@ -6,13 +6,79 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.11 — Final Response Transport
-- Next task: Task 9.12 — AI Actions
+- Last completed task: Task 9.12 — AI Actions
+- Next task: Task 9.13 — Diagnostics
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.12 — AI Actions
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Ported Electron's exact two-action prompt contract to Rust, including the
+  current local date/time, IANA timezone, UTC time, bounded prior conversation,
+  and distinct current request.
+- Added strict native interpretation of untrusted provider output. Ordinary
+  text and unrelated JSON remain messages; only exact `createReminder` and
+  `setStickyMessage` envelopes can enter the execution path.
+- Executed reminder creation through the Phase 7 `ReminderService` and sticky
+  updates through the Phase 5 `SettingsState`, including the existing runtime
+  settings event after a sticky change.
+- Preserved the existing safe confirmation/failure behavior and final response
+  metadata. Unknown, malformed, extra-field, and service-rejected actions
+  cannot mutate local state.
+- Added no new action type, renderer API, provider-specific logic, or native
+  capability.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/actions.rs` — prompt, request validation, closed
+  action parser, executor, and regression tests.
+- `src-tauri/src/domain/ai/mod.rs` — native action-domain exports.
+- `src-tauri/src/commands/ai.rs` — provider prompt and response processing
+  integration with safe bounded rejection logging.
+- `src-tauri/src/app_state.rs` — process-wide action processor composed from
+  the existing reminder/settings domains.
+- `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` — direct use of the existing
+  `iana-time-zone` dependency for local prompt context.
+- `docs/migrating/progress.md` — recorded Task 9.12.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (140 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (107 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; actions receive no renderer permission
+  of their own.
+- Electron production-output smoke launch: passed with the reference action
+  implementation unchanged.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed both desktop runtimes launch with the native action processor
+  initialized and no action, settings, reminder, or permission error.
+- Native unit tests exercised successful reminder/sticky actions plus
+  malformed, unknown, and extra-capability rejection. Credentialed end-to-end
+  action prompts remain part of final Phase 9 verification.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.13 — Diagnostics.
 
 ### Task 9.11 — Final Response Transport
 

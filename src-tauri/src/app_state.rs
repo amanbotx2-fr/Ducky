@@ -8,8 +8,8 @@ use tauri::{
 use crate::{
     domain::{
         ai::{
-            AiProviderId, AiRuntime, ClaudeProvider, CustomProvider, GeminiProvider, GrokProvider,
-            OllamaProvider, OpenAiProvider,
+            AiProviderId, AiRuntime, AssistantActionProcessor, ClaudeProvider, CustomProvider,
+            GeminiProvider, GrokProvider, OllamaProvider, OpenAiProvider,
         },
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
@@ -58,6 +58,19 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
         }),
     );
     reminder_runtime.start()?;
+    let settings_event_app_handle = app.handle().clone();
+    let assistant_actions = AssistantActionProcessor::new(
+        reminder_runtime.service.clone(),
+        settings_state.clone(),
+        Arc::new(move |settings| {
+            events::emit(
+                &settings_event_app_handle,
+                DesktopEvent::RuntimeSettingsChanged,
+                settings,
+            )
+            .map_err(|error| error.to_string())
+        }),
+    );
 
     let pomodoro_path = app.path().app_data_dir()?.join(POMODORO_FILE_NAME);
     let legacy_pomodoro_path = legacy_electron_data_path(app, POMODORO_FILE_NAME)?;
@@ -90,6 +103,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
 
     app.manage(credential_store);
     app.manage(ai_runtime);
+    app.manage(assistant_actions);
     app.manage(settings_state);
     app.manage(reminder_runtime);
     app.manage(pomodoro_events);
