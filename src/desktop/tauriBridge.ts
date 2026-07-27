@@ -1,10 +1,12 @@
 import type {
   CompanionSettingsBridge,
   CompanionWindowBridge,
+  PreferencesSettingsBridge,
   RuntimeSettingsChangeListener,
   RuntimeSettingsBridge,
   ScreenPoint,
 } from '../shared/types';
+import type { PreferencesSettingsPatch } from '../shared/settings';
 import type { DesktopBridge } from './contracts';
 import {
   dispatchTauriCommand,
@@ -75,6 +77,37 @@ const companionSettingsBridge: CompanionSettingsBridge = Object.freeze({
     }),
 });
 
+const preferencesSettingsBridge: PreferencesSettingsBridge =
+  Object.freeze({
+    getPreferencesSettings: () =>
+      dispatchTauriCommand(
+        TAURI_COMMANDS.getPreferencesSettings,
+        {},
+      ),
+    updatePreferencesSettings: (patch: PreferencesSettingsPatch) =>
+      dispatchTauriCommand(
+        TAURI_COMMANDS.updatePreferencesSettings,
+        { patch },
+      ),
+    onRuntimeSettingsChanged: (
+      listener: RuntimeSettingsChangeListener,
+    ) =>
+      subscribeToTauriEvent(
+        'preferences',
+        'runtimeSettingsChanged',
+        listener,
+      ),
+  });
+
+const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
+  general: true,
+  notificationSounds: true,
+  water: false,
+  updates: false,
+  ai: false,
+  aiModelExplorer: false,
+});
+
 /**
  * Exposes only Tauri capabilities that have completed their migration.
  * Unmigrated domain bridges intentionally remain unavailable until their
@@ -86,5 +119,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,
   getPreferencesBridge: () => undefined,
-  getPreferencesSettingsBridge: () => undefined,
+  getPreferencesSettingsBridge: () => preferencesSettingsBridge,
+  getPreferencesSettingsCapabilities: () =>
+    TAURI_PREFERENCES_SETTINGS_CAPABILITIES,
 });

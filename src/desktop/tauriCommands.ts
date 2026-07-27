@@ -14,6 +14,7 @@ import type { ScreenPoint } from '../shared/types';
  */
 export const TAURI_COMMANDS = Object.freeze({
   getCursorPosition: 'get_cursor_position',
+  getPreferencesSettings: 'get_preferences_settings',
   getRuntimeSettings: 'get_runtime_settings',
   getCompanionWindowPosition: 'get_companion_window_position',
   moveCompanionWindow: 'move_companion_window',
@@ -31,6 +32,7 @@ type TauriCommandName =
 
 interface TauriCommandArguments {
   readonly get_cursor_position: Record<string, never>;
+  readonly get_preferences_settings: Record<string, never>;
   readonly get_runtime_settings: Record<string, never>;
   readonly get_companion_window_position: Record<string, never>;
   readonly move_companion_window: {
@@ -57,6 +59,7 @@ interface TauriCommandArguments {
 
 interface TauriCommandResults {
   readonly get_cursor_position: ScreenPoint;
+  readonly get_preferences_settings: PreferencesSettings;
   readonly get_runtime_settings: RuntimeSettings;
   readonly get_companion_window_position: ScreenPoint;
   readonly move_companion_window: void;

@@ -174,4 +174,32 @@ describe('DesktopBridge renderer boundary', () => {
       /updateAiConfiguration[\s\S]*getPreferencesBridge\(\)/,
     );
   });
+
+  it('keeps deferred Preferences domains runtime-capability gated', async () => {
+    const [contracts, electronAdapter, tauriAdapter, preferencesUi] =
+      await Promise.all(
+        [
+          ['desktop', 'contracts.ts'],
+          ['desktop', 'electronBridge.ts'],
+          ['desktop', 'tauriBridge.ts'],
+          ['renderer', 'PreferencesApp.tsx'],
+        ].map((segments) =>
+          readFile(path.join(sourceRoot, ...segments), 'utf8'),
+        ),
+      );
+
+    assert.match(contracts, /getPreferencesSettingsCapabilities/);
+    assert.match(
+      electronAdapter,
+      /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true/,
+    );
+    assert.match(
+      tauriAdapter,
+      /water: false,[\s\S]*updates: false,[\s\S]*ai: false,[\s\S]*aiModelExplorer: false/,
+    );
+    assert.match(
+      preferencesUi,
+      /waterSettingsUnavailable[\s\S]*updateSettingsUnavailable[\s\S]*aiSettingsUnavailable/,
+    );
+  });
 });

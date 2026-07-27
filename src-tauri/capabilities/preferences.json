@@ -5,6 +5,7 @@
   "local": true,
   "webviews": ["preferences"],
   "permissions": [
+    "allow-get-preferences-settings",
     "allow-update-preferences-settings",
     "core:event:allow-listen",
     "core:event:allow-unlisten"

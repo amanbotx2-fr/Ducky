@@ -1,5 +1,14 @@
 import type { DesktopBridge } from './contracts';
 
+const ELECTRON_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
+  general: true,
+  notificationSounds: true,
+  water: true,
+  updates: true,
+  ai: true,
+  aiModelExplorer: true,
+});
+
 /**
  * Adapts the existing, role-specific Electron preload APIs to the runtime-
  * neutral DesktopBridge contract. Electron remains authoritative until the
@@ -12,4 +21,6 @@ export const electronDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionWindowBridge: () => window.psyduck,
   getPreferencesBridge: () => window.psyduckPreferences,
   getPreferencesSettingsBridge: () => window.psyduckPreferences,
+  getPreferencesSettingsCapabilities: () =>
+    ELECTRON_PREFERENCES_SETTINGS_CAPABILITIES,
 });

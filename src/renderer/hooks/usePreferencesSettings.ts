@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { preferencesDesktopBridge } from '../../desktop/DesktopBridge';
+import type { PreferencesSettingsCapabilities } from '../../desktop/contracts';
 import {
   type AiConfigurationUpdate,
   createDefaultPreferencesSettings,
@@ -18,6 +19,7 @@ export type SettingsStatus =
 
 export interface PreferencesSettingsController {
   readonly settings: PreferencesSettings;
+  readonly capabilities: PreferencesSettingsCapabilities;
   readonly status: SettingsStatus;
   readonly errorMessage: string | null;
   readonly update: (patch: PreferencesSettingsPatch) => Promise<boolean>;
@@ -26,7 +28,21 @@ export interface PreferencesSettingsController {
   ) => Promise<boolean>;
 }
 
+const isPatchSupported = (
+  patch: PreferencesSettingsPatch,
+  capabilities: PreferencesSettingsCapabilities,
+): boolean =>
+  (patch.general === undefined || capabilities.general) &&
+  (patch.notificationSounds === undefined ||
+    capabilities.notificationSounds) &&
+  (patch.water === undefined || capabilities.water) &&
+  (patch.updates === undefined || capabilities.updates) &&
+  (patch.aiModelExplorer === undefined ||
+    capabilities.aiModelExplorer);
+
 export function usePreferencesSettings(): PreferencesSettingsController {
+  const capabilities =
+    preferencesDesktopBridge.getPreferencesSettingsCapabilities();
   const [settings, setSettings] = useState(
     createDefaultPreferencesSettings,
   );
@@ -96,6 +112,14 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
   const update = useCallback(
     async (patch: PreferencesSettingsPatch): Promise<boolean> => {
+      if (!isPatchSupported(patch, capabilities)) {
+        setStatus('error');
+        setErrorMessage(
+          'This setting is not available in the current desktop runtime.',
+        );
+        return false;
+      }
+
       const preferencesBridge =
         preferencesDesktopBridge.getPreferencesSettingsBridge();
 
@@ -151,7 +175,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
         return false;
       }
     },
-    [],
+    [capabilities],
   );
 
   const updateAiConfiguration = useCallback(
@@ -218,6 +242,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
 
   return {
     settings,
+    capabilities,
     status,
     errorMessage,
     update,

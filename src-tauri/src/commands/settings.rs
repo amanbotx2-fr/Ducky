@@ -33,6 +33,19 @@ pub(crate) fn get_runtime_settings<R: Runtime>(
 }
 
 #[tauri::command]
+pub(crate) fn get_preferences_settings<R: Runtime>(
+    window: WebviewWindow<R>,
+    state: State<'_, SettingsState>,
+) -> Result<PreferencesSettings, SettingsCommandError> {
+    authorize(&window, authorization::GET_PREFERENCES_SETTINGS)?;
+
+    state
+        .snapshot()
+        .map(|settings| settings.preferences_projection())
+        .map_err(|_| SettingsCommandError::SettingsUnavailable)
+}
+
+#[tauri::command]
 pub(crate) fn update_user_name<R: Runtime>(
     window: WebviewWindow<R>,
     app: AppHandle<R>,
@@ -152,5 +165,24 @@ mod tests {
         assert!(serialized["ai"].get("apiKey").is_none());
         assert!(serialized.get("reminders").is_none());
         assert!(serialized.get("stickyMessage").is_none());
+    }
+
+    #[test]
+    fn preferences_projection_contains_the_existing_preferences_contract() {
+        let serialized =
+            serde_json::to_value(SettingsDocument::default().preferences_projection()).unwrap();
+
+        assert_eq!(
+            serialized.as_object().unwrap().keys().collect::<Vec<_>>(),
+            [
+                "ai",
+                "aiModelExplorer",
+                "general",
+                "notificationSounds",
+                "updates",
+                "userName",
+                "water"
+            ]
+        );
     }
 }

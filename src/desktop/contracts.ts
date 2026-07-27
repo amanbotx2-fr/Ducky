@@ -7,6 +7,15 @@ import type {
   RuntimeSettingsBridge,
 } from '../shared/types';
 
+export interface PreferencesSettingsCapabilities {
+  readonly general: boolean;
+  readonly notificationSounds: boolean;
+  readonly water: boolean;
+  readonly updates: boolean;
+  readonly ai: boolean;
+  readonly aiModelExplorer: boolean;
+}
+
 /** Native capabilities available to the companion renderer. */
 export interface CompanionDesktopBridge {
   readonly getCompanionBridge: () => CompanionBridge | undefined;
@@ -27,6 +36,8 @@ export interface PreferencesDesktopBridge {
   readonly getPreferencesSettingsBridge: () =>
     | PreferencesSettingsBridge
     | undefined;
+  readonly getPreferencesSettingsCapabilities: () =>
+    PreferencesSettingsCapabilities;
 }
 
 /**

@@ -118,6 +118,7 @@ type SoundTestStatus = 'idle' | 'testing' | 'played' | 'error';
 export function PreferencesApp() {
   const {
     settings,
+    capabilities,
     status,
     errorMessage,
     update,
@@ -144,6 +145,18 @@ export function PreferencesApp() {
   const [soundTestStatus, setSoundTestStatus] =
     useState<SoundTestStatus>('idle');
   const settingsAreLoading = status === 'loading';
+  const generalSettingsUnavailable =
+    settingsAreLoading || !capabilities.general;
+  const notificationSoundSettingsUnavailable =
+    settingsAreLoading || !capabilities.notificationSounds;
+  const waterSettingsUnavailable =
+    settingsAreLoading || !capabilities.water;
+  const updateSettingsUnavailable =
+    settingsAreLoading || !capabilities.updates;
+  const aiSettingsUnavailable =
+    settingsAreLoading || !capabilities.ai;
+  const modelExplorerSettingsUnavailable =
+    aiSettingsUnavailable || !capabilities.aiModelExplorer;
   const updateCheckInProgress =
     updateStatus?.phase === 'checking' ||
     updateStatus?.phase === 'downloading';
@@ -635,7 +648,7 @@ export function PreferencesApp() {
               id="launch-at-startup"
               label="Launch at startup"
               checked={settings.general.launchAtStartup}
-              disabled={settingsAreLoading}
+              disabled={generalSettingsUnavailable}
               onChange={(launchAtStartup) => {
                 save({ general: { launchAtStartup } });
               }}
@@ -652,7 +665,7 @@ export function PreferencesApp() {
               id="always-on-top"
               label="Always on top"
               checked={settings.general.alwaysOnTop}
-              disabled={settingsAreLoading}
+              disabled={generalSettingsUnavailable}
               onChange={(alwaysOnTop) => {
                 save({ general: { alwaysOnTop } });
               }}
@@ -669,7 +682,7 @@ export function PreferencesApp() {
               id="eye-tracking"
               label="Eye tracking"
               checked={settings.general.eyeTracking}
-              disabled={settingsAreLoading}
+              disabled={generalSettingsUnavailable}
               onChange={(eyeTracking) => {
                 save({ general: { eyeTracking } });
               }}
@@ -696,7 +709,7 @@ export function PreferencesApp() {
               id="notification-sounds-enabled"
               label="Enable notification sounds"
               checked={settings.notificationSounds.enabled}
-              disabled={settingsAreLoading}
+              disabled={notificationSoundSettingsUnavailable}
               onChange={(enabled) => {
                 updateNotificationSoundSettings({ enabled });
               }}
@@ -714,7 +727,7 @@ export function PreferencesApp() {
               id="notification-sound"
               value={settings.notificationSounds.sound}
               disabled={
-                settingsAreLoading ||
+                notificationSoundSettingsUnavailable ||
                 !settings.notificationSounds.enabled
               }
               onChange={handleNotificationSoundChange}
@@ -743,7 +756,7 @@ export function PreferencesApp() {
                 step="1"
                 value={settings.notificationSounds.volume}
                 disabled={
-                  settingsAreLoading ||
+                  notificationSoundSettingsUnavailable ||
                   !settings.notificationSounds.enabled
                 }
                 aria-valuetext={`${settings.notificationSounds.volume}%`}
@@ -769,7 +782,7 @@ export function PreferencesApp() {
               id="test-notification-sound"
               type="button"
               disabled={
-                settingsAreLoading ||
+                notificationSoundSettingsUnavailable ||
                 !settings.notificationSounds.enabled ||
                 settings.notificationSounds.volume === 0 ||
                 soundTestStatus === 'testing'
@@ -802,7 +815,7 @@ export function PreferencesApp() {
               id="water-reminders"
               label="Enable water reminders"
               checked={settings.water.enabled}
-              disabled={settingsAreLoading}
+              disabled={waterSettingsUnavailable}
               onChange={(enabled) => {
                 save({ water: { enabled } });
               }}
@@ -819,7 +832,9 @@ export function PreferencesApp() {
               className="settings-select"
               id="water-interval"
               value={settings.water.interval}
-              disabled={settingsAreLoading || !settings.water.enabled}
+              disabled={
+                waterSettingsUnavailable || !settings.water.enabled
+              }
               onChange={handleWaterIntervalChange}
             >
               {WATER_REMINDER_INTERVAL_OPTIONS.map((interval) => (
@@ -861,7 +876,7 @@ export function PreferencesApp() {
               id="automatic-updates"
               label="Automatic update checks"
               checked={settings.updates.automatic}
-              disabled={settingsAreLoading}
+              disabled={updateSettingsUnavailable}
               onChange={(automatic) => {
                 save({ updates: { automatic } });
               }}
@@ -878,7 +893,11 @@ export function PreferencesApp() {
               className="settings-button settings-button--secondary"
               id="check-for-updates"
               type="button"
-              disabled={updateStatus === null || updateCheckInProgress}
+              disabled={
+                updateSettingsUnavailable ||
+                updateStatus === null ||
+                updateCheckInProgress
+              }
               onClick={() => {
                 void checkForUpdates();
               }}
@@ -904,7 +923,7 @@ export function PreferencesApp() {
               id="ai-enabled"
               label="Enable AI"
               checked={aiDraft.enabled}
-              disabled={settingsAreLoading || aiActionInProgress}
+              disabled={aiSettingsUnavailable || aiActionInProgress}
               onChange={(enabled) => {
                 updateAiDraft({ enabled }, false);
               }}
@@ -921,7 +940,7 @@ export function PreferencesApp() {
               className="settings-select"
               id="ai-provider"
               value={aiDraft.provider}
-              disabled={settingsAreLoading || aiActionInProgress}
+              disabled={aiSettingsUnavailable || aiActionInProgress}
               onChange={(event) => {
                 const provider = event.currentTarget.value;
 
@@ -972,7 +991,7 @@ export function PreferencesApp() {
                 type="url"
                 value={aiDraft.baseUrl}
                 placeholder="https://example.com/v1"
-                disabled={settingsAreLoading || aiActionInProgress}
+                disabled={aiSettingsUnavailable || aiActionInProgress}
                 spellCheck={false}
                 required
                 onChange={(event) => {
@@ -995,7 +1014,7 @@ export function PreferencesApp() {
                 type="url"
                 value={aiDraft.endpoint}
                 placeholder="http://localhost:11434"
-                disabled={settingsAreLoading || aiActionInProgress}
+                disabled={aiSettingsUnavailable || aiActionInProgress}
                 spellCheck={false}
                 onChange={(event) => {
                   updateAiDraft({ endpoint: event.currentTarget.value });
@@ -1027,7 +1046,7 @@ export function PreferencesApp() {
                       ? 'Configured'
                       : 'Enter API key'
                   }
-                  disabled={settingsAreLoading || aiActionInProgress}
+                  disabled={aiSettingsUnavailable || aiActionInProgress}
                   autoComplete="new-password"
                   spellCheck={false}
                   onChange={handleApiKeyChange}
@@ -1036,7 +1055,7 @@ export function PreferencesApp() {
                   <button
                     className="settings-button settings-button--secondary credential-control__remove"
                     type="button"
-                    disabled={settingsAreLoading || aiActionInProgress}
+                    disabled={aiSettingsUnavailable || aiActionInProgress}
                     onClick={clearApiKeyDraft}
                   >
                     Remove
@@ -1117,7 +1136,7 @@ export function PreferencesApp() {
               className="settings-button settings-button--secondary"
               type="button"
               disabled={
-                settingsAreLoading ||
+                aiSettingsUnavailable ||
                 aiActionInProgress ||
                 aiDraft.provider === ''
               }
@@ -1133,7 +1152,7 @@ export function PreferencesApp() {
               className="settings-button settings-button--secondary"
               type="button"
               disabled={
-                settingsAreLoading ||
+                aiSettingsUnavailable ||
                 aiActionInProgress ||
                 connectionStatus.phase !== 'connected'
               }
@@ -1161,7 +1180,10 @@ export function PreferencesApp() {
                 provider={aiDraft.provider}
                 selectedModelId={aiDraft.model}
                 preferences={settings.aiModelExplorer}
-                disabled={settingsAreLoading || aiActionInProgress}
+                disabled={
+                  modelExplorerSettingsUnavailable ||
+                  aiActionInProgress
+                }
                 onSelect={handleSelectModel}
                 onToggleFavorite={handleToggleFavoriteModel}
               />
@@ -1179,7 +1201,10 @@ export function PreferencesApp() {
                   type="text"
                   value={aiDraft.model}
                   placeholder="Enter model ID"
-                  disabled={settingsAreLoading || aiActionInProgress}
+                  disabled={
+                    modelExplorerSettingsUnavailable ||
+                    aiActionInProgress
+                  }
                   autoComplete="off"
                   spellCheck={false}
                   aria-describedby={
@@ -1201,7 +1226,7 @@ export function PreferencesApp() {
                 id="ai-model"
                 type="button"
                 disabled={
-                  settingsAreLoading ||
+                  modelExplorerSettingsUnavailable ||
                   aiActionInProgress ||
                   aiDraft.provider === ''
                 }
@@ -1227,7 +1252,7 @@ export function PreferencesApp() {
             className="settings-button settings-button--primary"
             type="button"
             disabled={
-              settingsAreLoading || aiActionInProgress || !aiDirty
+              aiSettingsUnavailable || aiActionInProgress || !aiDirty
             }
             onClick={() => {
               void saveAiSettings();
@@ -1239,8 +1264,9 @@ export function PreferencesApp() {
       </section>
 
       <footer className="preferences-footer">
-        General, sound, hydration, and update changes save automatically.
-        AI changes apply when saved.
+        {capabilities.water && capabilities.updates
+          ? 'General, sound, hydration, and update changes save automatically. AI changes apply when saved.'
+          : 'General and sound changes save automatically. Other feature settings remain Electron-only during migration.'}
       </footer>
     </main>
   );

@@ -64,6 +64,8 @@ pub(crate) const GET_CURSOR_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_cursor_position");
 pub(crate) const GET_RUNTIME_SETTINGS: CommandAuthorization =
     CommandAuthorization::companion_only("get_runtime_settings");
+pub(crate) const GET_PREFERENCES_SETTINGS: CommandAuthorization =
+    CommandAuthorization::preferences_only("get_preferences_settings");
 pub(crate) const UPDATE_USER_NAME: CommandAuthorization =
     CommandAuthorization::companion_only("update_user_name");
 pub(crate) const UPDATE_STICKY_MESSAGE: CommandAuthorization =
@@ -87,6 +89,7 @@ pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CURSOR_POSITION,
     GET_RUNTIME_SETTINGS,
+    GET_PREFERENCES_SETTINGS,
     UPDATE_USER_NAME,
     UPDATE_STICKY_MESSAGE,
     UPDATE_PREFERENCES_SETTINGS,
@@ -104,6 +107,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
 pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CURSOR_POSITION.name(),
     GET_RUNTIME_SETTINGS.name(),
+    GET_PREFERENCES_SETTINGS.name(),
     UPDATE_USER_NAME.name(),
     UPDATE_STICKY_MESSAGE.name(),
     UPDATE_PREFERENCES_SETTINGS.name(),
@@ -158,6 +162,7 @@ mod tests {
             [
                 "get_cursor_position",
                 "get_runtime_settings",
+                "get_preferences_settings",
                 "update_user_name",
                 "update_sticky_message",
                 "update_preferences_settings",
@@ -174,7 +179,7 @@ mod tests {
     #[test]
     fn migrated_commands_have_exact_renderer_roles() {
         for command in MIGRATED_COMMANDS {
-            if command == &UPDATE_PREFERENCES_SETTINGS {
+            if command == &GET_PREFERENCES_SETTINGS || command == &UPDATE_PREFERENCES_SETTINGS {
                 assert_eq!(command.allowed_roles(), [RendererRole::Preferences]);
                 assert_eq!(
                     authorize_command(PREFERENCES_LABEL, *command),

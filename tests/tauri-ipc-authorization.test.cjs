@@ -25,6 +25,7 @@ const companionCommandPermissions = [
   'allow-update-sticky-message',
 ];
 const preferencesCommandPermissions = [
+  'allow-get-preferences-settings',
   'allow-update-preferences-settings',
 ];
 const expectedCommandPermissions = [

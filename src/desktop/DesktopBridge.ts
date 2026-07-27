@@ -34,4 +34,6 @@ export const preferencesDesktopBridge: PreferencesDesktopBridge =
     getPreferencesBridge: runtimeDesktopBridge.getPreferencesBridge,
     getPreferencesSettingsBridge:
       runtimeDesktopBridge.getPreferencesSettingsBridge,
+    getPreferencesSettingsCapabilities:
+      runtimeDesktopBridge.getPreferencesSettingsCapabilities,
   });
