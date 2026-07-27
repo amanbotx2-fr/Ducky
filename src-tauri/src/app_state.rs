@@ -8,8 +8,9 @@ use tauri::{
 use crate::{
     domain::{
         ai::{
-            AiProviderId, AiRuntime, AssistantActionProcessor, ClaudeProvider, CustomProvider,
-            GeminiProvider, GrokProvider, OllamaProvider, OpenAiProvider,
+            AiCancellationReason, AiProviderId, AiRendererRole, AiRequestManager, AiRuntime,
+            AssistantActionProcessor, ClaudeProvider, CustomProvider, GeminiProvider, GrokProvider,
+            OllamaProvider, OpenAiProvider,
         },
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
@@ -33,6 +34,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let settings_state = SettingsState::new(store, settings);
     let credential_store = CredentialStore::native();
     let ai_runtime = AiRuntime::new(credential_store.clone());
+    let ai_requests = AiRequestManager::default();
     ai_runtime.ensure_running()?;
     ai_runtime.register_provider(Arc::new(OpenAiProvider::new()?))?;
     ai_runtime.register_provider(Arc::new(GeminiProvider::new()?))?;
@@ -103,6 +105,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
 
     app.manage(credential_store);
     app.manage(ai_runtime);
+    app.manage(ai_requests);
     app.manage(assistant_actions);
     app.manage(settings_state);
     app.manage(reminder_runtime);
@@ -112,12 +115,24 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
 }
 
 pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) {
-    if webview.label() != crate::authorization::COMPANION_LABEL
-        || payload.event() != PageLoadEvent::Started
-    {
+    if payload.event() != PageLoadEvent::Started {
         return;
     }
 
+    if let Some(requests) = webview.app_handle().try_state::<AiRequestManager>() {
+        let role = match webview.label() {
+            crate::authorization::COMPANION_LABEL => Some(AiRendererRole::Companion),
+            crate::authorization::PREFERENCES_LABEL => Some(AiRendererRole::Preferences),
+            _ => None,
+        };
+        if let Some(role) = role {
+            requests.cancel_role(role, AiCancellationReason::RendererReloaded);
+        }
+    }
+
+    if webview.label() != crate::authorization::COMPANION_LABEL {
+        return;
+    }
     if let Some(runtime) = webview.app_handle().try_state::<ReminderRuntime>() {
         runtime.pending_deliveries.deactivate();
     }

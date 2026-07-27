@@ -3,6 +3,7 @@
 mod actions;
 mod claude;
 mod custom;
+mod execution;
 mod gemini;
 mod grok;
 mod ollama;
@@ -16,6 +17,7 @@ mod runtime;
 pub(crate) use actions::{AiConversationRequest, AssistantActionError, AssistantActionProcessor};
 pub(crate) use claude::ClaudeProvider;
 pub(crate) use custom::CustomProvider;
+pub(crate) use execution::{AiCancellationReason, AiOperation, AiRendererRole, AiRequestManager};
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use grok::GrokProvider;
 pub(crate) use ollama::is_valid_endpoint as is_valid_ollama_endpoint;

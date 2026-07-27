@@ -1,7 +1,11 @@
-use tauri::{AppHandle, Manager, RunEvent, Runtime};
+use tauri::{AppHandle, Manager, RunEvent, Runtime, WindowEvent};
 
 use super::{menus, tray, windows::companion};
-use crate::domain::{ai::AiRuntime, pomodoro::PomodoroRuntime, reminders::ReminderRuntime};
+use crate::domain::{
+    ai::{AiCancellationReason, AiRendererRole, AiRequestManager, AiRuntime},
+    pomodoro::PomodoroRuntime,
+    reminders::ReminderRuntime,
+};
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     match event {
@@ -9,6 +13,9 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
             api.prevent_exit();
         }
         RunEvent::Exit => {
+            if let Some(requests) = app.try_state::<AiRequestManager>() {
+                requests.cancel_all(AiCancellationReason::ApplicationQuit);
+            }
             if let Some(ai) = app.try_state::<AiRuntime>() {
                 if let Err(error) = ai.shutdown() {
                     eprintln!("[ai] shutdown_failed: {error}");
@@ -34,6 +41,20 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
         RunEvent::MenuEvent(event) => {
             if let Err(error) = menus::handle_menu_event(app, &event) {
                 eprintln!("[menu] native_action_failed: {error}");
+            }
+        }
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::Destroyed,
+            ..
+        } => {
+            let role = match label.as_str() {
+                crate::authorization::COMPANION_LABEL => Some(AiRendererRole::Companion),
+                crate::authorization::PREFERENCES_LABEL => Some(AiRendererRole::Preferences),
+                _ => None,
+            };
+            if let (Some(requests), Some(role)) = (app.try_state::<AiRequestManager>(), role) {
+                requests.cancel_role(role, AiCancellationReason::WindowClosed);
             }
         }
         #[cfg(target_os = "macos")]

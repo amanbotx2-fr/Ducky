@@ -6,9 +6,10 @@ use crate::{
     authorization,
     domain::{
         ai::{
-            AiConversationRequest, AiExecutionError, AiProviderConfiguration,
-            AiProviderHttpDiagnostics, AiProviderId, AiRequest, AiResponse, AiRuntime,
-            AssistantActionError, AssistantActionProcessor,
+            AiCancellationReason, AiConversationRequest, AiExecutionError, AiOperation,
+            AiProviderConfiguration, AiProviderHttpDiagnostics, AiProviderId, AiRendererRole,
+            AiRequest, AiRequestManager, AiResponse, AiRuntime, AssistantActionError,
+            AssistantActionProcessor,
         },
         settings::{
             AiSettingsPatch, PreferencesSettings, SettingsMutationError, SettingsState,
@@ -113,36 +114,47 @@ pub(crate) enum AiCommandError {
 pub(crate) async fn ask_ai<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     runtime: State<'_, AiRuntime>,
+    requests: State<'_, AiRequestManager>,
     actions: State<'_, AssistantActionProcessor>,
     settings: State<'_, SettingsState>,
     request: AiConversationRequest,
 ) -> Result<AiAskResult, AiCommandError> {
     authorize(&window, authorization::ASK_AI)?;
-    let request = request
-        .validate()
-        .map_err(|_| AiCommandError::InvalidRequest)?;
-    let prompt = request
-        .to_provider_prompt()
-        .map_err(|_| AiCommandError::InvalidRequest)?;
-    let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
+    match requests
+        .run(AiRendererRole::Companion, AiOperation::Chat, async {
+            let request = request
+                .validate()
+                .map_err(|_| AiCommandError::InvalidRequest)?;
+            let prompt = request
+                .to_provider_prompt()
+                .map_err(|_| AiCommandError::InvalidRequest)?;
+            let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
 
-    if !resolved.ai.enabled {
-        return Ok(AiAskResult::failure(AI_UNAVAILABLE_MESSAGE));
-    }
+            if !resolved.ai.enabled {
+                return Ok(AiAskResult::failure(AI_UNAVAILABLE_MESSAGE));
+            }
 
-    match runtime
-        .send_message(resolved.borrowed(), AiRequest { prompt })
+            match runtime
+                .send_message(resolved.borrowed(), AiRequest { prompt })
+                .await
+            {
+                Ok(response) => match actions.process(response) {
+                    Ok(response) => Ok(AiAskResult::success(response)),
+                    Err(error) => {
+                        eprintln!("[ai-action] action_rejected: {}", action_error_code(error));
+                        Ok(AiAskResult::failure("I couldn't complete that action."))
+                    }
+                },
+                Err(AiExecutionError::Provider(_)) => {
+                    Ok(AiAskResult::failure(PROVIDER_FAILED_MESSAGE))
+                }
+                Err(_) => Ok(AiAskResult::failure(AI_UNAVAILABLE_MESSAGE)),
+            }
+        })
         .await
     {
-        Ok(response) => match actions.process(response) {
-            Ok(response) => Ok(AiAskResult::success(response)),
-            Err(error) => {
-                eprintln!("[ai-action] action_rejected: {}", action_error_code(error));
-                Ok(AiAskResult::failure("I couldn't complete that action."))
-            }
-        },
-        Err(AiExecutionError::Provider(_)) => Ok(AiAskResult::failure(PROVIDER_FAILED_MESSAGE)),
-        Err(_) => Ok(AiAskResult::failure(AI_UNAVAILABLE_MESSAGE)),
+        Ok(result) => result,
+        Err(error) => Ok(AiAskResult::failure(error.message())),
     }
 }
 
@@ -150,6 +162,7 @@ pub(crate) async fn ask_ai<R: tauri::Runtime>(
 pub(crate) fn update_ai_configuration<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     runtime: State<'_, AiRuntime>,
+    requests: State<'_, AiRequestManager>,
     credentials: State<'_, CredentialStore>,
     settings: State<'_, SettingsState>,
     configuration: AiConfigurationUpdate,
@@ -169,6 +182,26 @@ pub(crate) fn update_ai_configuration<R: tauri::Runtime>(
     if next_provider == "ollama" && !crate::domain::ai::is_valid_ollama_endpoint(next_endpoint) {
         return Err(AiCommandError::InvalidConfiguration);
     }
+    let configuration_changed = configuration
+        .enabled
+        .is_some_and(|value| value != current.ai.enabled)
+        || configuration
+            .provider
+            .as_ref()
+            .is_some_and(|value| value != &current.ai.provider)
+        || configuration
+            .model
+            .as_ref()
+            .is_some_and(|value| value != &current.ai.model)
+        || configuration
+            .endpoint
+            .as_ref()
+            .is_some_and(|value| value != &current.ai.endpoint)
+        || configuration
+            .base_url
+            .as_ref()
+            .is_some_and(|value| value != &current.ai.base_url)
+        || configuration.api_key.is_some();
 
     let previous_credential = if configuration.api_key.is_some() {
         Some(
@@ -202,6 +235,10 @@ pub(crate) fn update_ai_configuration<R: tauri::Runtime>(
         }
     };
 
+    if configuration_changed {
+        requests.cancel_all(AiCancellationReason::ProviderChanged);
+    }
+
     match AiProviderId::parse(&update.settings.ai.provider) {
         Some(provider) => runtime
             .select_provider(provider)
@@ -223,72 +260,107 @@ pub(crate) fn update_ai_configuration<R: tauri::Runtime>(
 pub(crate) async fn list_ai_models<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     runtime: State<'_, AiRuntime>,
+    requests: State<'_, AiRequestManager>,
     settings: State<'_, SettingsState>,
 ) -> Result<AiModelListResult, AiCommandError> {
     authorize(&window, authorization::LIST_AI_MODELS)?;
-    let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
-
-    Ok(match runtime.list_models(resolved.borrowed()).await {
-        Ok(models) => AiModelListResult {
-            ok: true,
-            models: Some(models),
-            message: None,
-        },
-        Err(error) => AiModelListResult {
+    match requests
+        .run(
+            AiRendererRole::Preferences,
+            AiOperation::ModelDiscovery,
+            async {
+                let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
+                Ok(match runtime.list_models(resolved.borrowed()).await {
+                    Ok(models) => AiModelListResult {
+                        ok: true,
+                        models: Some(models),
+                        message: None,
+                    },
+                    Err(error) => AiModelListResult {
+                        ok: false,
+                        models: None,
+                        message: Some(configuration_error_message(&error)),
+                    },
+                })
+            },
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => Ok(AiModelListResult {
             ok: false,
             models: None,
-            message: Some(configuration_error_message(&error)),
-        },
-    })
+            message: Some(error.message().to_owned()),
+        }),
+    }
 }
 
 #[tauri::command]
 pub(crate) async fn test_ai_connection<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     runtime: State<'_, AiRuntime>,
+    requests: State<'_, AiRequestManager>,
     settings: State<'_, SettingsState>,
 ) -> Result<AiConnectionTestResult, AiCommandError> {
     authorize(&window, authorization::TEST_AI_CONNECTION)?;
-    let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
-
-    Ok(match runtime.test_connection(resolved.borrowed()).await {
-        Ok(message) => AiConnectionTestResult {
-            ok: true,
-            message: Some(message),
-            diagnostics: None,
-        },
-        Err(error) => {
-            let diagnostics = match &error {
-                AiExecutionError::Provider(error) if error.provider_id == AiProviderId::Grok => {
-                    if let Some(diagnostics) = error.diagnostics() {
-                        eprintln!(
-                            "[ai] grok_connection_test_failed: request_url={:?} \
-                             http_status_code={:?} response_body={:?} error_code={:?} \
-                             error_message={:?}",
-                            diagnostics.request_url,
-                            diagnostics.http_status_code,
-                            diagnostics.response_body,
-                            diagnostics.error_code,
-                            diagnostics.error_message
-                        );
-                    } else {
-                        eprintln!(
-                            "[ai] grok_connection_test_failed: error_code={:?} error_message={:?}",
-                            error.code,
-                            error.message()
-                        );
+    match requests
+        .run(
+            AiRendererRole::Preferences,
+            AiOperation::ConnectionTest,
+            async {
+                let resolved = resolve_configuration(runtime.inner(), settings.inner())?;
+                Ok(match runtime.test_connection(resolved.borrowed()).await {
+                    Ok(message) => AiConnectionTestResult {
+                        ok: true,
+                        message: Some(message),
+                        diagnostics: None,
+                    },
+                    Err(error) => {
+                        let diagnostics = match &error {
+                            AiExecutionError::Provider(error)
+                                if error.provider_id == AiProviderId::Grok =>
+                            {
+                                if let Some(diagnostics) = error.diagnostics() {
+                                    eprintln!(
+                                        "[ai] grok_connection_test_failed: request_url={:?} \
+                                         http_status_code={:?} response_body={:?} error_code={:?} \
+                                         error_message={:?}",
+                                        diagnostics.request_url,
+                                        diagnostics.http_status_code,
+                                        diagnostics.response_body,
+                                        diagnostics.error_code,
+                                        diagnostics.error_message
+                                    );
+                                } else {
+                                    eprintln!(
+                                        "[ai] grok_connection_test_failed: error_code={:?} \
+                                         error_message={:?}",
+                                        error.code,
+                                        error.message()
+                                    );
+                                }
+                                error.diagnostics().cloned()
+                            }
+                            _ => None,
+                        };
+                        AiConnectionTestResult {
+                            ok: false,
+                            message: Some(configuration_error_message(&error)),
+                            diagnostics,
+                        }
                     }
-                    error.diagnostics().cloned()
-                }
-                _ => None,
-            };
-            AiConnectionTestResult {
-                ok: false,
-                message: Some(configuration_error_message(&error)),
-                diagnostics,
-            }
-        }
-    })
+                })
+            },
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => Ok(AiConnectionTestResult {
+            ok: false,
+            message: Some(error.message().to_owned()),
+            diagnostics: None,
+        }),
+    }
 }
 
 struct ResolvedAiConfiguration {

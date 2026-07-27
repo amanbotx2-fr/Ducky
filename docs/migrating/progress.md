@@ -6,13 +6,84 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.13 — Diagnostics
-- Next task: Task 9.14 — Rate Limiting & Cancellation
+- Last completed task: Task 9.14 — Rate Limiting & Cancellation
+- Next task: Task 9.15 — Permissions
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.14 — Rate Limiting & Cancellation
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Ported Electron's process-wide `AIRequestManager` policy to Rust with the
+  exact operations, per-role isolation, one active request per renderer role,
+  and independent 60-second limits (30 chat requests; 12 connection tests; 12
+  model-discovery requests).
+- Wrapped the final-response chat, connection-test, and model-discovery
+  commands in the native manager. Policy failures preserve Electron's existing
+  bounded user messages and do not introduce a renderer cancellation method.
+- Implemented lifecycle-only cancellation on provider/configuration changes,
+  main-frame reload/navigation, Companion or Preferences destruction, and
+  application exit. Cancelling drops the provider future, which cancels the
+  in-flight `reqwest` work inside Rust.
+- Preserved provider-owned timeout behavior: cloud/custom providers retain
+  their 30-second request timeout, while Ollama retains its existing 15-second
+  discovery and 120-second local-generation limits.
+- Added no renderer event, streaming transport, concurrent same-role request
+  path, or Tauri command/capability.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/execution.rs` — native request policy, lifecycle
+  cancellation, rejection logging, and regression tests.
+- `src-tauri/src/domain/ai/mod.rs` — execution-control exports.
+- `src-tauri/src/commands/ai.rs` — policy integration around the three existing
+  AI operations and provider-change cancellation.
+- `src-tauri/src/app_state.rs` — process-wide request manager and main-frame
+  reload/navigation cancellation for both renderer roles.
+- `src-tauri/src/desktop/lifecycle.rs` — window-destruction and application-exit
+  cancellation.
+- `src-tauri/Cargo.toml` — enabled Tokio's already-installed synchronization
+  primitives for native cancellation.
+- `docs/migrating/progress.md` — recorded Task 9.14.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (140 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (111 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; execution control is native-only and
+  added no renderer permission.
+- Electron production-output smoke launch: passed with its existing
+  `AIRequestManager` unchanged.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed both runtimes launch with the request manager initialized and no
+  renderer-load, lifecycle, or permission error.
+- Native tests exercised same-role rejection, cross-role isolation, exact rate
+  limits, provider-change cancellation, provider-future cleanup, and reuse
+  after cancellation. Credentialed lifecycle checks remain part of the Phase 9
+  final gate.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.15 — Permissions.
 
 ### Task 9.13 — Diagnostics
 
