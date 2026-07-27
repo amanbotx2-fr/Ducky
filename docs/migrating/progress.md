@@ -6,13 +6,80 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.8 — Grok Provider
-- Next task: Task 9.9 — Ollama Provider
+- Last completed task: Task 9.9 — Ollama Provider
+- Next task: Task 9.10 — Custom Provider
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
 
 ## Completed Tasks
+
+### Task 9.9 — Ollama Provider
+
+**Status:** Native provider complete. Live local-model verification and the
+renderer bridge path remain final Phase 9 gates.
+
+**Implementation summary**
+
+- Added a native Ollama provider for the existing `/api/chat` and `/api/tags`
+  contracts, preserving one final response, usage metadata, finish reasons,
+  model discovery, and Electron's connection-test messages.
+- Ported Electron's security-hardened local transport instead of using a
+  general renderer or plugin network permission.
+- Preserved exact loopback-only HTTP origins, bounded DNS resolution with
+  rejection if any answer is non-loopback, per-address DNS pinning, connected
+  peer verification, environment-proxy bypass, redirect rejection, identity
+  encoding, request/response size limits, and bounded whole-operation
+  timeouts.
+- Registered Ollama through the singleton provider registry, restored its
+  persisted selection, and kept it credential-free.
+- Added adversarial endpoint/address tests plus response and model parser
+  parity coverage.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/ollama.rs` — native provider, hardened transport,
+  and tests.
+- `src-tauri/src/domain/ai/mod.rs` — exported Ollama.
+- `src-tauri/src/app_state.rs` — registered and restored Ollama selection.
+- `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` — enabled bounded response
+  streaming and the Tokio network/timeout primitives required by the native
+  transport.
+- `docs/migrating/progress.md` — recorded Task 9.9.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (97 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; no renderer network authority was
+  introduced.
+- Electron production-output smoke launch: passed through the unchanged
+  hardened Electron Ollama transport.
+- `npx tauri dev --no-watch`: passed with only the known development
+  custom-protocol fallback warning.
+- `npm run tauri:build -- --debug --bundles app`: passed after cleaning only
+  generated Rust target artifacts when the first bundle attempt exhausted
+  local disk space.
+
+**Manual verification**
+
+- Confirmed native startup with Ollama registered and no network, credential,
+  renderer, or permission error.
+- A live local-model chat/discovery check remains part of final Phase 9
+  verification once the final-response DesktopBridge command is available.
+
+**Blockers**
+
+- None. The temporary local disk-space condition was resolved by `cargo clean`
+  and the package gate passed on retry.
+
+**Next task**
+
+- Task 9.10 — Custom Provider.
 
 ### Task 9.8 — Grok Provider
 

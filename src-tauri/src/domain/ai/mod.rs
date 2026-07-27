@@ -3,6 +3,7 @@
 mod claude;
 mod gemini;
 mod grok;
+mod ollama;
 mod openai;
 #[allow(dead_code)]
 mod provider;
@@ -13,6 +14,7 @@ mod runtime;
 pub(crate) use claude::ClaudeProvider;
 pub(crate) use gemini::GeminiProvider;
 pub(crate) use grok::GrokProvider;
+pub(crate) use ollama::OllamaProvider;
 pub(crate) use openai::OpenAiProvider;
 pub(crate) use provider::{
     AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode, AiRequest,
