@@ -3,5 +3,8 @@
   "identifier": "preferences",
   "description": "Least-privilege capability for the Preferences window.",
   "windows": ["preferences"],
-  "permissions": []
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
 }

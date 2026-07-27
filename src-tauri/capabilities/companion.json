@@ -7,6 +7,8 @@
     "allow-get-cursor-position",
     "allow-move-companion-window",
     "allow-set-companion-content-height",
-    "allow-stream-cursor-positions"
+    "allow-stream-cursor-positions",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

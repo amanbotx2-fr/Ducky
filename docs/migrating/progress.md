@@ -5,9 +5,9 @@
 ## Current Status
 
 - Active phase: Phase 3 — IPC Migration
-- Last completed task: Task 3.1 — Commands
-- Next task: Task 3.2 — Events
-- Blockers: None. Task 3.2 has not started.
+- Last completed task: Task 3.2 — Events
+- Next task: Task 3.3 — Cursor streaming
+- Blockers: None. Task 3.3 has not started.
 
 ## Completed Tasks
 
@@ -796,3 +796,75 @@ implemented or modified.
 **Next task**
 
 - Task 3.2 — Events.
+
+### Task 3.2 — Events
+
+**Status:** Complete
+
+**Scope clarification**
+
+- Phase 3 remains limited to IPC infrastructure.
+- Task 3.2 establishes typed, targeted low-frequency event dispatch and
+  subscription without producing or consuming feature-domain events.
+- Settings snapshots, one-shot recovery queues, reminder delivery, Pomodoro
+  state, updater status, and native menu requests remain owned by their later
+  feature phases.
+- Cursor samples remain on the existing ordered Tauri channel and were
+  intentionally excluded from this task.
+- Existing Electron preload listeners, early-event buffers, and main-process
+  event delivery remain authoritative and unchanged.
+
+**Files changed**
+
+- `src-tauri/src/events.rs` — added the Rust low-frequency event registry,
+  exact companion/Preferences routing, targeted `WebviewWindow` emission, and
+  focused route/uniqueness tests.
+- `src-tauri/src/lib.rs` — compiles and tests the event infrastructure while
+  later feature phases remain responsible for connecting producers.
+- `src/desktop/tauriEvents.ts` — added the typed renderer event registry and
+  exact-label subscription helper with race-safe asynchronous cleanup.
+- `src-tauri/capabilities/companion.json` — granted only event listen and
+  unlisten permissions to the companion.
+- `src-tauri/capabilities/preferences.json` — granted only event listen and
+  unlisten permissions to Preferences.
+- `tests/tauri-event-capabilities.test.cjs` — verifies both renderers can
+  subscribe but cannot emit events.
+- `docs/migrating/progress.md` — recorded Task 3.2 completion.
+
+**Event infrastructure**
+
+- Preserves the 11 existing low-frequency backend event names.
+- Routes companion-only events only to `companion`.
+- Routes update status only to `preferences`.
+- Routes secret-free runtime settings changes to both renderer labels.
+- Uses the exact `WebviewWindow` event target rather than global broadcasts.
+- Uses `null` for no-payload events, matching Tauri's serialized Rust unit
+  payload.
+- Rejects invalid renderer/event pairings in the TypeScript adapter.
+- Handles unmount-before-registration without leaking Tauri listeners.
+- Grants no renderer-side `emit`, `emit-to`, or default event permission.
+
+No feature-domain producer, bridge listener, recovery queue, cursor transport,
+or Electron event implementation changed. Task 3.3 was not started.
+
+**Validation performed**
+
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (15 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (120 tests across 34 suites).
+- `npm run build`: passed.
+- `npx tauri permission ls`: confirmed the narrow event permission set.
+- `npm run tauri:dev`: passed. Both capabilities loaded without event
+  authority or runtime errors; the companion remained operational.
+- Electron smoke launch: passed with the existing preload listeners and IPC
+  delivery intact; the process was then stopped manually.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 3.3 — Cursor streaming.
