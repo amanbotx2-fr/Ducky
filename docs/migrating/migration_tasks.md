@@ -1102,9 +1102,316 @@ Only then may Phase 6 begin.
 
 # PHASE 6
 
-Credentials
+Secure Credentials & Secret Storage
 
-...
+Goal
+
+Migrate secure credential storage from Electron to Tauri v2.
+
+This phase establishes the native secret storage layer used by later phases.
+
+It does NOT migrate AI providers, authentication flows, updater logic,
+or feature-specific integrations.
+
+Electron remains the reference implementation until Phase 12.
+
+DesktopBridge remains the only renderer abstraction.
+
+---
+
+## Discovery
+
+Before implementation:
+
+- Audit the existing credential implementation.
+- Identify every stored secret.
+- Identify storage backend.
+- Identify credential lifecycle.
+- Identify startup loading.
+- Identify runtime updates.
+- Identify DesktopBridge integration.
+- Identify renderer interactions.
+- Document findings inside docs/migrating/progress.md.
+
+Do not modify production code until discovery is complete.
+
+---
+
+## Scope
+
+This phase includes:
+
+- secure credential store
+- native Keychain integration (macOS)
+- typed credential APIs
+- credential validation
+- credential persistence
+- DesktopBridge credential APIs
+- credential loading
+- credential deletion
+- least-privilege permissions
+
+This phase does NOT include:
+
+- AI provider logic
+- model selection
+- authentication flows
+- reminders
+- pomodoro
+- updater
+- release pipeline
+- Electron removal
+
+---
+
+## Architecture Rules
+
+Renderer never accesses native secure storage directly.
+
+Renderer
+
+↓
+
+DesktopBridge
+
+↓
+
+Runtime Adapter
+
+↓
+
+Native Secret Store
+
+Secrets never travel through renderer state unless explicitly requested.
+
+Validation occurs inside the runtime.
+
+---
+
+## Task 6.1
+
+Audit Existing Credential Storage
+
+Objective
+
+Document the Electron implementation.
+
+Acceptance
+
+- storage documented
+- credential lifecycle documented
+- DesktopBridge interactions documented
+- renderer interactions documented
+
+Commit
+
+No commit.
+
+---
+
+## Task 6.2
+
+Create Native Secret Store
+
+Objective
+
+Implement the native secure credential backend.
+
+Requirements
+
+- runtime owned
+- typed API
+- native secure storage
+- preserve Electron implementation
+
+Acceptance
+
+Credentials save successfully.
+
+Credentials load successfully.
+
+Commit
+
+feat(tauri): migrate secret store
+
+---
+
+## Task 6.3
+
+DesktopBridge Credential API
+
+Objective
+
+Expose typed credential APIs.
+
+Requirements
+
+- renderer runtime agnostic
+- DesktopBridge only
+- preserve Electron bridge
+
+Acceptance
+
+Renderer accesses credentials only through DesktopBridge.
+
+Commit
+
+feat(tauri): migrate credential bridge
+
+---
+
+## Task 6.4
+
+Credential Persistence
+
+Objective
+
+Persist credentials securely.
+
+Requirements
+
+- validate before save
+- overwrite existing values safely
+- support deletion
+- prevent duplicate writes
+
+Acceptance
+
+Credentials survive restart.
+
+Deletion removes stored secrets.
+
+Commit
+
+feat(tauri): migrate credential persistence
+
+---
+
+## Task 6.5
+
+Preferences Integration
+
+Objective
+
+Connect secure credential management to Preferences.
+
+Requirements
+
+- DesktopBridge only
+- no runtime detection
+- preserve Electron implementation
+
+Acceptance
+
+Credentials can be created, updated and removed through Preferences.
+
+Commit
+
+feat(tauri): migrate credential preferences
+
+---
+
+## Deferred
+
+The following remain owned by later phases:
+
+AI
+
+- OpenAI
+- Gemini
+- Grok
+- Ollama
+- provider selection
+- model selection
+- AI diagnostics
+
+Updater
+
+- update authentication
+- release credentials
+
+Authentication
+
+- login
+- account management
+
+These remain Electron-only until their migration phases.
+
+---
+
+## Validation
+
+After every completed task:
+
+- npm install (only if dependencies changed)
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build
+- Electron smoke launch
+- Tauri development smoke launch
+
+Fix all failures before continuing.
+
+---
+
+## Manual Verification
+
+Verify:
+
+- credentials save
+- credentials load
+- credentials update
+- credentials delete
+- credentials survive restart
+- Preferences reflects changes
+- no secrets stored in renderer state
+- no renderer console errors
+- Electron behaviour unchanged
+
+---
+
+## Progress Tracking
+
+Update docs/migrating/progress.md with:
+
+- completed task
+- implementation summary
+- files changed
+- validation performed
+- manual verification
+- blockers
+- next task
+
+---
+
+## Phase Exit Criteria
+
+Phase 6 is complete only if:
+
+✓ Native secret storage implemented
+
+✓ DesktopBridge owns all credential access
+
+✓ Credentials persist securely
+
+✓ Credentials survive restart
+
+✓ Preferences integrates correctly
+
+✓ Electron implementation preserved
+
+✓ All validation passes
+
+✓ Manual verification passes
+
+✓ Repository builds successfully
+
+Only then may Phase 7 begin.
 
 ---
 

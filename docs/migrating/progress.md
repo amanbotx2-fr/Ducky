@@ -2501,3 +2501,139 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Phase 6 — Credentials. Do not begin automatically.
+
+---
+
+## Phase 6 — Secure Credentials & Secret Storage
+
+### Task 6.1 — Existing Credential Storage Audit
+
+**Status:** Complete
+
+**Stored-secret inventory**
+
+- The only persisted application secret is the AI API key. Ducky does not
+  currently persist login tokens, updater credentials, release credentials,
+  or per-provider credential collections.
+- `src/main/CredentialManager.ts` owns Electron credential protection. It uses
+  Electron `safeStorage`, rejects unavailable encryption, and rejects Linux's
+  reversible `basic_text` fallback.
+- `src/main/SettingsService.ts` stores a versioned Base64 ciphertext record in
+  the `credential` field of Electron's `settings.json`. Older
+  `ai.apiKey` plaintext values are retained until a verified encryption
+  round-trip and atomic settings rewrite succeed.
+- The Phase 5 native settings importer retains both opaque `credential`
+  records and any legacy `ai.apiKey` field losslessly. It exposes only the
+  boolean `apiKeyConfigured` projection and never returns either value to a
+  renderer.
+
+**Credential lifecycle**
+
+- Electron constructs `CredentialManager` after `app.whenReady()`, loads
+  `SettingsService`, and attempts the one-time plaintext-to-`safeStorage`
+  migration during load.
+- Preferences sends a credential only through
+  `preferences-ai:configure`; `SettingsService.updateAiConfiguration`
+  validates length, encrypts, verifies, and atomically writes the replacement.
+  An empty value removes the credential. Unchanged updates retain the existing
+  ciphertext.
+- AI request construction obtains plaintext only inside Electron main through
+  `SettingsService.getApiKey()`. Main never returns plaintext through IPC.
+- The Preferences renderer uses an uncontrolled password input. React state
+  stores only edited/clear flags and the secret-free configured boolean.
+
+**DesktopBridge and renderer interactions**
+
+- `PreferencesApp.tsx` consumes `preferencesDesktopBridge`; it has no direct
+  Electron or Tauri API access.
+- The Electron adapter currently forwards the existing typed
+  `PreferencesBridge.updateAiConfiguration` method. The Tauri adapter
+  deliberately exposes no AI or credential mutation yet.
+- Phase 6 will add a credential-specific, runtime-neutral bridge that returns
+  status only and accepts create/update/delete requests. Provider settings,
+  model selection, AI networking, and diagnostics remain deferred.
+
+**Migration boundary and security decision**
+
+- Electron `safeStorage` ciphertext cannot be assumed decryptable through a
+  Rust OS-vault backend. The native implementation will therefore not parse,
+  decrypt, log, overwrite, or silently discard imported Electron ciphertext.
+- Tauri will store newly entered credentials directly in the platform vault
+  (macOS Keychain, with the corresponding native secure backend on supported
+  desktop platforms). Preferences will allow safe re-entry and report native
+  vault status without returning plaintext.
+- The imported opaque record remains preserved for Electron compatibility and
+  a future explicitly designed transition handoff. Phase 6 does not claim
+  automatic ciphertext portability.
+
+**Discovery blockers**
+
+- None. The source-of-truth architecture explicitly permits safe re-entry when
+  Electron ciphertext portability is not demonstrated.
+
+**Next task**
+
+- Task 6.2 — Create the native secret store.
+
+### Task 6.2 — Create Native Secret Store
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Added a runtime-owned Rust credential repository in
+  `src-tauri/src/infrastructure/credentials.rs`.
+- Added a typed `CredentialId::AiApiKey` key instead of exposing generic
+  service/account strings to callers.
+- Added the `keyring` 3.6.3 backend using macOS Keychain Services, Windows
+  Credential Manager, and Linux Secret Service through target-specific
+  features compatible with the repository's Rust 1.77.2 baseline.
+- Added strict 4,096-byte validation, whitespace normalization, idempotent
+  deletion, overwrite support, and backend-level duplicate-write suppression.
+- Plaintext is never formatted into errors or logs. Temporary owned secret
+  buffers and values loaded from the backend use `zeroize`.
+- Unit tests use an injected in-memory backend and never create or read a real
+  operating-system credential.
+- Preserved Electron `CredentialManager`, `SettingsService`, preload IPC, and
+  all renderer behavior unchanged.
+
+**Files changed**
+
+- `docs/migrating/migration_tasks.md` — retained the user-provided Phase 6
+  execution contract as the source of truth.
+- `docs/migrating/progress.md` — recorded discovery and Task 6.2.
+- `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock` — added target-specific
+  native keyring support plus secret zeroization.
+- `src-tauri/src/infrastructure/mod.rs` and
+  `src-tauri/src/infrastructure/credentials.rs` — native secure-store
+  implementation and tests.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (134 tests across 38 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (50 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; Task 6.2 adds no WebView command.
+- Electron production-output smoke launch: passed through the unchanged
+  preload and `safeStorage` implementation. Existing expected security-policy
+  denial diagnostics remained unchanged.
+- `npm run tauri:dev`: passed; the companion launched and remained alive with
+  no secret-store initialization or renderer error. The known development
+  custom-protocol fallback warning remained unchanged.
+
+**Manual verification**
+
+- Real Keychain mutation is intentionally deferred until Task 6.4 registers
+  application state and native commands. Task 6.2 save/load/update/delete and
+  duplicate-write behavior were verified through the injected backend tests.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 6.3 — DesktopBridge credential API.
