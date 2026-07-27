@@ -121,8 +121,11 @@ export function PreferencesApp() {
     capabilities,
     status,
     errorMessage,
+    credentialStatus,
     update,
     updateAiConfiguration,
+    saveCredential,
+    deleteCredential,
   } = usePreferencesSettings();
   const { updateStatus, checkForUpdates } = useUpdateStatus();
   const [aiDraft, setAiDraft] =
@@ -155,6 +158,8 @@ export function PreferencesApp() {
     settingsAreLoading || !capabilities.updates;
   const aiSettingsUnavailable =
     settingsAreLoading || !capabilities.ai;
+  const credentialSettingsUnavailable =
+    settingsAreLoading || !capabilities.credentials;
   const modelExplorerSettingsUnavailable =
     aiSettingsUnavailable || !capabilities.aiModelExplorer;
   const updateCheckInProgress =
@@ -348,6 +353,40 @@ export function PreferencesApp() {
       : apiKeyEdited
         ? (apiKeyInputRef.current?.value.trim() ?? '')
         : undefined;
+
+    if (!capabilities.ai && capabilities.credentials) {
+      const didSave =
+        apiKey === undefined
+          ? true
+          : apiKeyClearRequested
+            ? await deleteCredential()
+            : await saveCredential(apiKey);
+
+      if (didSave) {
+        setAiDraft((currentDraft) => ({
+          ...currentDraft,
+          apiKeyConfigured:
+            apiKey === undefined
+              ? currentDraft.apiKeyConfigured
+              : !apiKeyClearRequested,
+        }));
+        setAiDirty(false);
+        setApiKeyEdited(false);
+        setApiKeyClearRequested(false);
+
+        if (apiKeyInputRef.current !== null) {
+          apiKeyInputRef.current.value = '';
+        }
+      } else {
+        setConnectionStatus({
+          phase: 'error',
+          message: 'The API credential could not be saved.',
+        });
+      }
+
+      return didSave;
+    }
+
     const configuration: AiConfigurationUpdate = {
       enabled: normalizedDraft.enabled,
       provider: normalizedDraft.provider,
@@ -503,7 +542,9 @@ export function PreferencesApp() {
   };
 
   const providerStatusMessage =
-    modelLoadingStatus.phase === 'loading'
+    !capabilities.ai
+      ? 'Provider and model controls remain Electron-only during migration.'
+      : modelLoadingStatus.phase === 'loading'
       ? 'Loading models...'
       : modelLoadingStatus.phase === 'empty'
         ? aiDraft.provider === 'custom'
@@ -1002,7 +1043,7 @@ export function PreferencesApp() {
           />
         ) : null}
 
-        {aiDraft.provider === 'ollama' ? (
+        {aiDraft.provider === 'ollama' && capabilities.ai ? (
           <PreferenceRow
             htmlFor="ai-endpoint"
             label="Endpoint"
@@ -1022,12 +1063,14 @@ export function PreferencesApp() {
               />
             }
           />
-        ) : aiDraft.provider === '' ? null : (
+        ) : aiDraft.provider === '' && capabilities.ai ? null : (
           <PreferenceRow
             htmlFor="ai-api-key"
             label="API key"
             description={
-              aiDraft.apiKeyConfigured
+              credentialStatus?.state === 'requiresReentry'
+                ? 'Re-enter the existing key once to move it into native secure storage.'
+                : aiDraft.apiKeyConfigured
                 ? 'A key is configured. Enter a new key to replace it.'
                 : aiDraft.provider === 'custom'
                   ? 'Optional. Leave this empty for servers without authentication.'
@@ -1046,7 +1089,9 @@ export function PreferencesApp() {
                       ? 'Configured'
                       : 'Enter API key'
                   }
-                  disabled={aiSettingsUnavailable || aiActionInProgress}
+                  disabled={
+                    credentialSettingsUnavailable || aiActionInProgress
+                  }
                   autoComplete="new-password"
                   spellCheck={false}
                   onChange={handleApiKeyChange}
@@ -1055,7 +1100,10 @@ export function PreferencesApp() {
                   <button
                     className="settings-button settings-button--secondary credential-control__remove"
                     type="button"
-                    disabled={aiSettingsUnavailable || aiActionInProgress}
+                    disabled={
+                      credentialSettingsUnavailable ||
+                      aiActionInProgress
+                    }
                     onClick={clearApiKeyDraft}
                   >
                     Remove
@@ -1247,12 +1295,20 @@ export function PreferencesApp() {
         />
 
         <div className="ai-save-actions">
-          <p>Save applies the selected provider and model immediately.</p>
+          <p>
+            {capabilities.ai
+              ? 'Save applies the selected provider and model immediately.'
+              : 'Save stores the API key in native secure storage.'}
+          </p>
           <button
             className="settings-button settings-button--primary"
             type="button"
             disabled={
-              aiSettingsUnavailable || aiActionInProgress || !aiDirty
+              (capabilities.ai
+                ? aiSettingsUnavailable
+                : credentialSettingsUnavailable) ||
+              aiActionInProgress ||
+              !aiDirty
             }
             onClick={() => {
               void saveAiSettings();
@@ -1266,7 +1322,9 @@ export function PreferencesApp() {
       <footer className="preferences-footer">
         {capabilities.water && capabilities.updates
           ? 'General, sound, hydration, and update changes save automatically. AI changes apply when saved.'
-          : 'General and sound changes save automatically. Other feature settings remain Electron-only during migration.'}
+          : capabilities.credentials
+            ? 'General and sound changes save automatically. Credentials use native secure storage; other AI settings remain Electron-only during migration.'
+            : 'General and sound changes save automatically. Other feature settings remain Electron-only during migration.'}
       </footer>
     </main>
   );

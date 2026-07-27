@@ -2776,3 +2776,123 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 6.5 — Preferences integration.
+
+### Task 6.5 — Preferences Integration
+
+**Status:** Complete
+
+**Implementation summary**
+
+- Connected the existing Preferences credential control to the
+  runtime-neutral `CredentialBridge`. The renderer still has no direct
+  Electron, Tauri, or operating-system vault access.
+- Preferences now loads secret-free native credential status alongside the
+  settings projection and distinguishes configured, missing, and safe
+  re-entry states.
+- Tauri can create, replace, and remove the AI API credential while the
+  provider, model, diagnostics, and other Phase 10 AI behavior remain
+  intentionally unavailable.
+- Preserved the uncontrolled password input: plaintext exists only in the DOM
+  input long enough to submit the explicit mutation and is never copied into
+  React state.
+- Preserved Electron behavior through the existing
+  `updateAiConfiguration`/`safeStorage` implementation. The shared
+  Preferences UI selects behavior from DesktopBridge capabilities rather than
+  detecting a runtime.
+- After an explicit successful native save or delete, Tauri removes only its
+  imported copy of legacy Electron credential data. The original Electron
+  settings file remains untouched. This prevents deleted native credentials
+  from reverting to `requiresReentry` on restart and avoids retaining an
+  unnecessary plaintext or opaque ciphertext copy in native settings.
+- Added renderer-boundary regression coverage for credential access through
+  DesktopBridge and for the secret-free, uncontrolled input lifecycle.
+
+**Files changed**
+
+- `src/renderer/hooks/usePreferencesSettings.ts` — secret-free credential
+  status loading and create/update/delete controller operations.
+- `src/renderer/PreferencesApp.tsx` — capability-gated native credential
+  Preferences flow with safe re-entry messaging.
+- `src-tauri/src/commands/credentials.rs` and
+  `src-tauri/src/domain/settings/mod.rs` — explicit cleanup of the imported
+  native settings copy after a successful vault transition.
+- `tests/desktop-bridge-boundary.test.cjs` — runtime-agnostic bridge and
+  renderer-state regression assertions.
+- `docs/migrating/progress.md` — Task 6.5 and Phase 6 completion record.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (134 tests across 38 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (55 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed with the exact Preferences-only
+  credential command permissions.
+- `npm run tauri:dev`: passed; the companion launched and remained alive with
+  no credential, permission, or renderer errors. The known development
+  custom-protocol fallback warning remained unchanged.
+- `npm run tauri:build -- --debug`: passed and produced the current macOS
+  application bundle used for isolated manual Keychain verification.
+- Electron production-output smoke launch: passed. The companion and
+  Preferences window opened through the unchanged Electron preload,
+  `safeStorage`, and AI configuration path. Existing expected permission
+  denial diagnostics remained unchanged.
+
+**Manual verification**
+
+- Created a synthetic test credential through Tauri Preferences and confirmed
+  the UI returned to `Saved` with configured status.
+- Confirmed the credential was written to macOS Keychain under the native
+  application service and was absent from the native settings JSON.
+- Replaced the credential through the same Preferences control and verified
+  the Keychain value changed without exposing it in renderer output.
+- Quit and relaunched Ducky, reopened Preferences, and confirmed configured
+  status survived restart.
+- Removed the credential through Preferences, confirmed the Keychain item was
+  deleted, relaunched again, and confirmed Preferences remained in the
+  missing state.
+- Confirmed native settings contained neither the synthetic secret nor legacy
+  credential fields after the explicit transition. The synthetic Keychain
+  entry was removed after verification.
+- Confirmed Electron Preferences still reported its independently configured
+  credential without reading, replacing, or deleting it.
+- Accessibility output and runtime logs contained only redacted status; no
+  plaintext credential or renderer console error was observed.
+
+**Commit**
+
+- `feat(tauri): migrate credential preferences`
+
+**Blockers**
+
+- None.
+
+## Phase 6 Completion
+
+**Status:** Complete
+
+- Native platform secret storage is implemented with a typed Rust-owned
+  repository.
+- DesktopBridge owns all renderer credential access and exposes no plaintext
+  read operation.
+- Native credentials save, update, persist across restart, and delete through
+  Preferences.
+- Imported Electron credential material has an explicit safe re-entry path;
+  Electron's source settings and `safeStorage` implementation remain
+  unchanged.
+- Least-privilege Preferences permissions, automated validation, production
+  builds, runtime smoke launches, and manual macOS Keychain verification all
+  passed.
+
+**Phase 6 commits**
+
+- `55cd4b5 feat(tauri): migrate secret store`
+- `724d939 feat(tauri): migrate credential bridge`
+- `28458de feat(tauri): migrate credential persistence`
+- `feat(tauri): migrate credential preferences`
+
+**Next task**
+
+- Phase 7 — Reminder System. Do not begin automatically.

@@ -228,6 +228,15 @@ impl SettingsState {
         })
     }
 
+    pub(crate) fn clear_legacy_credential(&self) -> Result<SettingsUpdate, SettingsMutationError> {
+        self.persist_update(|settings| {
+            let mut next = settings.clone();
+            next.credential = None;
+            next.ai.api_key = None;
+            next
+        })
+    }
+
     fn persist_update(
         &self,
         update: impl FnOnce(&SettingsDocument) -> SettingsDocument,
@@ -944,5 +953,28 @@ mod tests {
             state.update_preferences(invalid),
             Err(SettingsMutationError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn explicit_native_credential_transition_removes_only_the_imported_copy() {
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        let mut document = SettingsDocument::default();
+        document.credential = Some(json!({
+            "version": 1,
+            "ciphertext": "opaque-electron-copy"
+        }));
+        document.ai.api_key = Some("legacy-copy".to_owned());
+        store.save(&document).unwrap();
+        let state = SettingsState::new(store.clone(), document);
+
+        let update = state.clear_legacy_credential().unwrap();
+
+        assert!(update.changed);
+        assert_eq!(update.settings.credential, None);
+        assert_eq!(update.settings.ai.api_key, None);
+        let persisted = store.load().unwrap();
+        assert_eq!(persisted.credential, None);
+        assert_eq!(persisted.ai.api_key, None);
     }
 }

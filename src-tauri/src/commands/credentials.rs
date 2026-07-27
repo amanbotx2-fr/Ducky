@@ -3,7 +3,7 @@ use tauri::{State, WebviewWindow};
 
 use crate::{
     authorization,
-    domain::settings::SettingsState,
+    domain::settings::{SettingsMutationError, SettingsState},
     infrastructure::credentials::{
         CredentialId as NativeCredentialId, CredentialStore, CredentialStoreError,
     },
@@ -45,6 +45,7 @@ pub(crate) enum CredentialCommandError {
     InvalidCredential,
     SecureStorageUnavailable,
     SettingsUnavailable,
+    SettingsPersistenceFailed,
 }
 
 #[tauri::command]
@@ -62,6 +63,7 @@ pub(crate) fn get_credential_status<R: tauri::Runtime>(
 pub(crate) fn save_credential<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     credentials: State<'_, CredentialStore>,
+    settings: State<'_, SettingsState>,
     id: CredentialId,
     secret: String,
 ) -> Result<CredentialStatus, CredentialCommandError> {
@@ -69,6 +71,9 @@ pub(crate) fn save_credential<R: tauri::Runtime>(
     credentials
         .save(id.native(), secret)
         .map_err(map_store_error)?;
+    settings
+        .clear_legacy_credential()
+        .map_err(map_settings_error)?;
     Ok(CredentialStatus {
         id,
         state: CredentialState::Configured,
@@ -84,6 +89,9 @@ pub(crate) fn delete_credential<R: tauri::Runtime>(
 ) -> Result<CredentialStatus, CredentialCommandError> {
     authorize(&window, authorization::DELETE_CREDENTIAL)?;
     credentials.delete(id.native()).map_err(map_store_error)?;
+    settings
+        .clear_legacy_credential()
+        .map_err(map_settings_error)?;
     status(credentials.inner(), settings.inner(), id)
 }
 
@@ -132,6 +140,15 @@ fn map_store_error(error: CredentialStoreError) -> CredentialCommandError {
     match error {
         CredentialStoreError::InvalidSecret => CredentialCommandError::InvalidCredential,
         CredentialStoreError::Unavailable => CredentialCommandError::SecureStorageUnavailable,
+    }
+}
+
+fn map_settings_error(error: SettingsMutationError) -> CredentialCommandError {
+    match error {
+        SettingsMutationError::State(_) => CredentialCommandError::SettingsUnavailable,
+        SettingsMutationError::Validation(_) | SettingsMutationError::Store(_) => {
+            CredentialCommandError::SettingsPersistenceFailed
+        }
     }
 }
 

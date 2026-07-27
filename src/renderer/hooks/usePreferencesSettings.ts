@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { preferencesDesktopBridge } from '../../desktop/DesktopBridge';
 import type { PreferencesSettingsCapabilities } from '../../desktop/contracts';
+import type { CredentialStatus } from '../../shared/credentials';
 import {
   type AiConfigurationUpdate,
   createDefaultPreferencesSettings,
@@ -22,10 +23,13 @@ export interface PreferencesSettingsController {
   readonly capabilities: PreferencesSettingsCapabilities;
   readonly status: SettingsStatus;
   readonly errorMessage: string | null;
+  readonly credentialStatus: CredentialStatus | null;
   readonly update: (patch: PreferencesSettingsPatch) => Promise<boolean>;
   readonly updateAiConfiguration: (
     configuration: AiConfigurationUpdate,
   ) => Promise<boolean>;
+  readonly saveCredential: (secret: string) => Promise<boolean>;
+  readonly deleteCredential: () => Promise<boolean>;
 }
 
 const isPatchSupported = (
@@ -40,6 +44,17 @@ const isPatchSupported = (
   (patch.aiModelExplorer === undefined ||
     capabilities.aiModelExplorer);
 
+const applyCredentialStatus = (
+  settings: PreferencesSettings,
+  credentialStatus: CredentialStatus,
+): PreferencesSettings => ({
+  ...settings,
+  ai: {
+    ...settings.ai,
+    apiKeyConfigured: credentialStatus.state === 'configured',
+  },
+});
+
 export function usePreferencesSettings(): PreferencesSettingsController {
   const capabilities =
     preferencesDesktopBridge.getPreferencesSettingsCapabilities();
@@ -48,6 +63,8 @@ export function usePreferencesSettings(): PreferencesSettingsController {
   );
   const [status, setStatus] = useState<SettingsStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [credentialStatus, setCredentialStatus] =
+    useState<CredentialStatus | null>(null);
   const mountedRef = useRef(true);
   const updateRevisionRef = useRef(0);
 
@@ -55,8 +72,13 @@ export function usePreferencesSettings(): PreferencesSettingsController {
     mountedRef.current = true;
     const preferencesBridge =
       preferencesDesktopBridge.getPreferencesSettingsBridge();
+    const credentialBridge =
+      preferencesDesktopBridge.getCredentialBridge();
 
-    if (preferencesBridge === undefined) {
+    if (
+      preferencesBridge === undefined ||
+      (capabilities.credentials && credentialBridge === undefined)
+    ) {
       setStatus('error');
       setErrorMessage('Settings are unavailable in this window.');
       return () => {
@@ -84,14 +106,26 @@ export function usePreferencesSettings(): PreferencesSettingsController {
       },
     );
 
-    void preferencesBridge
-      .getPreferencesSettings()
-      .then((nextSettings) => {
+    const credentialRequest =
+      capabilities.credentials && credentialBridge !== undefined
+        ? credentialBridge.getCredentialStatus('aiApiKey')
+        : Promise.resolve<CredentialStatus | null>(null);
+
+    void Promise.all([
+      preferencesBridge.getPreferencesSettings(),
+      credentialRequest,
+    ])
+      .then(([nextSettings, nextCredentialStatus]) => {
         if (!mountedRef.current) {
           return;
         }
 
-        setSettings(nextSettings);
+        setSettings(
+          nextCredentialStatus === null
+            ? nextSettings
+            : applyCredentialStatus(nextSettings, nextCredentialStatus),
+        );
+        setCredentialStatus(nextCredentialStatus);
         setStatus('ready');
         setErrorMessage(null);
       })
@@ -108,7 +142,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
       mountedRef.current = false;
       unsubscribe();
     };
-  }, []);
+  }, [capabilities.credentials]);
 
   const update = useCallback(
     async (patch: PreferencesSettingsPatch): Promise<boolean> => {
@@ -145,7 +179,14 @@ export function usePreferencesSettings(): PreferencesSettingsController {
           mountedRef.current &&
           revision === updateRevisionRef.current
         ) {
-          setSettings(savedSettings);
+          setSettings(
+            credentialStatus === null
+              ? savedSettings
+              : applyCredentialStatus(
+                  savedSettings,
+                  credentialStatus,
+                ),
+          );
           setStatus('saved');
         }
 
@@ -166,7 +207,14 @@ export function usePreferencesSettings(): PreferencesSettingsController {
             mountedRef.current &&
             revision === updateRevisionRef.current
           ) {
-            setSettings(authoritativeSettings);
+            setSettings(
+              credentialStatus === null
+                ? authoritativeSettings
+                : applyCredentialStatus(
+                    authoritativeSettings,
+                    credentialStatus,
+                  ),
+            );
           }
         } catch {
           // The actionable save error remains visible.
@@ -175,7 +223,7 @@ export function usePreferencesSettings(): PreferencesSettingsController {
         return false;
       }
     },
-    [capabilities],
+    [capabilities, credentialStatus],
   );
 
   const updateAiConfiguration = useCallback(
@@ -208,6 +256,12 @@ export function usePreferencesSettings(): PreferencesSettingsController {
           revision === updateRevisionRef.current
         ) {
           setSettings(savedSettings);
+          setCredentialStatus({
+            id: 'aiApiKey',
+            state: savedSettings.ai.apiKeyConfigured
+              ? 'configured'
+              : 'missing',
+          });
           setStatus('saved');
         }
 
@@ -240,12 +294,101 @@ export function usePreferencesSettings(): PreferencesSettingsController {
     [],
   );
 
+  const mutateCredential = useCallback(
+    async (
+      mutation: 'save' | 'delete',
+      secret?: string,
+    ): Promise<boolean> => {
+      const credentialBridge =
+        preferencesDesktopBridge.getCredentialBridge();
+
+      if (!capabilities.credentials || credentialBridge === undefined) {
+        setStatus('error');
+        setErrorMessage(
+          'Credential storage is unavailable in this window.',
+        );
+        return false;
+      }
+
+      const revision = updateRevisionRef.current + 1;
+      updateRevisionRef.current = revision;
+      setStatus('saving');
+      setErrorMessage(null);
+
+      try {
+        const nextStatus =
+          mutation === 'save'
+            ? await credentialBridge.saveCredential(
+                'aiApiKey',
+                secret ?? '',
+              )
+            : await credentialBridge.deleteCredential('aiApiKey');
+
+        if (
+          mountedRef.current &&
+          revision === updateRevisionRef.current
+        ) {
+          setCredentialStatus(nextStatus);
+          setSettings((currentSettings) =>
+            applyCredentialStatus(currentSettings, nextStatus),
+          );
+          setStatus('saved');
+        }
+
+        return true;
+      } catch {
+        if (!mountedRef.current) {
+          return false;
+        }
+
+        setStatus('error');
+        setErrorMessage('Your credential could not be saved. Try again.');
+
+        try {
+          const authoritativeStatus =
+            await credentialBridge.getCredentialStatus('aiApiKey');
+
+          if (
+            mountedRef.current &&
+            revision === updateRevisionRef.current
+          ) {
+            setCredentialStatus(authoritativeStatus);
+            setSettings((currentSettings) =>
+              applyCredentialStatus(
+                currentSettings,
+                authoritativeStatus,
+              ),
+            );
+          }
+        } catch {
+          // The actionable mutation error remains visible.
+        }
+
+        return false;
+      }
+    },
+    [capabilities.credentials],
+  );
+
+  const saveCredential = useCallback(
+    (secret: string) => mutateCredential('save', secret),
+    [mutateCredential],
+  );
+
+  const deleteCredential = useCallback(
+    () => mutateCredential('delete'),
+    [mutateCredential],
+  );
+
   return {
     settings,
     capabilities,
     status,
     errorMessage,
+    credentialStatus,
     update,
     updateAiConfiguration,
+    saveCredential,
+    deleteCredential,
   };
 }

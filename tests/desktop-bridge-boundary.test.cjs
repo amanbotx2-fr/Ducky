@@ -191,6 +191,10 @@ describe('DesktopBridge renderer boundary', () => {
       sharedTypes,
       /interface CredentialBridge[\s\S]*loadCredential/,
     );
+    assert.match(
+      preferencesSettingsHook,
+      /getCredentialBridge\(\)[\s\S]*saveCredential\([\s\S]*deleteCredential\(/,
+    );
   });
 
   it('keeps deferred Preferences domains runtime-capability gated', async () => {
@@ -222,6 +226,14 @@ describe('DesktopBridge renderer boundary', () => {
     assert.match(
       preferencesUi,
       /waterSettingsUnavailable[\s\S]*updateSettingsUnavailable[\s\S]*aiSettingsUnavailable/,
+    );
+    assert.match(
+      preferencesUi,
+      /ref=\{apiKeyInputRef\}[\s\S]*defaultValue=""[\s\S]*credentialSettingsUnavailable/,
+    );
+    assert.doesNotMatch(
+      preferencesUi,
+      /useState<[^>]*string[^>]*>\([^)]*apiKey/i,
     );
   });
 });
