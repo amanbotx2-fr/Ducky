@@ -5,6 +5,7 @@ import type {
   CredentialBridge,
   PreferencesBridge,
   PreferencesSettingsBridge,
+  ReminderBridge,
   RuntimeSettingsBridge,
 } from '../shared/types';
 
@@ -30,6 +31,7 @@ export interface CompanionDesktopBridge {
   readonly getCompanionWindowBridge: () =>
     | CompanionWindowBridge
     | undefined;
+  readonly getReminderBridge: () => ReminderBridge | undefined;
 }
 
 /** Native capabilities available to the Preferences renderer. */

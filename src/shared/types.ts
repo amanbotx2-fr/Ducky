@@ -130,9 +130,33 @@ export interface CredentialBridge {
   ) => Promise<CredentialStatus>;
 }
 
+export interface ReminderBridge {
+  readonly onReminderCreationPanelRequested: (
+    listener: ReminderCreationPanelRequestListener,
+  ) => () => void;
+  readonly onReminderManagerPanelRequested: (
+    listener: ReminderManagerPanelRequestListener,
+  ) => () => void;
+  readonly onReminderFired: (
+    listener: ReminderFiredListener,
+  ) => () => void;
+  readonly createReminder: (
+    input: CreateReminderInput,
+  ) => Promise<Reminder>;
+  readonly updateReminder: (
+    id: string,
+    input: UpdateReminderInput,
+  ) => Promise<Reminder>;
+  readonly deleteReminder: (id: string) => Promise<boolean>;
+  readonly getReminder: (id: string) => Promise<Reminder | null>;
+  readonly listReminders: () => Promise<readonly Reminder[]>;
+  readonly markReminderCompleted: (id: string) => Promise<Reminder>;
+}
+
 export interface CompanionBridge
   extends CompanionWindowBridge,
-    CompanionSettingsBridge {
+    CompanionSettingsBridge,
+    ReminderBridge {
   readonly platform: string;
   readonly onUserNamePanelRequested: (
     listener: UserNamePanelRequestListener,
@@ -140,17 +164,8 @@ export interface CompanionBridge
   readonly onStickyMessagePanelRequested: (
     listener: StickyMessagePanelRequestListener,
   ) => () => void;
-  readonly onReminderCreationPanelRequested: (
-    listener: ReminderCreationPanelRequestListener,
-  ) => () => void;
-  readonly onReminderManagerPanelRequested: (
-    listener: ReminderManagerPanelRequestListener,
-  ) => () => void;
   readonly onDailyPlannerPanelRequested: (
     listener: DailyPlannerPanelRequestListener,
-  ) => () => void;
-  readonly onReminderFired: (
-    listener: ReminderFiredListener,
   ) => () => void;
   readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
   readonly startPomodoro: (durationMinutes: number) => Promise<void>;
@@ -165,17 +180,6 @@ export interface CompanionBridge
   readonly onPomodoroCompleted: (
     listener: PomodoroCompletionListener,
   ) => () => void;
-  readonly createReminder: (
-    input: CreateReminderInput,
-  ) => Promise<Reminder>;
-  readonly updateReminder: (
-    id: string,
-    input: UpdateReminderInput,
-  ) => Promise<Reminder>;
-  readonly deleteReminder: (id: string) => Promise<boolean>;
-  readonly getReminder: (id: string) => Promise<Reminder | null>;
-  readonly listReminders: () => Promise<readonly Reminder[]>;
-  readonly markReminderCompleted: (id: string) => Promise<Reminder>;
   readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
 }
 

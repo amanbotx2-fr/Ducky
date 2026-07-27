@@ -1,5 +1,6 @@
 pub(crate) mod companion;
 pub(crate) mod credentials;
+pub(crate) mod reminders;
 pub(crate) mod settings;
 
 use tauri::{Builder, Runtime};
@@ -22,6 +23,12 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             credentials::get_credential_status,
             credentials::save_credential,
             credentials::delete_credential,
+            reminders::create_reminder,
+            reminders::update_reminder,
+            reminders::delete_reminder,
+            reminders::get_reminder,
+            reminders::list_reminders,
+            reminders::mark_reminder_completed,
             settings::get_runtime_settings,
             settings::get_preferences_settings,
             settings::update_user_name,

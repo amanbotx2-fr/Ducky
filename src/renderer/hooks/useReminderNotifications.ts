@@ -35,7 +35,7 @@ export function useReminderNotifications(): ReminderNotifications {
   const currentReminderId = current?.reminder.id ?? null;
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getReminderBridge();
 
     if (bridge === undefined) {
       return;
@@ -85,7 +85,7 @@ export function useReminderNotifications(): ReminderNotifications {
       return;
     }
 
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getReminderBridge();
     const reminderId = current.reminder.id;
 
     if (bridge === undefined) {

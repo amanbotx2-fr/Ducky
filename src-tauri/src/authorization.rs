@@ -78,6 +78,18 @@ pub(crate) const SAVE_CREDENTIAL: CommandAuthorization =
     CommandAuthorization::preferences_only("save_credential");
 pub(crate) const DELETE_CREDENTIAL: CommandAuthorization =
     CommandAuthorization::preferences_only("delete_credential");
+pub(crate) const CREATE_REMINDER: CommandAuthorization =
+    CommandAuthorization::companion_only("create_reminder");
+pub(crate) const UPDATE_REMINDER: CommandAuthorization =
+    CommandAuthorization::companion_only("update_reminder");
+pub(crate) const DELETE_REMINDER: CommandAuthorization =
+    CommandAuthorization::companion_only("delete_reminder");
+pub(crate) const GET_REMINDER: CommandAuthorization =
+    CommandAuthorization::companion_only("get_reminder");
+pub(crate) const LIST_REMINDERS: CommandAuthorization =
+    CommandAuthorization::companion_only("list_reminders");
+pub(crate) const MARK_REMINDER_COMPLETED: CommandAuthorization =
+    CommandAuthorization::companion_only("mark_reminder_completed");
 pub(crate) const GET_COMPANION_WINDOW_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_companion_window_position");
 pub(crate) const MOVE_COMPANION_WINDOW: CommandAuthorization =
@@ -102,6 +114,12 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CREDENTIAL_STATUS,
     SAVE_CREDENTIAL,
     DELETE_CREDENTIAL,
+    CREATE_REMINDER,
+    UPDATE_REMINDER,
+    DELETE_REMINDER,
+    GET_REMINDER,
+    LIST_REMINDERS,
+    MARK_REMINDER_COMPLETED,
     GET_COMPANION_WINDOW_POSITION,
     MOVE_COMPANION_WINDOW,
     SET_COMPANION_CONTENT_HEIGHT,
@@ -123,6 +141,12 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CREDENTIAL_STATUS.name(),
     SAVE_CREDENTIAL.name(),
     DELETE_CREDENTIAL.name(),
+    CREATE_REMINDER.name(),
+    UPDATE_REMINDER.name(),
+    DELETE_REMINDER.name(),
+    GET_REMINDER.name(),
+    LIST_REMINDERS.name(),
+    MARK_REMINDER_COMPLETED.name(),
     GET_COMPANION_WINDOW_POSITION.name(),
     MOVE_COMPANION_WINDOW.name(),
     SET_COMPANION_CONTENT_HEIGHT.name(),
@@ -181,6 +205,12 @@ mod tests {
                 "get_credential_status",
                 "save_credential",
                 "delete_credential",
+                "create_reminder",
+                "update_reminder",
+                "delete_reminder",
+                "get_reminder",
+                "list_reminders",
+                "mark_reminder_completed",
                 "get_companion_window_position",
                 "move_companion_window",
                 "set_companion_content_height",

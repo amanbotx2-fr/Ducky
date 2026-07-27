@@ -3,6 +3,7 @@ import type {
   CompanionWindowBridge,
   CredentialBridge,
   PreferencesSettingsBridge,
+  ReminderBridge,
   RuntimeSettingsChangeListener,
   RuntimeSettingsBridge,
   ScreenPoint,
@@ -113,6 +114,40 @@ const credentialBridge: CredentialBridge = Object.freeze({
     dispatchTauriCommand(TAURI_COMMANDS.deleteCredential, { id }),
 });
 
+const reminderBridge = Object.freeze({
+  createReminder: (input) =>
+    dispatchTauriCommand(TAURI_COMMANDS.createReminder, { input }),
+  updateReminder: (id, input) =>
+    dispatchTauriCommand(TAURI_COMMANDS.updateReminder, {
+      id,
+      input,
+    }),
+  deleteReminder: (id) =>
+    dispatchTauriCommand(TAURI_COMMANDS.deleteReminder, { id }),
+  getReminder: (id) =>
+    dispatchTauriCommand(TAURI_COMMANDS.getReminder, { id }),
+  listReminders: () =>
+    dispatchTauriCommand(TAURI_COMMANDS.listReminders, {}),
+  markReminderCompleted: (id) =>
+    dispatchTauriCommand(TAURI_COMMANDS.markReminderCompleted, {
+      id,
+    }),
+  onReminderCreationPanelRequested: (listener) =>
+    subscribeToTauriEvent(
+      'companion',
+      'reminderCreationPanelRequested',
+      listener,
+    ),
+  onReminderManagerPanelRequested: (listener) =>
+    subscribeToTauriEvent(
+      'companion',
+      'reminderManagerPanelRequested',
+      listener,
+    ),
+  onReminderFired: (listener) =>
+    subscribeToTauriEvent('companion', 'reminderFired', listener),
+} satisfies ReminderBridge);
+
 const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   general: true,
   notificationSounds: true,
@@ -133,6 +168,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionSettingsBridge: () => companionSettingsBridge,
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,
+  getReminderBridge: () => reminderBridge,
   getPreferencesBridge: () => undefined,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
   getCredentialBridge: () => credentialBridge,

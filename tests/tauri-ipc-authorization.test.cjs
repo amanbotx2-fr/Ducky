@@ -31,8 +31,17 @@ const preferencesCommandPermissions = [
   'allow-save-credential',
   'allow-delete-credential',
 ];
-const expectedCommandPermissions = [
+const reminderCommandPermissions = [
+  'allow-create-reminder',
+  'allow-update-reminder',
+  'allow-delete-reminder',
+  'allow-get-reminder',
+  'allow-list-reminders',
+  'allow-mark-reminder-completed',
+];
+const registeredCommandPermissions = [
   ...companionCommandPermissions,
+  ...reminderCommandPermissions,
   ...preferencesCommandPermissions,
 ];
 const eventPermissions = [
@@ -141,7 +150,7 @@ describe('Tauri IPC authorization', () => {
 
     assert.deepEqual(
       permissionFiles,
-      expectedCommandPermissions
+      registeredCommandPermissions
         .map(
           (permission) =>
             `${permission.slice('allow-'.length).replaceAll('-', '_')}.toml`,
@@ -149,7 +158,7 @@ describe('Tauri IPC authorization', () => {
         .sort(),
     );
 
-    for (const permission of expectedCommandPermissions) {
+    for (const permission of registeredCommandPermissions) {
       const commandName = permission
         .slice('allow-'.length)
         .replaceAll('-', '_');

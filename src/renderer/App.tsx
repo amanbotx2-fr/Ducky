@@ -621,7 +621,7 @@ export function App() {
 
   const handleReminderSave = useCallback(
     async (input: CreateReminderInput): Promise<void> => {
-      const bridge = companionDesktopBridge.getCompanionBridge();
+      const bridge = companionDesktopBridge.getReminderBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -672,7 +672,7 @@ export function App() {
 
   const handleReminderManagerLoad = useCallback(
     async (): Promise<readonly Reminder[]> => {
-      const bridge = companionDesktopBridge.getCompanionBridge();
+      const bridge = companionDesktopBridge.getReminderBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -685,7 +685,7 @@ export function App() {
 
   const handleReminderManagerDelete = useCallback(
     async (id: string): Promise<boolean> => {
-      const bridge = companionDesktopBridge.getCompanionBridge();
+      const bridge = companionDesktopBridge.getReminderBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -846,7 +846,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getReminderBridge();
 
     if (bridge === undefined) {
       return;
@@ -863,7 +863,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getReminderBridge();
 
     if (bridge === undefined) {
       return;

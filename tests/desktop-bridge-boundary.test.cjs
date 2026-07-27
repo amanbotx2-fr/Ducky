@@ -197,6 +197,33 @@ describe('DesktopBridge renderer boundary', () => {
     );
   });
 
+  it('routes reminder UI through the exact reminder bridge', async () => {
+    const [application, notifications, contracts, adapter] =
+      await Promise.all(
+        [
+          ['renderer', 'App.tsx'],
+          ['renderer', 'hooks', 'useReminderNotifications.ts'],
+          ['desktop', 'contracts.ts'],
+          ['desktop', 'tauriBridge.ts'],
+        ].map((segments) =>
+          readFile(path.join(sourceRoot, ...segments), 'utf8'),
+        ),
+      );
+
+    for (const source of [application, notifications]) {
+      assert.match(source, /getReminderBridge\(\)/);
+    }
+    assert.doesNotMatch(
+      notifications,
+      /getCompanionBridge\(\)/,
+    );
+    assert.match(contracts, /getReminderBridge/);
+    assert.match(
+      adapter,
+      /const reminderBridge[\s\S]*createReminder[\s\S]*updateReminder[\s\S]*deleteReminder[\s\S]*getReminder[\s\S]*listReminders[\s\S]*markReminderCompleted/,
+    );
+  });
+
   it('keeps deferred Preferences domains runtime-capability gated', async () => {
     const [contracts, electronAdapter, tauriAdapter, preferencesUi] =
       await Promise.all(
