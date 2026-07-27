@@ -5,8 +5,8 @@
 ## Current Status
 
 - Active phase: Phase 4 — Tray + Native Menu Migration
-- Last completed task: Task 4.2 — Create Native Tray Infrastructure
-- Next task: Task 4.3 — Migrate Tray Icon
+- Last completed task: Task 4.3 — Migrate Tray Icon
+- Next task: Task 4.4 — Migrate Static Native Menus
 - Blockers: None. The revised Phase 4 contract limits this phase to native
   lifecycle, static menus/actions, and the renderer-requested context-menu
   transport; feature-domain menu state remains deferred.
@@ -1366,3 +1366,64 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Task 4.3 — Migrate Tray Icon.
+
+### Task 4.3 — Migrate Tray Icon
+
+**Status:** Complete
+
+**Implementation summary**
+
+- The native tray embeds the existing `assets/icons/icon.png` at compile time;
+  no duplicate tray asset was created.
+- The image is decoded from the original 1024 × 1024 RGBA PNG and resized with
+  a Lanczos3 filter, the high-quality resampling equivalent of Electron's
+  `quality: "best"` path.
+- macOS receives an 18 × 18 full-color icon. Windows and Linux receive a
+  20 × 20 full-color icon, preserving the Electron platform behavior.
+- `icon_as_template(false)` preserves the original artwork instead of
+  recoloring it as a macOS template image.
+- Invalid embedded image data remains a startup tray construction error,
+  matching Electron's explicit empty-image guard.
+- Added a focused Rust test that verifies the shared source is a PNG and the
+  native output has the correct target dimensions and RGBA length.
+
+**Files changed**
+
+- `src-tauri/Cargo.toml` — added a pinned, PNG-only `image` dependency for
+  deterministic high-quality resizing.
+- `src-tauri/Cargo.lock` — locked the direct image decoder/resizer dependency.
+- `src-tauri/src/desktop/tray.rs` — loads, resizes, and registers the existing
+  application icon.
+- `docs/migrating/progress.md` — recorded Task 4.3.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (127 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (22 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed; icon loading is backend-owned and
+  exposes no renderer permission.
+- Electron development smoke launch: passed with the unchanged repository
+  renderer and application icon behavior.
+- Tauri development smoke launch: passed. The icon decoded and the tray
+  registered without a construction error; the application stayed alive
+  until stopped manually.
+
+**Manual verification**
+
+- Confirmed the Tauri companion remains the startup window and the tray icon
+  construction path emits no error.
+- Exact menu-bar appearance and interaction are included in the complete
+  Phase 4 manual parity pass after the static menu exists.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 4.4 — Migrate Static Native Menus.
