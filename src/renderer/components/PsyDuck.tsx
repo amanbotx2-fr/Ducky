@@ -326,12 +326,20 @@ export function PsyDuck({
         getCurrentPosition: companionWindowBridge.getCursorPosition,
         subscribe: companionWindowBridge.onCursorPosition,
       },
-      getEyeOrigin: () => {
+      getEyeOrigin: async () => {
+        const windowPosition =
+          await companionWindowBridge.getWindowPosition();
         const stageBounds = stageRef.current?.getBoundingClientRect();
 
         return {
-          x: window.screenX + (stageBounds?.left ?? 0) + EYE_ORIGIN_X,
-          y: window.screenY + (stageBounds?.top ?? 0) + EYE_ORIGIN_Y,
+          x:
+            windowPosition.x +
+            (stageBounds?.left ?? 0) +
+            EYE_ORIGIN_X,
+          y:
+            windowPosition.y +
+            (stageBounds?.top ?? 0) +
+            EYE_ORIGIN_Y,
         };
       },
       onOffsetChange: (offset) => {
