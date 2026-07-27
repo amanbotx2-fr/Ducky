@@ -7,6 +7,7 @@ use tauri::{
 
 use crate::{
     domain::{
+        ai::AiRuntime,
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
         settings::SettingsState,
@@ -27,6 +28,8 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let settings = store.load_with_legacy(legacy_settings_path.as_deref())?;
 
     let settings_state = SettingsState::new(store, settings);
+    let ai_runtime = AiRuntime::new();
+    ai_runtime.ensure_running()?;
     let app_handle = app.handle().clone();
     let reminder_runtime = ReminderRuntime::with_delivery(
         Arc::new(settings_state.clone()),
@@ -67,6 +70,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     pomodoro_runtime.start()?;
 
     app.manage(CredentialStore::native());
+    app.manage(ai_runtime);
     app.manage(settings_state);
     app.manage(reminder_runtime);
     app.manage(pomodoro_events);

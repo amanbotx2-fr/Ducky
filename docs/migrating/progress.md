@@ -6,9 +6,8 @@
 
 - Active work: None
 - Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Phase 9 architecture clarification
-- Next task: Task 9.2 — Create Native AI Runtime. Do not begin without a
-  separate implementation instruction.
+- Last completed task: Task 9.2 — Create Native AI Runtime
+- Next task: Task 9.3 — Provider Registry
 - Blockers: None. The Phase 9 contract now follows the Electron final-response,
   lifecycle-cancellation, connection-diagnostics, and one-request-per-role
   behavior. Claude remains the only approved functional expansion.
@@ -4557,6 +4556,59 @@ the Phase 9 architecture clarification; Task 9.2 has not started.
 
 - Task 9.2 — Create Native AI Runtime. Do not begin without a separate
   implementation instruction.
+
+### Task 9.2 — Create Native AI Runtime
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added one process-wide, provider-independent `AiRuntime` owned by Tauri
+  application state.
+- Added explicit runtime availability and shutdown state without introducing
+  provider, renderer, transport, or streaming concerns.
+- Wired native application exit to shut the AI runtime down before the other
+  long-lived feature runtimes.
+- Kept Electron and all existing renderer contracts unchanged.
+
+**Files changed**
+
+- `src-tauri/src/domain/ai/mod.rs` — native AI domain boundary.
+- `src-tauri/src/domain/ai/runtime.rs` — singleton lifecycle owner and
+  regression tests.
+- `src-tauri/src/domain/mod.rs` — registered the AI domain.
+- `src-tauri/src/app_state.rs` — initialized and managed the native runtime.
+- `src-tauri/src/desktop/lifecycle.rs` — added clean native AI shutdown.
+- `docs/migrating/progress.md` — recorded Task 9.2.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt` / `cargo fmt --check`: passed after applying the formatter.
+- `cargo test`: passed (84 tests), including two new AI runtime lifecycle
+  tests.
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; the runtime adds no renderer authority.
+- Electron production-output smoke launch: passed.
+- `npx tauri dev --no-watch`: passed. Only the previously documented
+  development custom-protocol fallback warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- Confirmed the Tauri development process initialized, launched the companion,
+  remained alive, and shut down cleanly after the smoke interval.
+- No AI command, permission, renderer, or lifecycle error appeared.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 9.3 — Provider Registry.
 
 ### Phase 9 — Architecture Clarification
 
