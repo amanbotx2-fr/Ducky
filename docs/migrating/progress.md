@@ -6,8 +6,8 @@
 
 - Active work: Phase 8 — Pomodoro Migration
 - Last completed phase: Phase 7 — Reminder System Migration
-- Last completed task: Task 8.5 — Runtime Events
-- Next task: Task 8.6 — Companion Integration
+- Last completed task: Task 8.6 — Companion Integration
+- Next task: Task 8.7 — Timer Completion
 - Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
   the migration-wide Electron parity rule.
 
@@ -4103,3 +4103,73 @@ remain Tasks 8.5 and 8.8 respectively.
 
 - Task 8.6 — rebuild the Electron-parity Pomodoro context submenu from the
   current native state and connect its Rust-owned actions.
+
+### Task 8.6 — Companion Integration
+
+**Status:** Complete. Final interactive verification follows after the two
+renderer-originated command grants in Task 8.8.
+
+**Implementation summary**
+
+- Restored Pomodoro as the first Companion context submenu, followed by the
+  same separator and previously migrated Personal Assistant/static sections.
+- The submenu is rebuilt from a freshly materialized native runtime snapshot
+  on every open. It contains 25 min, 50 min, 90 min, Custom…, Pause, Resume,
+  and Stop in the exact Electron order with the same separators.
+- Preset/custom checked state follows `selectedDurationMinutes`. Pause is
+  enabled only for an active unpaused session, Resume only for an active
+  paused session, and Stop for any active session.
+- Tauri/muda exposes native checked menu items rather than a separate radio
+  item primitive. The selected duration remains a mutually exclusive native
+  checked state and is recalculated on every open; no renderer state or
+  callback is involved.
+- Added closed Rust action dispatch for all seven Pomodoro menu IDs. Presets
+  start or replace the current session, Pause/Resume/Stop mutate the singleton
+  runtime, and Custom… shows/focuses the Companion before emitting the
+  recoverable custom-duration request.
+- Reused the existing React `PomodoroDurationPanel`, `PomodoroWidget`,
+  `usePomodoroState`, and panel lifecycle without UI, copy, timer, or runtime
+  detection changes. Electron menus and callbacks remain untouched.
+
+**Files changed**
+
+- `src-tauri/src/desktop/menus.rs` — dynamic Pomodoro submenu, checked/enabled
+  projection, native action dispatch, and regression tests.
+- `src-tauri/src/domain/pomodoro/mod.rs` — test-only inspection methods no
+  longer produce production dead-code warnings.
+- `docs/migrating/progress.md` — recorded Task 8.6.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (137 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (82 tests), including exact action IDs and idle,
+  running-custom, and paused menu-state projections.
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; native menu callbacks add no renderer
+  authority.
+- Electron production-output smoke launch: passed with the unchanged Electron
+  menu implementation.
+- `npx tauri dev --no-watch`: passed with no command, menu, event, or
+  permission errors. Only the known development custom-protocol fallback
+  warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- The packaged debug application was rebuilt with the dynamic submenu.
+  Full interactive preset/custom/pause/resume/stop and state verification is
+  intentionally performed after Task 8.8 enables the two existing
+  renderer-originated commands, so one coherent final parity run exercises
+  the complete flow.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 8.7 — lock the existing React completion celebration, personality
+  message, and notification-sound path without adding native notifications.

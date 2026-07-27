@@ -1,9 +1,15 @@
 use tauri::{
-    menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, SubmenuBuilder},
+    menu::{
+        AboutMetadata, CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
+        SubmenuBuilder,
+    },
     App, AppHandle, Manager, Runtime, WebviewWindow,
 };
 
-use crate::events::{self, DesktopEvent};
+use crate::{
+    domain::pomodoro::{PomodoroEventQueue, PomodoroRuntime, PomodoroState},
+    events::{self, DesktopEvent},
+};
 
 use super::windows::{companion, preferences};
 
@@ -11,6 +17,13 @@ pub const SHOW_COMPANION_ID: &str = "ducky.show-companion";
 pub const SHOW_PREFERENCES_ID: &str = "ducky.show-preferences";
 pub const NEW_REMINDER_ID: &str = "ducky.reminders.new";
 pub const MANAGE_REMINDERS_ID: &str = "ducky.reminders.manage";
+pub const POMODORO_25_ID: &str = "ducky.pomodoro.25";
+pub const POMODORO_50_ID: &str = "ducky.pomodoro.50";
+pub const POMODORO_90_ID: &str = "ducky.pomodoro.90";
+pub const POMODORO_CUSTOM_ID: &str = "ducky.pomodoro.custom";
+pub const POMODORO_PAUSE_ID: &str = "ducky.pomodoro.pause";
+pub const POMODORO_RESUME_ID: &str = "ducky.pomodoro.resume";
+pub const POMODORO_STOP_ID: &str = "ducky.pomodoro.stop";
 pub const RESTART_ID: &str = "ducky.restart";
 pub const QUIT_ID: &str = "ducky.quit";
 
@@ -83,8 +96,22 @@ enum NativeMenuAction {
     ShowPreferences,
     NewReminder,
     ManageReminders,
+    StartPomodoro(u32),
+    RequestCustomPomodoroDuration,
+    PausePomodoro,
+    ResumePomodoro,
+    StopPomodoro,
     Restart,
     Quit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct PomodoroMenuPresentation {
+    checked_preset_id: Option<&'static str>,
+    custom_checked: bool,
+    pause_enabled: bool,
+    resume_enabled: bool,
+    stop_enabled: bool,
 }
 
 pub fn create_tray_menu<R: Runtime>(app: &App<R>) -> tauri::Result<Menu<R>> {
@@ -92,22 +119,107 @@ pub fn create_tray_menu<R: Runtime>(app: &App<R>) -> tauri::Result<Menu<R>> {
 }
 
 pub fn show_companion_context_menu<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<()> {
-    let menu = create_companion_context_menu(window)?;
+    let state = window
+        .state::<PomodoroRuntime>()
+        .state()
+        .map_err(native_runtime_error)?;
+    let menu = create_companion_context_menu(window, &state)?;
     window.popup_menu(&menu)
 }
 
-fn create_companion_context_menu<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<Menu<R>> {
+fn create_companion_context_menu<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    pomodoro_state: &PomodoroState,
+) -> tauri::Result<Menu<R>> {
+    let pomodoro_menu = create_pomodoro_menu(manager, pomodoro_state)?;
     let reminder_menu = create_submenu(manager, "Reminders", &REMINDER_CONTEXT_MENU_ENTRIES)?;
     let personal_assistant_menu = SubmenuBuilder::new(manager, "Personal Assistant")
         .item(&reminder_menu)
         .build()?;
     let menu = Menu::new(manager)?;
 
+    menu.append(&pomodoro_menu)?;
+    menu.append(&PredefinedMenuItem::separator(manager)?)?;
     menu.append(&personal_assistant_menu)?;
     menu.append(&PredefinedMenuItem::separator(manager)?)?;
     append_static_entries(manager, &menu, &COMPANION_CONTEXT_MENU_ENTRIES)?;
 
     Ok(menu)
+}
+
+fn create_pomodoro_menu<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    state: &PomodoroState,
+) -> tauri::Result<Submenu<R>> {
+    let submenu = Submenu::new(manager, "Pomodoro", true)?;
+    let presentation = pomodoro_menu_presentation(state);
+    let presets = [
+        (POMODORO_25_ID, 25_u32),
+        (POMODORO_50_ID, 50_u32),
+        (POMODORO_90_ID, 90_u32),
+    ];
+
+    for (id, duration) in presets {
+        submenu.append(&CheckMenuItem::with_id(
+            manager,
+            id,
+            format!("{duration} min"),
+            true,
+            presentation.checked_preset_id == Some(id),
+            None::<&str>,
+        )?)?;
+    }
+
+    submenu.append(&PredefinedMenuItem::separator(manager)?)?;
+    submenu.append(&CheckMenuItem::with_id(
+        manager,
+        POMODORO_CUSTOM_ID,
+        "Custom…",
+        true,
+        presentation.custom_checked,
+        None::<&str>,
+    )?)?;
+    submenu.append(&PredefinedMenuItem::separator(manager)?)?;
+    submenu.append(&MenuItem::with_id(
+        manager,
+        POMODORO_PAUSE_ID,
+        "Pause",
+        presentation.pause_enabled,
+        None::<&str>,
+    )?)?;
+    submenu.append(&MenuItem::with_id(
+        manager,
+        POMODORO_RESUME_ID,
+        "Resume",
+        presentation.resume_enabled,
+        None::<&str>,
+    )?)?;
+    submenu.append(&MenuItem::with_id(
+        manager,
+        POMODORO_STOP_ID,
+        "Stop",
+        presentation.stop_enabled,
+        None::<&str>,
+    )?)?;
+
+    Ok(submenu)
+}
+
+fn pomodoro_menu_presentation(state: &PomodoroState) -> PomodoroMenuPresentation {
+    let checked_preset_id = match state.selected_duration_minutes {
+        25 => Some(POMODORO_25_ID),
+        50 => Some(POMODORO_50_ID),
+        90 => Some(POMODORO_90_ID),
+        _ => None,
+    };
+
+    PomodoroMenuPresentation {
+        checked_preset_id,
+        custom_checked: checked_preset_id.is_none(),
+        pause_enabled: state.running && !state.paused,
+        resume_enabled: state.running && state.paused,
+        stop_enabled: state.running,
+    }
 }
 
 fn create_static_menu<R: Runtime, M: Manager<R>>(
@@ -226,6 +338,30 @@ pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) -> t
         NativeMenuAction::ManageReminders => {
             request_reminder_panel(app, DesktopEvent::ReminderManagerPanelRequested)?;
         }
+        NativeMenuAction::StartPomodoro(duration_minutes) => {
+            app.state::<PomodoroRuntime>()
+                .start_session(duration_minutes)
+                .map_err(native_runtime_error)?;
+        }
+        NativeMenuAction::RequestCustomPomodoroDuration => {
+            companion::show(app)?;
+            app.state::<PomodoroEventQueue>().request_custom_panel();
+        }
+        NativeMenuAction::PausePomodoro => {
+            app.state::<PomodoroRuntime>()
+                .pause()
+                .map_err(native_runtime_error)?;
+        }
+        NativeMenuAction::ResumePomodoro => {
+            app.state::<PomodoroRuntime>()
+                .resume()
+                .map_err(native_runtime_error)?;
+        }
+        NativeMenuAction::StopPomodoro => {
+            app.state::<PomodoroRuntime>()
+                .stop_session()
+                .map_err(native_runtime_error)?;
+        }
         NativeMenuAction::Restart => {
             app.request_restart();
         }
@@ -245,12 +381,23 @@ fn request_reminder_panel<R: Runtime>(
     events::emit(app, event, ())
 }
 
+fn native_runtime_error(error: impl std::fmt::Display) -> tauri::Error {
+    std::io::Error::other(error.to_string()).into()
+}
+
 fn action_for_id(id: &str) -> Option<NativeMenuAction> {
     match id {
         SHOW_COMPANION_ID => Some(NativeMenuAction::ShowCompanion),
         SHOW_PREFERENCES_ID => Some(NativeMenuAction::ShowPreferences),
         NEW_REMINDER_ID => Some(NativeMenuAction::NewReminder),
         MANAGE_REMINDERS_ID => Some(NativeMenuAction::ManageReminders),
+        POMODORO_25_ID => Some(NativeMenuAction::StartPomodoro(25)),
+        POMODORO_50_ID => Some(NativeMenuAction::StartPomodoro(50)),
+        POMODORO_90_ID => Some(NativeMenuAction::StartPomodoro(90)),
+        POMODORO_CUSTOM_ID => Some(NativeMenuAction::RequestCustomPomodoroDuration),
+        POMODORO_PAUSE_ID => Some(NativeMenuAction::PausePomodoro),
+        POMODORO_RESUME_ID => Some(NativeMenuAction::ResumePomodoro),
+        POMODORO_STOP_ID => Some(NativeMenuAction::StopPomodoro),
         RESTART_ID => Some(NativeMenuAction::Restart),
         QUIT_ID => Some(NativeMenuAction::Quit),
         _ => None,
@@ -271,10 +418,13 @@ fn about_metadata<R: Runtime, M: Manager<R>>(manager: &M) -> AboutMetadata<'stat
 #[cfg(test)]
 mod tests {
     use super::{
-        action_for_id, NativeMenuAction, StaticMenuEntry, COMPANION_CONTEXT_MENU_ENTRIES,
-        MANAGE_REMINDERS_ID, NEW_REMINDER_ID, QUIT_ID, REMINDER_CONTEXT_MENU_ENTRIES, RESTART_ID,
+        action_for_id, pomodoro_menu_presentation, NativeMenuAction, PomodoroMenuPresentation,
+        StaticMenuEntry, COMPANION_CONTEXT_MENU_ENTRIES, MANAGE_REMINDERS_ID, NEW_REMINDER_ID,
+        POMODORO_25_ID, POMODORO_50_ID, POMODORO_90_ID, POMODORO_CUSTOM_ID, POMODORO_PAUSE_ID,
+        POMODORO_RESUME_ID, POMODORO_STOP_ID, QUIT_ID, REMINDER_CONTEXT_MENU_ENTRIES, RESTART_ID,
         SHOW_COMPANION_ID, SHOW_PREFERENCES_ID, TRAY_MENU_ENTRIES,
     };
+    use crate::domain::pomodoro::PomodoroState;
 
     #[test]
     fn static_tray_menu_matches_electron_order_and_labels() {
@@ -346,6 +496,13 @@ mod tests {
             SHOW_PREFERENCES_ID,
             NEW_REMINDER_ID,
             MANAGE_REMINDERS_ID,
+            POMODORO_25_ID,
+            POMODORO_50_ID,
+            POMODORO_90_ID,
+            POMODORO_CUSTOM_ID,
+            POMODORO_PAUSE_ID,
+            POMODORO_RESUME_ID,
+            POMODORO_STOP_ID,
             RESTART_ID,
             QUIT_ID,
         ];
@@ -372,9 +529,79 @@ mod tests {
             action_for_id(MANAGE_REMINDERS_ID),
             Some(NativeMenuAction::ManageReminders)
         );
+        assert_eq!(
+            action_for_id(POMODORO_25_ID),
+            Some(NativeMenuAction::StartPomodoro(25))
+        );
+        assert_eq!(
+            action_for_id(POMODORO_CUSTOM_ID),
+            Some(NativeMenuAction::RequestCustomPomodoroDuration)
+        );
+        assert_eq!(
+            action_for_id(POMODORO_PAUSE_ID),
+            Some(NativeMenuAction::PausePomodoro)
+        );
+        assert_eq!(
+            action_for_id(POMODORO_RESUME_ID),
+            Some(NativeMenuAction::ResumePomodoro)
+        );
+        assert_eq!(
+            action_for_id(POMODORO_STOP_ID),
+            Some(NativeMenuAction::StopPomodoro)
+        );
         assert_eq!(action_for_id(RESTART_ID), Some(NativeMenuAction::Restart));
         assert_eq!(action_for_id(QUIT_ID), Some(NativeMenuAction::Quit));
         assert_eq!(action_for_id("ducky.settings"), None);
         assert_eq!(action_for_id(""), None);
+    }
+
+    #[test]
+    fn pomodoro_menu_state_matches_electron_for_idle_running_and_paused_sessions() {
+        let idle = PomodoroState::default();
+        assert_eq!(
+            pomodoro_menu_presentation(&idle),
+            PomodoroMenuPresentation {
+                checked_preset_id: Some(POMODORO_25_ID),
+                custom_checked: false,
+                pause_enabled: false,
+                resume_enabled: false,
+                stop_enabled: false,
+            }
+        );
+
+        let running_custom = PomodoroState {
+            running: true,
+            paused: false,
+            selected_duration_minutes: 12,
+            duration_minutes: 12,
+            remaining_seconds: 720,
+            started_at: Some(1_000),
+        };
+        assert_eq!(
+            pomodoro_menu_presentation(&running_custom),
+            PomodoroMenuPresentation {
+                checked_preset_id: None,
+                custom_checked: true,
+                pause_enabled: true,
+                resume_enabled: false,
+                stop_enabled: true,
+            }
+        );
+
+        let paused = PomodoroState {
+            paused: true,
+            started_at: Some(1_000),
+            ..running_custom
+        };
+        assert_eq!(
+            pomodoro_menu_presentation(&paused),
+            PomodoroMenuPresentation {
+                checked_preset_id: None,
+                custom_checked: true,
+                pause_enabled: false,
+                resume_enabled: true,
+                stop_enabled: true,
+            }
+        );
     }
 }

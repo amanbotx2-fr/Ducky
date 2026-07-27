@@ -219,10 +219,12 @@ impl PomodoroEventQueue {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn latest_state(&self) -> Result<Option<PomodoroState>, PomodoroError> {
         Ok(self.pending.lock()?.latest_state.clone())
     }
 
+    #[cfg(test)]
     pub(crate) fn has_pending_completion(&self) -> Result<bool, PomodoroError> {
         Ok(self.pending.lock()?.pending_completion)
     }
