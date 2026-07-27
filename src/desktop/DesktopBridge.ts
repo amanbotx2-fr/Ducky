@@ -22,6 +22,8 @@ export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
   getCompanionBridge: runtimeDesktopBridge.getCompanionBridge,
   getCompanionSettingsBridge:
     runtimeDesktopBridge.getCompanionSettingsBridge,
+  getRuntimeSettingsBridge:
+    runtimeDesktopBridge.getRuntimeSettingsBridge,
   getCompanionWindowBridge:
     runtimeDesktopBridge.getCompanionWindowBridge,
 });

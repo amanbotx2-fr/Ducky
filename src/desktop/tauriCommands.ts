@@ -1,5 +1,6 @@
 import { invoke, type Channel } from '@tauri-apps/api/core';
 
+import type { RuntimeSettings } from '../shared/settings';
 import type { ScreenPoint } from '../shared/types';
 
 /**
@@ -9,6 +10,7 @@ import type { ScreenPoint } from '../shared/types';
  */
 export const TAURI_COMMANDS = Object.freeze({
   getCursorPosition: 'get_cursor_position',
+  getRuntimeSettings: 'get_runtime_settings',
   getCompanionWindowPosition: 'get_companion_window_position',
   moveCompanionWindow: 'move_companion_window',
   setCompanionContentHeight: 'set_companion_content_height',
@@ -22,6 +24,7 @@ type TauriCommandName =
 
 interface TauriCommandArguments {
   readonly get_cursor_position: Record<string, never>;
+  readonly get_runtime_settings: Record<string, never>;
   readonly get_companion_window_position: Record<string, never>;
   readonly move_companion_window: {
     readonly position: ScreenPoint;
@@ -38,6 +41,7 @@ interface TauriCommandArguments {
 
 interface TauriCommandResults {
   readonly get_cursor_position: ScreenPoint;
+  readonly get_runtime_settings: RuntimeSettings;
   readonly get_companion_window_position: ScreenPoint;
   readonly move_companion_window: void;
   readonly set_companion_content_height: void;

@@ -162,7 +162,7 @@ describe('DesktopBridge renderer boundary', () => {
 
     assert.match(
       runtimeSettingsHook,
-      /getCompanionSettingsBridge\(\)/,
+      /getRuntimeSettingsBridge\(\)/,
     );
     assert.doesNotMatch(runtimeSettingsHook, /getCompanionBridge\(\)/);
     assert.match(

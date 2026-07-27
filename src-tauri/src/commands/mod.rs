@@ -1,4 +1,5 @@
 pub(crate) mod companion;
+pub(crate) mod settings;
 
 use tauri::{Builder, Runtime};
 
@@ -16,6 +17,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             companion::set_companion_content_height,
             companion::show_companion_context_menu,
             companion::stream_cursor_positions,
-            companion::stop_cursor_positions
+            companion::stop_cursor_positions,
+            settings::get_runtime_settings
         ])
 }

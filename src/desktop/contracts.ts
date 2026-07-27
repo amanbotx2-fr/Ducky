@@ -4,6 +4,7 @@ import type {
   CompanionWindowBridge,
   PreferencesBridge,
   PreferencesSettingsBridge,
+  RuntimeSettingsBridge,
 } from '../shared/types';
 
 /** Native capabilities available to the companion renderer. */
@@ -11,6 +12,9 @@ export interface CompanionDesktopBridge {
   readonly getCompanionBridge: () => CompanionBridge | undefined;
   readonly getCompanionSettingsBridge: () =>
     | CompanionSettingsBridge
+    | undefined;
+  readonly getRuntimeSettingsBridge: () =>
+    | RuntimeSettingsBridge
     | undefined;
   readonly getCompanionWindowBridge: () =>
     | CompanionWindowBridge

@@ -56,6 +56,7 @@ impl SettingsStore {
         Self { path }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn path(&self) -> &Path {
         &self.path
     }
@@ -73,6 +74,34 @@ impl SettingsStore {
             }
             Err(error) => Err(error.into()),
         }
+    }
+
+    pub(crate) fn load_with_legacy(
+        &self,
+        legacy_path: Option<&Path>,
+    ) -> Result<SettingsDocument, SettingsStoreError> {
+        if !self.path.exists() {
+            if let Some(legacy_path) = legacy_path.filter(|path| path.exists()) {
+                match fs::read_to_string(legacy_path)
+                    .map_err(SettingsStoreError::from)
+                    .and_then(|serialized| self.parse(&serialized))
+                {
+                    Ok(settings) => {
+                        self.save(&settings)?;
+                        eprintln!(
+                            "[settings] imported Electron settings from {}",
+                            legacy_path.display()
+                        );
+                        return Ok(settings);
+                    }
+                    Err(error) => {
+                        eprintln!("[settings] Electron settings import skipped: {error}");
+                    }
+                }
+            }
+        }
+
+        self.load()
     }
 
     pub(crate) fn save(&self, settings: &SettingsDocument) -> Result<(), SettingsStoreError> {
@@ -228,5 +257,41 @@ mod tests {
             .mode()
             & 0o777;
         assert_eq!(mode, 0o600);
+    }
+
+    #[test]
+    fn legacy_settings_are_imported_once_without_mutating_the_source() {
+        let directory = tempdir().expect("temporary directory");
+        let native = directory.path().join("native").join("settings.json");
+        let legacy = directory.path().join("electron").join("settings.json");
+        fs::create_dir_all(legacy.parent().expect("legacy directory"))
+            .expect("legacy directory create");
+        let mut legacy_settings = SettingsDocument::default();
+        legacy_settings.user_name = "Legacy Friend".to_owned();
+        let serialized = format!(
+            "{}\n",
+            serde_json::to_string_pretty(&legacy_settings).unwrap()
+        );
+        fs::write(&legacy, &serialized).expect("legacy settings write");
+        let store = SettingsStore::new(native);
+
+        let imported = store
+            .load_with_legacy(Some(&legacy))
+            .expect("legacy settings import");
+        assert_eq!(imported.user_name, "Legacy Friend");
+        assert_eq!(fs::read_to_string(&legacy).unwrap(), serialized);
+
+        let mut native_settings = imported;
+        native_settings.user_name = "Native Friend".to_owned();
+        store
+            .save(&native_settings)
+            .expect("native settings update");
+        assert_eq!(
+            store
+                .load_with_legacy(Some(&legacy))
+                .expect("native settings reload")
+                .user_name,
+            "Native Friend"
+        );
     }
 }

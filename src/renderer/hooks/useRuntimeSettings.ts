@@ -13,7 +13,7 @@ export function useRuntimeSettings(): RuntimeSettings {
   useEffect(() => {
     mountedRef.current = true;
     const companionBridge =
-      companionDesktopBridge.getCompanionSettingsBridge();
+      companionDesktopBridge.getRuntimeSettingsBridge();
 
     if (companionBridge === undefined) {
       return () => {

@@ -89,25 +89,28 @@ export type AIConnectionTestResult =
       readonly diagnostics?: AIProviderHttpDiagnostics;
     };
 
-export interface CompanionSettingsBridge {
-  readonly getRuntimeSettings: () => Promise<RuntimeSettings>;
-  readonly updateUserName: (name: string) => Promise<string>;
-  readonly updateStickyMessage: (
-    message: string | null,
-  ) => Promise<string | null>;
+export interface SettingsChangeBridge {
   readonly onRuntimeSettingsChanged: (
     listener: RuntimeSettingsChangeListener,
   ) => () => void;
 }
 
-export interface PreferencesSettingsBridge {
+export interface RuntimeSettingsBridge extends SettingsChangeBridge {
+  readonly getRuntimeSettings: () => Promise<RuntimeSettings>;
+}
+
+export interface CompanionSettingsBridge extends RuntimeSettingsBridge {
+  readonly updateUserName: (name: string) => Promise<string>;
+  readonly updateStickyMessage: (
+    message: string | null,
+  ) => Promise<string | null>;
+}
+
+export interface PreferencesSettingsBridge extends SettingsChangeBridge {
   readonly getPreferencesSettings: () => Promise<PreferencesSettings>;
   readonly updatePreferencesSettings: (
     patch: PreferencesSettingsPatch,
   ) => Promise<PreferencesSettings>;
-  readonly onRuntimeSettingsChanged: (
-    listener: RuntimeSettingsChangeListener,
-  ) => () => void;
 }
 
 export interface CompanionBridge

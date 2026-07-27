@@ -1,8 +1,13 @@
-use std::net::IpAddr;
+use std::{
+    net::IpAddr,
+    sync::{PoisonError, RwLock},
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use url::Url;
+
+use crate::infrastructure::persistence::SettingsStore;
 
 const DEFAULT_USER_NAME: &str = "Friend";
 const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
@@ -100,7 +105,67 @@ impl SettingsDocument {
 
         Ok(())
     }
+
+    pub(crate) fn runtime_projection(&self) -> RuntimeSettings {
+        RuntimeSettings {
+            user_name: self.user_name.clone(),
+            sticky_message: self.sticky_message.clone(),
+            general: self.general.clone(),
+            water: self.water.clone(),
+            notification_sounds: self.notification_sounds.clone(),
+        }
+    }
 }
+
+#[derive(Debug)]
+pub(crate) struct SettingsState {
+    #[allow(dead_code)] // Used by mutation commands beginning in Task 5.5.
+    pub(crate) store: SettingsStore,
+    pub(crate) settings: RwLock<SettingsDocument>,
+}
+
+impl SettingsState {
+    pub(crate) fn new(store: SettingsStore, settings: SettingsDocument) -> Self {
+        Self {
+            store,
+            settings: RwLock::new(settings),
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> Result<SettingsDocument, SettingsStateError> {
+        self.settings
+            .read()
+            .map(|settings| settings.clone())
+            .map_err(SettingsStateError::from)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeSettings {
+    pub(crate) user_name: String,
+    pub(crate) sticky_message: Option<String>,
+    pub(crate) general: GeneralSettings,
+    pub(crate) water: WaterSettings,
+    pub(crate) notification_sounds: NotificationSoundSettings,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct SettingsStateError;
+
+impl<T> From<PoisonError<T>> for SettingsStateError {
+    fn from(_error: PoisonError<T>) -> Self {
+        Self
+    }
+}
+
+impl std::fmt::Display for SettingsStateError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("settings state is unavailable")
+    }
+}
+
+impl std::error::Error for SettingsStateError {}
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
