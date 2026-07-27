@@ -178,6 +178,7 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,
   getReminderBridge: () => reminderBridge,
+  getPomodoroBridge: () => undefined,
   getPreferencesBridge: () => undefined,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
   getCredentialBridge: () => credentialBridge,

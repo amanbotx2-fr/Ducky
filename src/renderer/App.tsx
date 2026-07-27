@@ -532,7 +532,7 @@ export function App() {
 
   const handleCustomPomodoroStart = useCallback(
     async (durationMinutes: number): Promise<void> => {
-      const bridge = companionDesktopBridge.getCompanionBridge();
+      const bridge = companionDesktopBridge.getPomodoroBridge();
 
       if (bridge === undefined) {
         throw new Error('The desktop bridge is unavailable.');
@@ -547,7 +547,7 @@ export function App() {
   const handleCustomPomodoroPanelAfterClose = useCallback((): void => {
     setCustomPomodoroPanelPresent(false);
     companionDesktopBridge
-      .getCompanionBridge()
+      .getPomodoroBridge()
       ?.notifyCustomPomodoroPanelClosed();
   }, []);
 
@@ -799,7 +799,7 @@ export function App() {
   }, [speechBubble.show]);
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getPomodoroBridge();
 
     if (bridge === undefined) {
       return;
@@ -830,7 +830,7 @@ export function App() {
   }, [showPomodoroCompletion]);
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getPomodoroBridge();
 
     if (bridge === undefined) {
       return;

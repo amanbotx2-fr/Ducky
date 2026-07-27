@@ -27,6 +27,7 @@ export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
   getCompanionWindowBridge:
     runtimeDesktopBridge.getCompanionWindowBridge,
   getReminderBridge: runtimeDesktopBridge.getReminderBridge,
+  getPomodoroBridge: runtimeDesktopBridge.getPomodoroBridge,
 });
 
 /** Electron/Tauri-neutral native surface for the Preferences renderer. */

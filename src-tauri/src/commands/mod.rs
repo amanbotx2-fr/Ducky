@@ -1,5 +1,6 @@
 pub(crate) mod companion;
 pub(crate) mod credentials;
+pub(crate) mod pomodoro;
 pub(crate) mod reminders;
 pub(crate) mod settings;
 
@@ -30,6 +31,8 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             reminders::list_reminders,
             reminders::mark_reminder_completed,
             reminders::activate_reminder_events,
+            pomodoro::start_pomodoro,
+            pomodoro::custom_pomodoro_panel_closed,
             settings::get_runtime_settings,
             settings::get_preferences_settings,
             settings::update_user_name,

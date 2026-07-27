@@ -140,6 +140,7 @@ pub(crate) trait PomodoroEvents: Send + Sync {
 struct PendingEvents {
     latest_state: Option<PomodoroState>,
     pending_completion: bool,
+    custom_panel_visible: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -154,6 +155,11 @@ impl PomodoroEventQueue {
 
     pub(crate) fn has_pending_completion(&self) -> Result<bool, PomodoroError> {
         Ok(self.pending.lock()?.pending_completion)
+    }
+
+    pub(crate) fn close_custom_panel(&self) -> Result<(), PomodoroError> {
+        self.pending.lock()?.custom_panel_visible = false;
+        Ok(())
     }
 }
 

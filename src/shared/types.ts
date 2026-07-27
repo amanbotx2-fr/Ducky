@@ -153,21 +153,7 @@ export interface ReminderBridge {
   readonly markReminderCompleted: (id: string) => Promise<Reminder>;
 }
 
-export interface CompanionBridge
-  extends CompanionWindowBridge,
-    CompanionSettingsBridge,
-    ReminderBridge {
-  readonly platform: string;
-  readonly onUserNamePanelRequested: (
-    listener: UserNamePanelRequestListener,
-  ) => () => void;
-  readonly onStickyMessagePanelRequested: (
-    listener: StickyMessagePanelRequestListener,
-  ) => () => void;
-  readonly onDailyPlannerPanelRequested: (
-    listener: DailyPlannerPanelRequestListener,
-  ) => () => void;
-  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
+export interface PomodoroBridge {
   readonly startPomodoro: (durationMinutes: number) => Promise<void>;
   readonly notifyCustomPomodoroPanelClosed: () => void;
   readonly onCustomPomodoroDurationRequested: (
@@ -180,6 +166,24 @@ export interface CompanionBridge
   readonly onPomodoroCompleted: (
     listener: PomodoroCompletionListener,
   ) => () => void;
+}
+
+export interface CompanionBridge
+  extends CompanionWindowBridge,
+    CompanionSettingsBridge,
+    ReminderBridge,
+    PomodoroBridge {
+  readonly platform: string;
+  readonly onUserNamePanelRequested: (
+    listener: UserNamePanelRequestListener,
+  ) => () => void;
+  readonly onStickyMessagePanelRequested: (
+    listener: StickyMessagePanelRequestListener,
+  ) => () => void;
+  readonly onDailyPlannerPanelRequested: (
+    listener: DailyPlannerPanelRequestListener,
+  ) => () => void;
+  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
   readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
 }
 

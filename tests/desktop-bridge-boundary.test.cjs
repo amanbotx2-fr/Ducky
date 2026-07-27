@@ -140,6 +140,29 @@ describe('DesktopBridge renderer boundary', () => {
     );
   });
 
+  it('routes Pomodoro UI through the narrow runtime-neutral bridge', async () => {
+    const app = await readFile(
+      path.join(sourceRoot, 'renderer', 'App.tsx'),
+      'utf8',
+    );
+    const hook = await readFile(
+      path.join(
+        sourceRoot,
+        'renderer',
+        'hooks',
+        'usePomodoroState.ts',
+      ),
+      'utf8',
+    );
+
+    assert.match(app, /getPomodoroBridge\(\)/);
+    assert.match(hook, /getPomodoroBridge\(\)/);
+    assert.doesNotMatch(
+      hook,
+      /getCompanionBridge\(\)[\s\S]*getPomodoroState\(\)/,
+    );
+  });
+
   it('routes settings hooks through settings-only bridge views', async () => {
     const runtimeSettingsHook = await readFile(
       path.join(

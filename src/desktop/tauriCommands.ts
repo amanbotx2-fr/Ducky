@@ -24,6 +24,7 @@ import type { ScreenPoint } from '../shared/types';
 export const TAURI_COMMANDS = Object.freeze({
   activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
+  customPomodoroPanelClosed: 'custom_pomodoro_panel_closed',
   deleteReminder: 'delete_reminder',
   getCursorPosition: 'get_cursor_position',
   getCredentialStatus: 'get_credential_status',
@@ -37,6 +38,7 @@ export const TAURI_COMMANDS = Object.freeze({
   setCompanionContentHeight: 'set_companion_content_height',
   showCompanionContextMenu: 'show_companion_context_menu',
   saveCredential: 'save_credential',
+  startPomodoro: 'start_pomodoro',
   streamCursorPositions: 'stream_cursor_positions',
   stopCursorPositions: 'stop_cursor_positions',
   updatePreferencesSettings: 'update_preferences_settings',
@@ -54,6 +56,7 @@ interface TauriCommandArguments {
   readonly create_reminder: {
     readonly input: CreateReminderInput;
   };
+  readonly custom_pomodoro_panel_closed: Record<string, never>;
   readonly delete_reminder: {
     readonly id: string;
   };
@@ -82,6 +85,9 @@ interface TauriCommandArguments {
     readonly id: CredentialId;
     readonly secret: string;
   };
+  readonly start_pomodoro: {
+    readonly durationMinutes: number;
+  };
   readonly stream_cursor_positions: {
     readonly onPosition: Channel<ScreenPoint>;
   };
@@ -107,6 +113,7 @@ interface TauriCommandArguments {
 interface TauriCommandResults {
   readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;
+  readonly custom_pomodoro_panel_closed: void;
   readonly delete_reminder: boolean;
   readonly get_cursor_position: ScreenPoint;
   readonly get_credential_status: CredentialStatus;
@@ -120,6 +127,7 @@ interface TauriCommandResults {
   readonly set_companion_content_height: void;
   readonly show_companion_context_menu: void;
   readonly save_credential: CredentialStatus;
+  readonly start_pomodoro: void;
   readonly stream_cursor_positions: void;
   readonly stop_cursor_positions: void;
   readonly update_preferences_settings: PreferencesSettings;

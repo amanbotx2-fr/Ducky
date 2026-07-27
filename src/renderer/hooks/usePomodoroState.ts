@@ -11,12 +11,12 @@ const INITIAL_STATE = createIdlePomodoroState();
 export const usePomodoroState = (): PomodoroState => {
   const [state, setState] = useState<PomodoroState>(
     () =>
-      companionDesktopBridge.getCompanionBridge()?.getPomodoroState() ??
+      companionDesktopBridge.getPomodoroBridge()?.getPomodoroState() ??
       INITIAL_STATE,
   );
 
   useEffect(() => {
-    const bridge = companionDesktopBridge.getCompanionBridge();
+    const bridge = companionDesktopBridge.getPomodoroBridge();
 
     if (bridge === undefined) {
       return;
