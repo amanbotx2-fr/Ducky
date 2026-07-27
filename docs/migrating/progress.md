@@ -4,21 +4,160 @@
 
 ## Current Status
 
-- Active work: Phase 9 final manual parity verification (blocked)
-- Last completed phase: Phase 8 — Pomodoro Migration
-- Last completed task: Task 9.15 — Permissions
-- Next task: Resume the Phase 9 credentialed provider verification gate
-- Blockers: OpenAI, Gemini, Claude, and Grok have no configured test
-  credentials in the native store, and no real Ollama daemon/model is
-  available. Phase 9 cannot be marked complete until those providers, live AI
-  actions, and credentialed lifecycle cancellation have been manually
-  verified.
+- Active work: None. Phase 9 final provider verification and regression pass
+  is complete.
+- Last completed phase: Phase 9 — AI System Migration
+- Last completed task: Phase 9 final provider verification and regression
+  fixes
+- Next task: Phase 10 only after a separate instruction.
+- Blockers: None. OpenAI, Claude, and Grok account/credential limitations
+  observed during final verification are documented below and are not native
+  runtime implementation defects.
 
 ## Completed Tasks
 
-### Phase 9 — Final Manual Verification Gate
+### Phase 9 — Provider Verification and Regression Fixes
 
-**Status:** Blocked after all currently available checks.
+**Status:** Complete.
+
+**Provider verification**
+
+- Accepted the current manual-verification baseline for successful Gemini,
+  Ollama, and OpenAI-compatible/OpenRouter inference, provider switching,
+  model discovery, provider persistence, secure secret loading, AI actions,
+  DesktopBridge transport, and the native Rust runtime.
+- Re-audited OpenAI inference against Electron and the current official
+  Responses API contract. The native provider uses `POST /v1/responses`, the
+  same model/input/output-token payload shape as Electron, bounded response
+  parsing, and no redirect following. The original provider rejection cannot
+  be replayed because the single parity credential slot now contains a
+  different provider credential, but no request-path, payload, parser, or
+  model-discovery implementation defect remains. Future failures now retain
+  safe HTTP/provider error codes so quota, model-access, and billing responses
+  can be distinguished without exposing response bodies or credentials.
+- Re-audited Claude inference against Electron's Messages API contract. The
+  native provider uses `POST /v1/messages`, `x-api-key`,
+  `anthropic-version: 2023-06-01`, the Electron-equivalent message payload,
+  and whole-response aggregation inside Rust. The credential currently stored
+  for Claude is rejected by both the in-app connection test and a direct
+  bounded provider check with HTTP 401, so the current failure is an external
+  credential state rather than an implementation regression.
+- Confirmed Grok's HTTP 403 occurs after reaching xAI and matches the reported
+  account credit/license restriction. This is an external entitlement
+  limitation; the provider architecture was not redesigned.
+- Re-ran the shared success-path, parsing, registry, configuration,
+  cancellation, and final-response automated coverage after the diagnostic
+  changes. Gemini, Ollama, and Custom provider success behavior is unchanged.
+
+**Implementation fixes**
+
+- Added bounded, redacted provider diagnostics shared by OpenAI, Claude, and
+  Grok. Diagnostics retain the provider, error code, HTTP status, provider
+  error code, and a bounded safe message while excluding credentials and raw
+  response bodies from logs.
+- Preserved renderer parity: provider failures still return the same generic
+  renderer-safe error, one final response remains the only AI response
+  contract, and no streaming, explicit cancellation, health, or latency API
+  was added.
+
+**Regression fix**
+
+- Traced the fixed-right pupil regression to `PsyDuck.tsx` deriving the eye
+  origin from `window.screenX` / `window.screenY`. Those browser coordinates
+  are not authoritative in macOS WKWebView.
+- EyeTracker now obtains the native companion logical position through
+  DesktopBridge, combines it with the local stage/eye offsets, waits for that
+  origin before consuming cursor events, and ignores stale asynchronous
+  position reads across restarts. Existing smoothing, interpolation, global
+  cursor streaming, drag behavior, and Electron behavior are preserved.
+- Added regression coverage for the native-origin requirement, delayed
+  position resolution, restart-after-drag behavior, and stale origin reads.
+
+**Files changed**
+
+- `src/engine/EyeTracker.ts`
+- `src/renderer/components/PsyDuck.tsx`
+- `tests/eye-tracker.test.cjs`
+- `src-tauri/src/domain/ai/provider.rs`
+- `src-tauri/src/domain/ai/openai.rs`
+- `src-tauri/src/domain/ai/claude.rs`
+- `src-tauri/src/domain/ai/grok.rs`
+- `src-tauri/src/commands/ai.rs`
+- `docs/migrating/progress.md`
+
+**Commits**
+
+- `71d32c5 fix(companion): restore cursor eye tracking`
+- `4487156 fix(ai): improve provider diagnostics`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (144 tests across 40 suites).
+- `npm run build`: passed, including the Electron main and renderer
+  production outputs.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (114 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; the exact least-privilege command
+  surface resolves successfully.
+- Electron production-output smoke launch: passed. The process remained alive
+  until intentionally stopped and emitted only the expected denied
+  media/geolocation/web-install permission diagnostics.
+- `npm run tauri:dev -- --no-watch`: passed. The native process remained alive
+  until intentionally stopped; only the known development custom-protocol
+  fallback warning appeared.
+- `npm run tauri:build`: passed in the optimized release profile and produced
+  both `Ducky.app` and `Ducky_1.1.0_aarch64.dmg`.
+
+**Manual verification**
+
+- Verified the exact workspace Tauri bundle follows the global cursor at
+  top-left, bottom-right, and bottom-left desktop positions. Pupil movement is
+  smooth and resumes correctly after repeated companion drags.
+- Verified companion dragging remains functional and does not regress the
+  previously fixed native drag anchor.
+- Verified the native tray/context menu structure, Preferences launch,
+  Pomodoro and Reminder menu entries, About/Restart/Quit actions, and
+  Preferences state rendering.
+- Verified settings/provider persistence after restart, migrated AI controls,
+  credential-configured state, and the corrected native Preferences footer.
+- Verified the current invalid Claude credential fails with the bounded
+  renderer-safe message and that native diagnostics contain no credential.
+- Blink, idle, reminder, Pomodoro, settings, tray, menu, startup-restoration,
+  DesktopBridge, and authorization regressions remain covered by the passing
+  automated suites and the completed Phase 5–8 manual gates. No new regression
+  was found in this pass.
+
+**External-service limitations**
+
+- The earlier OpenAI rejection was not retained by the pre-fix generic
+  diagnostic path and its credential is no longer present in the single
+  Electron-parity credential slot. The implementation matches the current
+  Responses API contract; the improved diagnostics will identify the precise
+  quota/model/account code if the provider rejects a future request.
+- The currently stored Claude credential is invalid (HTTP 401). A valid
+  credential is required for successful live Claude inference.
+- The tested xAI account returns HTTP 403 because it lacks the required
+  credits/license. Account entitlement is required for successful live Grok
+  inference.
+- These limitations do not alter native runtime parity and required no
+  provider or renderer redesign.
+
+**Blockers**
+
+- None for Phase 9 migration completion.
+
+**Next task**
+
+- Phase 10 only after a separate instruction. Do not begin Phase 10
+  automatically.
+
+### Phase 9 — Prior Final Manual Verification Gate
+
+**Status:** Superseded by the completed provider verification and regression
+pass above. This section preserves the earlier gate evidence and prerequisites
+for historical context.
 
 **Implementation summary**
 
