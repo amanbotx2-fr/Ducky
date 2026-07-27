@@ -7,9 +7,12 @@
 - Active phase: Phase 4 — Tray + Native Menu Migration
 - Last completed task: Task 4.7 — Migrate Tray and Menu Permissions
 - Next task: Phase 4 final manual parity verification
-- Blockers: None. The revised Phase 4 contract limits this phase to native
-  lifecycle, static menus/actions, and the renderer-requested context-menu
-  transport; feature-domain menu state remains deferred.
+- Blockers: The packaged-app verification passed for startup, application
+  menus, About, Preferences, Restart, Quit, and the renderer context bridge.
+  The macOS accessibility service does not expose menu-bar status items, so
+  tray-icon visibility, opening the tray menu, and selecting Show Ducky from
+  that menu still require one human-observed check. The Mac locked before that
+  check could be completed. Phase 4 is therefore not marked complete.
 
 ## Completed Tasks
 
@@ -1673,3 +1676,85 @@ before Task 4.2 rather than guessing.
 **Next task**
 
 - Complete the Phase 4 manual parity verification; do not begin Phase 5.
+
+### Phase 4 Final Verification Gate
+
+**Status:** Blocked — implementation and automated validation complete;
+tray-only human observation remains.
+
+**Packaged application verification completed**
+
+- Built a dedicated debug macOS bundle with
+  `npm run tauri:build -- --debug --bundles app`.
+- Confirmed startup displays only the companion window at
+  `tauri://localhost`; Preferences does not open automatically.
+- Confirmed the companion mascot is visible and uncropped.
+- Confirmed the macOS Ducky menu contains About Ducky, Services, Hide Ducky,
+  Hide Others, Show All, and Quit Ducky in the expected native hierarchy.
+- Confirmed the Edit menu contains Undo, Redo, Cut, Copy, Paste, and Select
+  All, with macOS-provided system additions remaining native.
+- Opened About Ducky and confirmed Ducky 1.1.0 metadata and copyright.
+- Opened the companion context menu and confirmed its migrated static ordering:
+  Preferences…, About Ducky, Restart, Quit.
+- Selected Preferences… and confirmed the native Preferences window opens only
+  on request while the companion remains available.
+- Selected Restart and confirmed the original process exited, a new process
+  started with a different PID, and only the companion appeared after restart.
+- Selected Quit and confirmed the packaged Tauri process exited completely.
+- No renderer error, command-scope warning, or permission warning appeared
+  during packaged verification. Tauri development mode emitted only its known
+  custom-protocol-to-`postMessage` transport fallback warning.
+
+**Tray evidence completed**
+
+- Tauri setup creates one tray resource with the stable `ducky-tray` ID and
+  fails startup if icon decoding or tray construction fails.
+- The packaged process remained alive through startup and successfully
+  restarted with no tray construction error.
+- Focused Rust tests lock the tray identity, resized icon output, exact menu
+  ordering/labels/separator, and closed native action dispatch.
+- Tray actions and the companion static context menu use the same Rust callback
+  dispatcher; Preferences, About, Restart, and Quit were exercised
+  interactively through that shared path.
+
+**Manual checks still required**
+
+- Visually confirm the 18 × 18 full-color Ducky tray icon is present.
+- Open the tray menu and confirm Show Ducky, Preferences…, About Ducky,
+  separator, Restart, and Quit in that order.
+- Hide or cover the companion, then select Show Ducky and confirm it is shown
+  and focused.
+
+The Computer Use accessibility tree exposes application menus and native popup
+menus but not macOS menu-bar status items. Before an external observation could
+be completed, macOS locked and automatic unlock was unavailable. No source
+change is justified by this verification limitation.
+
+**Final validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (128 tests across 36 suites).
+- `npm run build`: passed, including the Electron main process and both
+  renderer entries.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`: passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: passed (27 tests).
+- `cargo build --manifest-path src-tauri/Cargo.toml`: passed.
+- `npx tauri permission list`: passed.
+- Electron development smoke launch: passed; the original Electron
+  implementation remained unchanged.
+- Tauri development smoke launch: passed; the companion loaded and the process
+  remained alive until stopped manually.
+- Packaged debug Tauri build and interactive verification: passed for all
+  accessible checks listed above.
+
+**Phase 4 completion**
+
+- Not yet declared complete because the Phase 4 contract explicitly requires
+  direct tray-icon, tray-menu, and Show Ducky manual verification.
+- Phase 5 has not been started.
+
+**Next task**
+
+- Unlock macOS and complete the three tray-only observations above. If they
+  pass, record Phase 4 complete and proceed no further until Phase 5 is
+  explicitly requested.
