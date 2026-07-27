@@ -6,8 +6,8 @@
 
 - Active work: Phase 8 — Pomodoro Migration
 - Last completed phase: Phase 7 — Reminder System Migration
-- Last completed task: Task 8.6 — Companion Integration
-- Next task: Task 8.7 — Timer Completion
+- Last completed task: Task 8.7 — Timer Completion
+- Next task: Task 8.8 — Permissions
 - Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
   the migration-wide Electron parity rule.
 
@@ -4173,3 +4173,58 @@ renderer-originated command grants in Task 8.8.
 
 - Task 8.7 — lock the existing React completion celebration, personality
   message, and notification-sound path without adding native notifications.
+
+### Task 8.7 — Timer Completion
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Preserved the existing renderer-owned completion behavior without adding a
+  native notification path or changing application behavior.
+- Confirmed the existing `pomodoro:completed` handler plays the configured
+  Pomodoro notification sound, starts the existing celebration, requests the
+  existing personality completion message, and records pending completion
+  state through the same React path used by Electron.
+- Added source-level regression coverage that locks this exact parity contract
+  and rejects a Tauri notification plugin or notification capability in the
+  Phase 8 implementation.
+
+**Files changed**
+
+- `tests/pomodoro-completion-parity.test.cjs` — completion behavior and
+  no-native-notification parity coverage.
+- `docs/migrating/progress.md` — recorded Task 8.7.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (82 tests).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed; no notification plugin or capability is
+  present.
+- Electron production-output smoke launch: passed with the unchanged renderer
+  completion handler.
+- `npx tauri dev --no-watch`: passed without Pomodoro command, event, or
+  permission errors. Only the known development custom-protocol fallback
+  warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- This milestone deliberately retains the existing React behavior rather than
+  introducing an alternative native completion implementation. The full
+  interactive one-minute completion check is part of the final Phase 8 parity
+  run after the scoped command permissions are granted.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 8.8 — grant the two existing renderer-originated Pomodoro commands to
+  the Companion and complete Phase 8 parity verification.
