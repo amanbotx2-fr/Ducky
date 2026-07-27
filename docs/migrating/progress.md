@@ -3776,3 +3776,73 @@ parity; production implementation has not started.
 **Next task**
 
 - Task 8.2 — Create Native Pomodoro Engine.
+
+### Task 8.2 — Native Pomodoro Engine
+
+**Status:** Engine core complete. The concrete `pomodoro.json` repository and
+startup registration remain Task 8.3.
+
+**Implementation summary**
+
+- Added the exact Electron `PomodoroState` and version-1 persisted document
+  schema in Rust, including strict duration, state-combination, timestamp, and
+  unknown-field validation.
+- Ported the existing focus-timer state machine: start/restart with a selected
+  duration, pause after wall-clock materialization, resume from frozen
+  remaining time, stop to the selected idle duration, elapsed-time
+  materialization, and one-shot completion.
+- Added a singleton native runtime with one named scheduler worker. It wakes
+  on the next one-second boundary, emits immutable state snapshots, sleeps
+  while idle or paused, and reconciles delayed wakes from wall-clock time.
+- Preserved Electron's serialized asynchronous save ordering through a native
+  queue. Runtime mutations remain active if persistence fails, and shutdown
+  drains queued writes before joining the worker.
+- Kept persistence and event delivery behind narrow native interfaces so the
+  following milestones can connect the separate file store and exact Tauri
+  event recovery without changing timer semantics.
+- Added no renderer timer, break state, reset, skip, native notification, new
+  plugin, or Electron change.
+
+**Files changed**
+
+- `src-tauri/src/domain/pomodoro/mod.rs` — native schema, state machine,
+  scheduler runtime, persistence/event interfaces, and focused tests.
+- `src-tauri/src/domain/mod.rs` — registered the Pomodoro domain module.
+- `docs/migrating/progress.md` — recorded Task 8.2.
+
+**Validation performed**
+
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (72 tests, including seven native Pomodoro tests).
+- `cargo build`: passed. The unregistered domain emits expected dead-code
+  warnings until Task 8.3 connects it to application startup.
+- `npx tauri permission list`: passed; the native-only engine adds no
+  renderer permission.
+- `npm run typecheck`: passed.
+- `npm test`: passed (135 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- Electron production-output smoke launch: passed through the unchanged
+  Electron `PomodoroManager`, preload, and menu implementation. Existing
+  permission-denial diagnostics remained expected and unchanged.
+- `npx tauri dev --no-watch`: passed. The existing Tauri shell launched and
+  remained alive; only the known development custom-protocol fallback warning
+  appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed and produced the
+  current macOS application bundle.
+
+**Manual verification**
+
+- No UI path is connected in this engine-only milestone. State transitions,
+  delayed time materialization, restored running state, expired restoration,
+  one-shot completion, singleton startup, and queued-save shutdown are covered
+  by deterministic native tests.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 8.3 — implement the separate native `pomodoro.json` repository,
+  register/start the runtime before the Companion, and stop it during native
+  shutdown.
