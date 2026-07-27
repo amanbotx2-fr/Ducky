@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
 
 use super::{
     provider::{
-        normalize_models, AiFinishReason, AiModel, AiUsage, MAXIMUM_OUTPUT_TOKENS,
-        MAXIMUM_RESPONSE_CHARS,
+        create_http_diagnostics, normalize_models, AiFinishReason, AiModel, AiUsage,
+        MAXIMUM_OUTPUT_TOKENS, MAXIMUM_RESPONSE_CHARS,
     },
     AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode, AiProviderId,
     AiRequest, AiResponse,
@@ -35,6 +35,11 @@ impl ClaudeProvider {
         &self,
         request: reqwest::RequestBuilder,
     ) -> Result<Value, AiProviderError> {
+        let request_url = request
+            .try_clone()
+            .and_then(|request| request.build().ok())
+            .map(|request| request.url().to_string())
+            .unwrap_or_else(|| ANTHROPIC_BASE_URL.to_owned());
         let response = request
             .header("anthropic-version", ANTHROPIC_VERSION)
             .send()
@@ -49,11 +54,7 @@ impl ClaudeProvider {
             return Err(connection_error("Claude response exceeded the safe limit."));
         }
         if !status.is_success() {
-            return Err(connection_error(match status.as_u16() {
-                401 | 403 => "Claude authentication failed.",
-                429 => "Claude rate limit reached.",
-                _ => "Claude request failed.",
-            }));
+            return Err(status_error(status, &request_url, &bytes));
         }
         serde_json::from_slice(&bytes)
             .map_err(|_| connection_error("Claude returned an invalid response."))
@@ -190,6 +191,26 @@ fn connection_error(message: &'static str) -> AiProviderError {
     )
 }
 
+fn status_error(status: StatusCode, request_url: &str, bytes: &[u8]) -> AiProviderError {
+    let message = match status.as_u16() {
+        400 => "Claude rejected the configured request.",
+        401 => "Claude did not accept the configured API key.",
+        402 => "Claude account funding is required.",
+        403 => "Claude denied access for this API key.",
+        404 => "Claude could not find the configured model or endpoint.",
+        429 => "Claude rate limit reached.",
+        500..=599 => "Claude is temporarily unavailable.",
+        _ => "Claude request failed.",
+    };
+
+    connection_error(message).with_diagnostics(create_http_diagnostics(
+        request_url,
+        status,
+        bytes,
+        message,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,5 +235,20 @@ mod tests {
                 output_tokens: 4
             })
         );
+    }
+
+    #[test]
+    fn claude_funding_errors_retain_bounded_safe_diagnostics() {
+        let error = status_error(
+            StatusCode::BAD_REQUEST,
+            "https://api.anthropic.com/v1/messages",
+            br#"{"error":{"type":"invalid_request_error","message":"Your credit balance is too low.","api_key":"secret"}}"#,
+        );
+        let diagnostics = error.diagnostics().unwrap();
+
+        assert_eq!(error.message(), "Claude rejected the configured request.");
+        assert_eq!(diagnostics.http_status_code, Some(400));
+        assert_eq!(diagnostics.error_message, "Your credit balance is too low.");
+        assert!(!diagnostics.response_body.contains("secret"));
     }
 }

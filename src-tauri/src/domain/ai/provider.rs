@@ -1,5 +1,7 @@
 use async_trait::async_trait;
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::AiProviderId;
 
@@ -170,4 +172,89 @@ pub(crate) fn normalize_models(mut models: Vec<AiModel>) -> Vec<AiModel> {
     models.dedup_by(|left, right| left.id == right.id);
     models.truncate(MAXIMUM_MODELS);
     models
+}
+
+pub(crate) fn create_http_diagnostics(
+    request_url: &str,
+    status: StatusCode,
+    bytes: &[u8],
+    fallback_message: &str,
+) -> AiProviderHttpDiagnostics {
+    let mut value = serde_json::from_slice::<Value>(bytes).ok();
+
+    if let Some(value) = value.as_mut() {
+        redact_sensitive_values(value);
+    }
+
+    let response_body = value
+        .as_ref()
+        .and_then(|value| serde_json::to_string(value).ok())
+        .unwrap_or_else(|| String::from_utf8_lossy(bytes).into_owned())
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
+        .take(4_096)
+        .collect::<String>();
+    let error = value.as_ref().and_then(|value| value.get("error"));
+    let error_code = error
+        .and_then(|error| error["code"].as_str().or_else(|| error["type"].as_str()))
+        .map(|value| value.chars().take(256).collect());
+    let error_message = error
+        .and_then(|error| error["message"].as_str())
+        .unwrap_or(fallback_message)
+        .chars()
+        .take(MAXIMUM_ERROR_CHARS)
+        .collect();
+
+    AiProviderHttpDiagnostics {
+        request_url: request_url.chars().take(2_048).collect(),
+        http_status_code: Some(status.as_u16()),
+        http_status_text: status.canonical_reason().map(str::to_owned),
+        response_body,
+        error_code,
+        error_message,
+    }
+}
+
+fn redact_sensitive_values(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, value) in object {
+                if ["authorization", "api_key", "apikey", "secret", "token"]
+                    .iter()
+                    .any(|sensitive| key.eq_ignore_ascii_case(sensitive))
+                {
+                    *value = Value::String("[REDACTED]".to_owned());
+                } else {
+                    redact_sensitive_values(value);
+                }
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                redact_sensitive_values(value);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod diagnostics_tests {
+    use super::*;
+
+    #[test]
+    fn diagnostics_preserve_safe_provider_detail_and_redact_secrets() {
+        let diagnostics = create_http_diagnostics(
+            "https://api.example.test/v1/messages",
+            StatusCode::PAYMENT_REQUIRED,
+            br#"{"error":{"type":"billing_error","message":"Credit balance is too low.","token":"secret"}}"#,
+            "Provider request failed.",
+        );
+
+        assert_eq!(diagnostics.http_status_code, Some(402));
+        assert_eq!(diagnostics.error_code.as_deref(), Some("billing_error"));
+        assert_eq!(diagnostics.error_message, "Credit balance is too low.");
+        assert!(diagnostics.response_body.contains("[REDACTED]"));
+        assert!(!diagnostics.response_body.contains("secret"));
+    }
 }

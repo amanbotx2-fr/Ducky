@@ -145,7 +145,8 @@ pub(crate) async fn ask_ai<R: tauri::Runtime>(
                         Ok(AiAskResult::failure("I couldn't complete that action."))
                     }
                 },
-                Err(AiExecutionError::Provider(_)) => {
+                Err(AiExecutionError::Provider(error)) => {
+                    log_provider_request_failure(&error);
                     Ok(AiAskResult::failure(PROVIDER_FAILED_MESSAGE))
                 }
                 Err(_) => Ok(AiAskResult::failure(AI_UNAVAILABLE_MESSAGE)),
@@ -155,6 +156,27 @@ pub(crate) async fn ask_ai<R: tauri::Runtime>(
     {
         Ok(result) => result,
         Err(error) => Ok(AiAskResult::failure(error.message())),
+    }
+}
+
+fn log_provider_request_failure(error: &crate::domain::ai::AiProviderError) {
+    if let Some(diagnostics) = error.diagnostics() {
+        eprintln!(
+            "[ai] provider_request_failed: provider={} error_code={:?} \
+             http_status_code={:?} provider_error_code={:?} error_message={:?}",
+            error.provider_id.as_str(),
+            error.code,
+            diagnostics.http_status_code,
+            diagnostics.error_code,
+            diagnostics.error_message
+        );
+    } else {
+        eprintln!(
+            "[ai] provider_request_failed: provider={} error_code={:?} error_message={:?}",
+            error.provider_id.as_str(),
+            error.code,
+            error.message()
+        );
     }
 }
 

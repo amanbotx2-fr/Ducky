@@ -6,11 +6,11 @@ use serde_json::{json, Value};
 
 use super::{
     provider::{
-        normalize_models, AiFinishReason, AiModel, AiUsage, MAXIMUM_MODELS, MAXIMUM_OUTPUT_TOKENS,
-        MAXIMUM_RESPONSE_CHARS,
+        create_http_diagnostics, normalize_models, AiFinishReason, AiModel, AiUsage,
+        MAXIMUM_MODELS, MAXIMUM_OUTPUT_TOKENS, MAXIMUM_RESPONSE_CHARS,
     },
-    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode,
-    AiProviderHttpDiagnostics, AiProviderId, AiRequest, AiResponse,
+    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderErrorCode, AiProviderId,
+    AiRequest, AiResponse,
 };
 
 const XAI_BASE_URL: &str = "https://api.x.ai/v1";
@@ -231,66 +231,12 @@ fn status_error(status: StatusCode, request_url: &str, bytes: &[u8]) -> AiProvid
         429 => "Grok rate limit reached.",
         _ => "Grok request failed.",
     };
-    let (response_body, error_code, error_message) = sanitize_error_body(bytes, message);
-    connection_error(message).with_diagnostics(AiProviderHttpDiagnostics {
-        request_url: request_url.chars().take(2_048).collect(),
-        http_status_code: Some(status.as_u16()),
-        http_status_text: status.canonical_reason().map(str::to_owned),
-        response_body,
-        error_code,
-        error_message,
-    })
-}
-
-fn sanitize_error_body(bytes: &[u8], fallback_message: &str) -> (String, Option<String>, String) {
-    let mut value = serde_json::from_slice::<Value>(bytes).ok();
-    if let Some(value) = value.as_mut() {
-        redact_sensitive_values(value);
-    }
-    let response_body = value
-        .as_ref()
-        .and_then(|value| serde_json::to_string(value).ok())
-        .unwrap_or_else(|| String::from_utf8_lossy(bytes).into_owned());
-    let response_body = response_body
-        .chars()
-        .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
-        .take(4_096)
-        .collect::<String>();
-    let error_code = value
-        .as_ref()
-        .and_then(|value| value["error"]["code"].as_str())
-        .map(|value| value.chars().take(256).collect());
-    let error_message = value
-        .as_ref()
-        .and_then(|value| value["error"]["message"].as_str())
-        .unwrap_or(fallback_message)
-        .chars()
-        .take(512)
-        .collect();
-    (response_body, error_code, error_message)
-}
-
-fn redact_sensitive_values(value: &mut Value) {
-    match value {
-        Value::Object(object) => {
-            for (key, value) in object {
-                if ["authorization", "api_key", "apikey", "secret", "token"]
-                    .iter()
-                    .any(|sensitive| key.eq_ignore_ascii_case(sensitive))
-                {
-                    *value = Value::String("[REDACTED]".to_owned());
-                } else {
-                    redact_sensitive_values(value);
-                }
-            }
-        }
-        Value::Array(values) => {
-            for value in values {
-                redact_sensitive_values(value);
-            }
-        }
-        _ => {}
-    }
+    connection_error(message).with_diagnostics(create_http_diagnostics(
+        request_url,
+        status,
+        bytes,
+        message,
+    ))
 }
 
 #[cfg(test)]
