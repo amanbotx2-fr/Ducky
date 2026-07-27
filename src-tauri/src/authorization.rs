@@ -110,6 +110,7 @@ pub(crate) const STREAM_CURSOR_POSITIONS: CommandAuthorization =
     CommandAuthorization::companion_only("stream_cursor_positions");
 pub(crate) const STOP_CURSOR_POSITIONS: CommandAuthorization =
     CommandAuthorization::companion_only("stop_cursor_positions");
+pub(crate) const ASK_AI: CommandAuthorization = CommandAuthorization::companion_only("ask_ai");
 
 #[cfg(test)]
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
@@ -138,6 +139,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     SHOW_COMPANION_CONTEXT_MENU,
     STREAM_CURSOR_POSITIONS,
     STOP_CURSOR_POSITIONS,
+    ASK_AI,
 ];
 
 // Consumed by build.rs through a path module; retained here as the single
@@ -169,6 +171,7 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     SHOW_COMPANION_CONTEXT_MENU.name(),
     STREAM_CURSOR_POSITIONS.name(),
     STOP_CURSOR_POSITIONS.name(),
+    ASK_AI.name(),
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -237,6 +240,7 @@ mod tests {
                 "show_companion_context_menu",
                 "stream_cursor_positions",
                 "stop_cursor_positions",
+                "ask_ai",
             ],
         );
     }

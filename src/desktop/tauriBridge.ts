@@ -1,4 +1,5 @@
 import type {
+  CompanionAiBridge,
   CompanionSettingsBridge,
   CompanionWindowBridge,
   CredentialBridge,
@@ -56,6 +57,11 @@ const companionWindowBridge: CompanionWindowBridge = Object.freeze({
       );
     });
   },
+});
+
+const companionAiBridge: CompanionAiBridge = Object.freeze({
+  askAI: (request: Parameters<CompanionAiBridge['askAI']>[0]) =>
+    dispatchTauriCommand(TAURI_COMMANDS.askAI, { request }),
 });
 
 const runtimeSettingsBridge: RuntimeSettingsBridge = Object.freeze({
@@ -175,6 +181,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
  */
 export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionBridge: () => undefined,
+  getCompanionAiBridge: () => companionAiBridge,
   getCompanionSettingsBridge: () => companionSettingsBridge,
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,
   getCompanionWindowBridge: () => companionWindowBridge,

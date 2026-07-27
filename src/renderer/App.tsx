@@ -471,7 +471,7 @@ export function App() {
       });
 
       const request =
-        companionDesktopBridge.getCompanionBridge()?.askAI({
+        companionDesktopBridge.getCompanionAiBridge()?.askAI({
         prompt: normalizedPrompt,
         history,
       });

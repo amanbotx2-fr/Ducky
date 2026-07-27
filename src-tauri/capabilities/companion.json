@@ -5,6 +5,7 @@
   "local": true,
   "webviews": ["companion"],
   "permissions": [
+    "allow-ask-ai",
     "allow-activate-reminder-events",
     "allow-activate-pomodoro-events",
     "allow-start-pomodoro",

@@ -93,6 +93,10 @@ export type AIConnectionTestResult =
       readonly diagnostics?: AIProviderHttpDiagnostics;
     };
 
+export interface CompanionAiBridge {
+  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
+}
+
 export interface SettingsChangeBridge {
   readonly onRuntimeSettingsChanged: (
     listener: RuntimeSettingsChangeListener,
@@ -183,7 +187,7 @@ export interface CompanionBridge
   readonly onDailyPlannerPanelRequested: (
     listener: DailyPlannerPanelRequestListener,
   ) => () => void;
-  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
+  readonly askAI: CompanionAiBridge['askAI'];
   readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
 }
 

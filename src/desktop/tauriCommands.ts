@@ -9,12 +9,13 @@ import type {
   PreferencesSettingsPatch,
   RuntimeSettings,
 } from '../shared/settings';
+import type { AIConversationRequest } from '../shared/aiConversation';
 import type {
   CreateReminderInput,
   Reminder,
   UpdateReminderInput,
 } from '../shared/reminders';
-import type { ScreenPoint } from '../shared/types';
+import type { AIAskResult, ScreenPoint } from '../shared/types';
 
 /**
  * Registry for commands whose native behavior is complete in the migration.
@@ -22,6 +23,7 @@ import type { ScreenPoint } from '../shared/types';
  * be added here as placeholders.
  */
 export const TAURI_COMMANDS = Object.freeze({
+  askAI: 'ask_ai',
   activatePomodoroEvents: 'activate_pomodoro_events',
   activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
@@ -53,6 +55,9 @@ type TauriCommandName =
   (typeof TAURI_COMMANDS)[keyof typeof TAURI_COMMANDS];
 
 interface TauriCommandArguments {
+  readonly ask_ai: {
+    readonly request: AIConversationRequest;
+  };
   readonly activate_pomodoro_events: Record<string, never>;
   readonly activate_reminder_events: Record<string, never>;
   readonly create_reminder: {
@@ -113,6 +118,7 @@ interface TauriCommandArguments {
 }
 
 interface TauriCommandResults {
+  readonly ask_ai: AIAskResult;
   readonly activate_pomodoro_events: void;
   readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;

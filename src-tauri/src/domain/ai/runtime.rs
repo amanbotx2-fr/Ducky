@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
-use super::{AiProvider, AiProviderId, AiProviderRegistry, AiRegistryError};
+use super::{
+    AiProvider, AiProviderConfiguration, AiProviderError, AiProviderId, AiProviderRegistry,
+    AiRegistryError, AiRequest, AiResponse,
+};
 use crate::infrastructure::credentials::{CredentialId, CredentialStore, CredentialStoreError};
 use zeroize::Zeroizing;
 
@@ -9,6 +12,27 @@ pub(crate) enum AiRuntimeError {
     Unavailable,
     ShuttingDown,
 }
+
+#[derive(Debug)]
+pub(crate) enum AiExecutionError {
+    Runtime(AiRuntimeError),
+    Registry(AiRegistryError),
+    Provider(AiProviderError),
+    ProviderNotSelected,
+}
+
+impl std::fmt::Display for AiExecutionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Runtime(error) => error.fmt(formatter),
+            Self::Registry(error) => error.fmt(formatter),
+            Self::Provider(error) => error.fmt(formatter),
+            Self::ProviderNotSelected => formatter.write_str("No AI provider is selected"),
+        }
+    }
+}
+
+impl std::error::Error for AiExecutionError {}
 
 impl std::fmt::Display for AiRuntimeError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -91,6 +115,22 @@ impl AiRuntime {
         }
     }
 
+    pub(crate) async fn send_message(
+        &self,
+        configuration: AiProviderConfiguration<'_>,
+        request: AiRequest,
+    ) -> Result<AiResponse, AiExecutionError> {
+        self.ensure_running().map_err(AiExecutionError::Runtime)?;
+        let provider = self
+            .active_provider()
+            .map_err(AiExecutionError::Registry)?
+            .ok_or(AiExecutionError::ProviderNotSelected)?;
+        provider
+            .send_message(configuration, request)
+            .await
+            .map_err(AiExecutionError::Provider)
+    }
+
     pub(crate) fn shutdown(&self) -> Result<(), AiRuntimeError> {
         self.state.lock()?.shutting_down = true;
         Ok(())
@@ -110,7 +150,44 @@ impl<T> From<PoisonError<T>> for AiRuntimeError {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+
     use super::*;
+    use crate::domain::ai::{AiFinishReason, AiProviderErrorCode};
+
+    #[derive(Debug)]
+    struct EchoProvider;
+
+    #[async_trait]
+    impl AiProvider for EchoProvider {
+        fn id(&self) -> AiProviderId {
+            AiProviderId::Openai
+        }
+
+        fn display_name(&self) -> &'static str {
+            "Echo"
+        }
+
+        async fn send_message(
+            &self,
+            _configuration: AiProviderConfiguration<'_>,
+            request: AiRequest,
+        ) -> Result<AiResponse, AiProviderError> {
+            if request.prompt == "fail" {
+                return Err(AiProviderError::new(
+                    self.id(),
+                    AiProviderErrorCode::Connection,
+                    "failed",
+                ));
+            }
+            Ok(AiResponse {
+                provider_id: self.id(),
+                content: request.prompt,
+                finish_reason: AiFinishReason::Stop,
+                usage: None,
+            })
+        }
+    }
 
     #[test]
     fn runtime_initializes_available_and_shuts_down_cleanly() {
@@ -143,5 +220,54 @@ mod tests {
                 .unwrap(),
             None
         );
+    }
+
+    #[tokio::test]
+    async fn execution_returns_one_complete_provider_response() {
+        let runtime = AiRuntime::new(CredentialStore::native());
+        runtime.register_provider(Arc::new(EchoProvider)).unwrap();
+        runtime.select_provider(AiProviderId::Openai).unwrap();
+
+        let response = runtime
+            .send_message(
+                AiProviderConfiguration {
+                    api_key: None,
+                    base_url: "",
+                    endpoint: "",
+                    model: "",
+                },
+                AiRequest {
+                    prompt: "complete response".to_owned(),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.content, "complete response");
+        assert_eq!(response.finish_reason, AiFinishReason::Stop);
+    }
+
+    #[tokio::test]
+    async fn execution_preserves_provider_failures_without_partial_output() {
+        let runtime = AiRuntime::new(CredentialStore::native());
+        runtime.register_provider(Arc::new(EchoProvider)).unwrap();
+        runtime.select_provider(AiProviderId::Openai).unwrap();
+
+        let error = runtime
+            .send_message(
+                AiProviderConfiguration {
+                    api_key: None,
+                    base_url: "",
+                    endpoint: "",
+                    model: "",
+                },
+                AiRequest {
+                    prompt: "fail".to_owned(),
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, AiExecutionError::Provider(_)));
     }
 }

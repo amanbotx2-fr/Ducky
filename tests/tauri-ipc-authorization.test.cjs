@@ -13,6 +13,7 @@ const permissionDirectory = path.join(
 );
 
 const companionCommandPermissions = [
+  'allow-ask-ai',
   'allow-activate-reminder-events',
   'allow-activate-pomodoro-events',
   'allow-start-pomodoro',

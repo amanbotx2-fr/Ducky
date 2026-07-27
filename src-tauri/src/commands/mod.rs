@@ -1,3 +1,4 @@
+pub(crate) mod ai;
 pub(crate) mod companion;
 pub(crate) mod credentials;
 pub(crate) mod pomodoro;
@@ -14,6 +15,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
         .manage(companion::CursorStreamState::default())
         .invoke_handler(tauri::generate_handler![
+            ai::ask_ai,
             companion::get_cursor_position,
             companion::get_companion_window_position,
             companion::move_companion_window,

@@ -38,6 +38,18 @@ impl AiProviderId {
             Self::Custom => "custom",
         }
     }
+
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "openai" => Some(Self::Openai),
+            "gemini" => Some(Self::Gemini),
+            "claude" => Some(Self::Claude),
+            "grok" => Some(Self::Grok),
+            "ollama" => Some(Self::Ollama),
+            "custom" => Some(Self::Custom),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for AiProviderId {
@@ -218,5 +230,11 @@ mod tests {
             AiProviderId::ALL.map(AiProviderId::as_str),
             ["openai", "gemini", "claude", "grok", "ollama", "custom"]
         );
+        for provider in AiProviderId::ALL {
+            assert_eq!(AiProviderId::parse(provider.as_str()), Some(provider));
+        }
+        assert_eq!(AiProviderId::parse(" GEMINI "), Some(AiProviderId::Gemini));
+        assert_eq!(AiProviderId::parse(""), None);
+        assert_eq!(AiProviderId::parse("unsupported"), None);
     }
 }

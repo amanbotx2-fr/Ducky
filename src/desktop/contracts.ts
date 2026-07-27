@@ -1,4 +1,5 @@
 import type {
+  CompanionAiBridge,
   CompanionBridge,
   CompanionSettingsBridge,
   CompanionWindowBridge,
@@ -23,6 +24,7 @@ export interface PreferencesSettingsCapabilities {
 /** Native capabilities available to the companion renderer. */
 export interface CompanionDesktopBridge {
   readonly getCompanionBridge: () => CompanionBridge | undefined;
+  readonly getCompanionAiBridge: () => CompanionAiBridge | undefined;
   readonly getCompanionSettingsBridge: () =>
     | CompanionSettingsBridge
     | undefined;

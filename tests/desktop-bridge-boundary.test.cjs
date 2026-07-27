@@ -241,6 +241,32 @@ describe('DesktopBridge renderer boundary', () => {
     );
   });
 
+  it('routes whole AI responses through the narrow runtime-neutral bridge', async () => {
+    const [application, contracts, adapter, commands] =
+      await Promise.all(
+        [
+          ['renderer', 'App.tsx'],
+          ['desktop', 'contracts.ts'],
+          ['desktop', 'tauriBridge.ts'],
+          ['desktop', 'tauriCommands.ts'],
+        ].map((segments) =>
+          readFile(path.join(sourceRoot, ...segments), 'utf8'),
+        ),
+      );
+
+    assert.match(application, /getCompanionAiBridge\(\)\?\.askAI/);
+    assert.doesNotMatch(
+      application,
+      /getCompanionBridge\(\)\?\.askAI/,
+    );
+    assert.match(contracts, /getCompanionAiBridge/);
+    assert.match(adapter, /TAURI_COMMANDS\.askAI/);
+    assert.match(commands, /askAI:\s*'ask_ai'/);
+    for (const source of [application, contracts, adapter, commands]) {
+      assert.doesNotMatch(source, /streamAI|aiToken|cancelAI/);
+    }
+  });
+
   it('routes reminder UI through the exact reminder bridge', async () => {
     const [application, notifications, contracts, adapter] =
       await Promise.all(
