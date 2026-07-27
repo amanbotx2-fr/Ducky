@@ -7,6 +7,8 @@
   "permissions": [
     "allow-activate-reminder-events",
     "allow-activate-pomodoro-events",
+    "allow-start-pomodoro",
+    "allow-custom-pomodoro-panel-closed",
     "allow-create-reminder",
     "allow-update-reminder",
     "allow-delete-reminder",

@@ -15,6 +15,8 @@ const permissionDirectory = path.join(
 const companionCommandPermissions = [
   'allow-activate-reminder-events',
   'allow-activate-pomodoro-events',
+  'allow-start-pomodoro',
+  'allow-custom-pomodoro-panel-closed',
   'allow-create-reminder',
   'allow-update-reminder',
   'allow-delete-reminder',
@@ -39,14 +41,9 @@ const preferencesCommandPermissions = [
   'allow-save-credential',
   'allow-delete-credential',
 ];
-const deferredCompanionCommandPermissions = [
-  'allow-start-pomodoro',
-  'allow-custom-pomodoro-panel-closed',
-];
 const registeredCommandPermissions = [
   ...companionCommandPermissions,
   ...preferencesCommandPermissions,
-  ...deferredCompanionCommandPermissions,
 ];
 const eventPermissions = [
   'core:event:allow-listen',
@@ -111,10 +108,6 @@ describe('Tauri IPC authorization', () => {
     for (const permission of preferencesCommandPermissions) {
       assert.equal(preferences.permissions.includes(permission), true);
       assert.equal(companion.permissions.includes(permission), false);
-    }
-    for (const permission of deferredCompanionCommandPermissions) {
-      assert.equal(companion.permissions.includes(permission), false);
-      assert.equal(preferences.permissions.includes(permission), false);
     }
   });
 

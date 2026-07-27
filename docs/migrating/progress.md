@@ -6,8 +6,8 @@
 
 - Active work: Phase 8 — Pomodoro Migration
 - Last completed phase: Phase 7 — Reminder System Migration
-- Last completed task: Task 8.7 — Timer Completion
-- Next task: Task 8.8 — Permissions
+- Last completed task: Task 8.8 — Permissions
+- Next task: Phase 8 final manual parity verification
 - Blockers: None. The Phase 8 source-of-truth conflict was resolved by applying
   the migration-wide Electron parity rule.
 
@@ -4228,3 +4228,62 @@ renderer-originated command grants in Task 8.8.
 
 - Task 8.8 — grant the two existing renderer-originated Pomodoro commands to
   the Companion and complete Phase 8 parity verification.
+
+### Task 8.8 — Permissions
+
+**Status:** Complete. Phase exit remains gated on the final interactive parity
+run.
+
+**Implementation summary**
+
+- Granted the Companion webview only the two previously generated,
+  renderer-originated Pomodoro command permissions:
+  `allow-start-pomodoro` and
+  `allow-custom-pomodoro-panel-closed`.
+- Kept event activation and low-frequency event listen/unlisten authority
+  unchanged.
+- Granted no Pomodoro command to Preferences and added no wildcard, menu,
+  notification, filesystem, process, shell, or other plugin permission.
+- Updated authorization regression coverage so every registered command
+  permission is complete, role-exact, and backed by one narrow generated
+  allow/deny pair.
+
+**Files changed**
+
+- `src-tauri/capabilities/companion.json` — exact Companion grants for the two
+  renderer-originated Pomodoro commands.
+- `tests/tauri-ipc-authorization.test.cjs` — completed permission inventory and
+  role-isolation coverage.
+- `docs/migrating/progress.md` — recorded Task 8.8.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (139 tests).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (82 tests).
+- `cargo build`: passed.
+- `npx tauri permission list`: passed and resolved all three Pomodoro command
+  grants without wildcard or plugin authority.
+- Electron production-output smoke launch: passed with the unchanged Electron
+  preload and `PomodoroManager`.
+- `npx tauri dev --no-watch`: passed without Pomodoro command, event, menu, or
+  permission errors. Only the known development custom-protocol fallback
+  warning appeared.
+- `npm run tauri:build -- --debug --bundles app`: passed.
+
+**Manual verification**
+
+- The Tauri shell started successfully with the completed least-privilege
+  capability. Full preset/custom/replacement/pause/resume/stop/restart and
+  completion parity is the remaining Phase 8 exit gate.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Perform the complete Phase 8 interactive parity verification; do not begin
+  Phase 9.
