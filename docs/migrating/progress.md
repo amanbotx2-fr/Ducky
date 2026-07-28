@@ -4,16 +4,16 @@
 
 ## Current Status
 
-- Active work: Phase 11.5 — Functional Parity Closure contract is defined;
+- Active work: Phase 11.5 — Functional Parity Closure discovery is complete;
   implementation has not started.
 - Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
   external production credential gate remains documented for the release
   manager and is explicitly accepted by the updated Phase 12 contract.
-- Last completed task: Phase 11.5 architecture clarification and execution
-  contract.
-- Next task: Phase 11.5 Task 11.5.1 — re-audit remaining Electron-only
-  behavior and produce the final executable parity matrix before production
-  changes.
+- Last completed task: Phase 11.5 Task 11.5.1 — remaining Electron-only
+  behavior audit and executable parity matrix.
+- Next task: Phase 11.5 Task 11.5.3 — Daily Planner Rust backend. Its
+  completed command and event transport will then support Task 11.5.2 without
+  exposing a partial companion bridge.
 - Blockers: the migrated Tauri runtime still lacks several working Electron
   behaviors required by the Phase 12 preservation and exit criteria. Removing
   Electron now would delete those behaviors. The ownership ambiguity is
@@ -21,6 +21,102 @@
   and manual parity gate are complete.
 
 ## Active Verification
+
+### Task 11.5.1 — Re-audit Remaining Electron-only Behavior
+
+**Status:** Complete. No production code was changed during discovery.
+
+**Authoritative Electron behavior**
+
+- `src/main/menus.ts` rebuilds the companion context menu from the current
+  `AppSettings` and `PomodoroState` on every open. The exact hierarchy is
+  Pomodoro; Personal Assistant (Set My Name, Reminders, Daily Planner, Sticky
+  Message); Water Reminders; Eye Tracking; Always On Top; Preferences; About;
+  Restart; Quit.
+- `src/main/main.ts` shows/focuses the companion before requesting Set My
+  Name, Sticky Message, reminder, or Daily Planner panels. Requests issued
+  during page load are delivered after the main frame finishes loading.
+- `src/main/preload.ts` adds renderer-registration recovery for Set My Name,
+  Sticky Message, and Daily Planner. Each operation retains one pending panel
+  request until React registers its existing listener.
+- User-name and sticky-message mutations already use the exact settings
+  schema, validation, atomic persistence, and `runtime-settings:changed`
+  projection. Clear Sticky Message is the existing `null` mutation.
+- `src/main/DailyPlannerService.ts` uses the current local clock and the
+  reminder service only. It normalizes the stored name, selects
+  Morning/Afternoon/Evening at local hours 0/12/18, excludes completed,
+  invalid, past, and non-today occurrences, uses `nextOccurrence` for
+  recurring reminders, and orders by scheduled timestamp then reminder ID.
+- Hydration timing remains a single renderer-owned `WaterReminder` instance.
+  The existing settings snapshot immediately enables/disables it and
+  reschedules from the latest interval change. Native work is limited to
+  accepting and broadcasting the existing `water` settings patch.
+- The one-time migration dialog is wired only to the Electron updater and the
+  official release page. It is transition-release behavior, not a missing
+  Tauri feature.
+
+**Exact parity matrix**
+
+| Existing behavior | Electron path | Current Tauri state | Phase 11.5 owner |
+| --- | --- | --- | --- |
+| Set My Name panel request | Native menu → targeted preload event → existing React panel | Event name reserved; no native producer/recovery or complete companion adapter | Task 11.5.2 |
+| Set My Name save/restart | `updateUserName` → `SettingsService` | Rust mutation and persistence already exist; broad bridge remains unavailable | Tasks 11.5.2 and 11.5.7 |
+| Sticky Message set/clear | Native menu → existing panel or `null` settings mutation | Rust mutation exists; menu producer, clear action, recovery, and broad bridge are incomplete | Tasks 11.5.2, 11.5.5, and 11.5.7 |
+| Daily Planner briefing | `DailyPlannerService` + reminder store | Event name reserved; no Rust planner command/backend/menu producer | Task 11.5.3 |
+| Hydration Preferences | Existing `water.enabled` / `water.interval` patch | Snapshot loads, but Preferences capability is false and Rust rejects the patch | Task 11.5.4 |
+| Hydration runtime timer | One renderer `WaterReminder` follows runtime settings | Already present and runtime neutral; must be regression-verified only | Task 11.5.4 |
+| Complete context menu | Dynamic Electron menu and callbacks | Pomodoro, Reminders, and static actions exist; profile, planner, sticky, water, eye tracking, and always-on-top slices are absent | Task 11.5.5 |
+| Complete `CompanionBridge` | Electron preload supplies every member | Narrow Tauri domains work, but `getCompanionBridge()` returns `undefined`; `platform`, planner, and three panel listeners are incomplete | Task 11.5.7 |
+| Migration dialog | Final Electron updater transition release | Correctly absent from Tauri | Task 11.5.6 verification/disposition |
+
+**Complete renderer-accessible surface audit**
+
+- Every `IPC_CHANNELS` command and preload method was compared with the Tauri
+  command registry, targeted event registry, role-scoped DesktopBridge
+  adapters, and capabilities.
+- Companion window, cursor/drag, runtime settings, AI, reminders, Pomodoro,
+  Preferences settings, credentials, updater, tray, and existing migrated
+  menu paths already have Tauri implementations.
+- The only incomplete `CompanionBridge` members are the runtime platform
+  value, three existing Personal Assistant panel listeners, and
+  `getDailyPlanner`; all inherited narrow-domain methods already exist.
+- Preferences controls are fully migrated except hydration, which is the
+  explicit Task 11.5.4 capability gap.
+- No additional renderer-accessible Electron-only service, IPC operation,
+  preload method, menu action, or Preferences control was found. The parity
+  scope therefore requires no contract expansion.
+
+**Implementation order**
+
+1. Implement the Daily Planner Rust backend, deterministic tests, command,
+   authorization metadata, and targeted menu event.
+2. Add recoverable Personal Assistant panel events and compose the complete
+   Tauri companion bridge from the already migrated narrow domains.
+3. Accept hydration patches through the existing settings command and enable
+   the existing Preferences capability.
+4. Complete the dynamic menu using the authoritative settings and Pomodoro
+   snapshots and Rust-owned callbacks.
+5. Grant only the exact new companion permissions, verify the Electron-only
+   transition obligation, and run the full parity gate.
+
+**Validation**
+
+- Static discovery covered Electron main/preload/IPC/menu/settings/planner
+  paths, all renderer bridge consumers, Tauri commands/events/settings/menu
+  state, authorization manifests, capabilities, and existing tests.
+- `git diff --check`: passed.
+- Production source files remain unchanged.
+
+**Blockers**
+
+- None. Every discovered gap has an existing Phase 11.5 owner and the
+  implementation can proceed without architecture changes.
+
+**Next task**
+
+- Task 11.5.3 — Daily Planner Rust backend. Task 11.5.2 will consume its event
+  recovery infrastructure when the complete bridge can be made functional in
+  one coherent milestone.
 
 ### Phase 11.5 — Functional Parity Closure Contract
 
