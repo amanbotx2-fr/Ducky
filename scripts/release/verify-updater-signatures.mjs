@@ -5,6 +5,12 @@ import { spawnSync } from "node:child_process";
 import { loadCommittedUpdaterPublicKey } from "./release-contract.mjs";
 
 const releaseDirectory = resolve(process.argv[2] ?? "release-artifacts");
+const verifierManifestPath = resolve(
+  "scripts/release/updater-signature-verifier/Cargo.toml",
+);
+const verifierTargetDirectory =
+  process.env.CARGO_TARGET_DIR ??
+  resolve("src-tauri/target/updater-signature-verifier");
 
 try {
   const publicKey = loadCommittedUpdaterPublicKey(
@@ -36,10 +42,9 @@ try {
       [
         "run",
         "--quiet",
+        "--locked",
         "--manifest-path",
-        "src-tauri/Cargo.toml",
-        "--example",
-        "verify_updater_signature",
+        verifierManifestPath,
         "--",
         artifactPath,
         signaturePath,
@@ -48,11 +53,17 @@ try {
         cwd: resolve("."),
         env: {
           ...process.env,
+          CARGO_TARGET_DIR: verifierTargetDirectory,
           TAURI_UPDATER_PUBLIC_KEY: publicKey,
         },
         encoding: "utf8",
       },
     );
+    if (verification.error) {
+      throw new Error(
+        `Unable to run updater signature verifier for ${artifactName}: ${verification.error.message}`,
+      );
+    }
     if (verification.status !== 0) {
       throw new Error(
         `Signature verification failed for ${artifactName}: ${

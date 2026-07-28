@@ -295,6 +295,47 @@ test("missing updater private key fails mandatory signing validation", async () 
   );
 });
 
+test("updater signature verification is isolated from Tauri desktop dependencies", async () => {
+  const [script, manifest, lockfile, helper] = await Promise.all([
+    readFile(
+      resolve("scripts/release/verify-updater-signatures.mjs"),
+      "utf8",
+    ),
+    readFile(
+      resolve(
+        "scripts/release/updater-signature-verifier/Cargo.toml",
+      ),
+      "utf8",
+    ),
+    readFile(
+      resolve(
+        "scripts/release/updater-signature-verifier/Cargo.lock",
+      ),
+      "utf8",
+    ),
+    readFile(
+      resolve(
+        "scripts/release/updater-signature-verifier/src/main.rs",
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    script,
+    /scripts\/release\/updater-signature-verifier\/Cargo\.toml/,
+  );
+  assert.match(script, /"--locked"/);
+  assert.doesNotMatch(script, /src-tauri\/Cargo\.toml|--example/);
+  assert.match(manifest, /base64 = "0\.22"/);
+  assert.match(manifest, /minisign-verify = "0\.2\.5"/);
+  assert.doesNotMatch(manifest, /(?:^|\s)(?:tauri|glib|gtk|webkit)/im);
+  assert.doesNotMatch(lockfile, /(?:glib|gtk|tauri|webkit)/i);
+  assert.match(helper, /PublicKey::decode/);
+  assert.match(helper, /Signature::decode/);
+  assert.match(helper, /\.verify\(&artifact, &signature, true\)/);
+});
+
 test("website cutover selects namespaced Tauri installers", async () => {
   const source = await readFile(
     resolve("website/lib/downloads/githubRelease.ts"),
