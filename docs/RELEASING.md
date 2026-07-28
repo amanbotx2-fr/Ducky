@@ -170,6 +170,30 @@ v2 and later downloads fail closed if a namespaced Tauri installer is absent.
 This prevents a public v2 download button from silently serving the transition
 Electron package.
 
+### Required transition evidence before Electron source removal
+
+The release manager owns the final Electron-to-Tauri transition verification.
+Before Phase 12 removes the Electron-only dialog source, record all of the
+following against the published transition release:
+
+- the exact final Electron tag, commit, version, and GitHub Release URL;
+- an upgrade check from an installed pre-transition Electron build that
+  resolves the final Electron release through the legacy feed;
+- the displayed `PsyDuck 2.0` dialog copy and both available actions;
+- evidence that **Download PsyDuck 2.0** opens the configured official Ducky
+  release page, without installer chaining or automatic replacement;
+- evidence that **Remind Me Later** closes the dialog without opening a URL;
+- the published macOS, Windows, and Linux legacy update metadata and every
+  asset referenced by that metadata;
+- the matching signed Tauri installers offered on the release page; and
+- the reviewer, verification date, platforms exercised, and pass/fail result.
+
+Keep that completion record with the transition release checklist. Phase 12
+may delete repository source only after the release manager has approved this
+evidence. It must not delete, replace, or rename already published Electron
+metadata or assets, because installed legacy clients still depend on their
+immutable URLs.
+
 ## Production verification and rollback
 
 Before the first production publish, verify on real hardware:

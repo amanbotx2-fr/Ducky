@@ -438,6 +438,76 @@ part of the Phase 11.5 manual gate.
 - Task 11.5.6 — record final Electron transition-dialog ownership/evidence,
   then execute Task 11.5.8's complete automated and manual parity audit.
 
+### Task 11.5.6 — Migration Dialog Final Disposition
+
+**Status:** Repository implementation and disposition verification complete.
+The release-manager evidence record remains an external cutover gate and is
+not represented as having run before a signed transition release exists.
+
+**Verified disposition**
+
+- The dialog remains exclusively in the final Electron transition runtime
+  through `TauriMigrationFlow`; it is intentionally absent from Tauri because
+  an already-migrated Tauri client has no framework-transition prompt to show.
+- Electron initializes the flow from its existing updater status stream,
+  passes the configured `OFFICIAL_RELEASES_URL`, and retains the exact approved
+  copy and actions: **Download PsyDuck 2.0** and **Remind Me Later**.
+- The flow is eligible only when an Electron major version below 2 observes an
+  available major version 2 release. It prompts once per available version for
+  that process, opens only the configured official release page after
+  **Download**, and performs no automatic replacement, uninstallation, or
+  installer chaining.
+- Dialog and browser-launch failures remain contained without mutating updater
+  status or preventing the ordinary Electron updater flow.
+- The release pipeline continues publishing the legacy Electron feed beside
+  the namespaced Tauri artifacts. Published legacy metadata and the files it
+  references are immutable transition assets and are not Phase 12 cleanup.
+
+**Release-manager ownership and evidence**
+
+- `docs/RELEASING.md` now defines the required completion record: final
+  Electron tag/commit/version/release URL, legacy-client update detection,
+  exact dialog and both action outcomes, retained cross-platform legacy
+  metadata/assets, matching signed Tauri installers, platforms, reviewer,
+  verification date, and pass/fail result.
+- The release manager must approve that record against the actual published
+  transition release before Phase 12 deletes the Electron-only dialog source.
+  The current repository cannot truthfully claim that external production
+  ceremony before the documented signing credential gate is satisfied.
+
+**Evidence already available in the repository**
+
+- `tests/tauri-migration-flow.test.cjs` verifies the exact dialog, one prompt
+  per available version, the configured official release-page action, Remind
+  Me Later's no-navigation result, ordinary-update/Tauri exclusion, and
+  contained dialog/browser failures.
+- `src/main/main.ts` proves that only Electron wires the flow to the updater,
+  dialog, shell, current version, and official release constant.
+- `.github/workflows/release.yml` and `docs/RELEASING.md` preserve the dual
+  Electron/Tauri transition release and atomic publication requirements.
+
+**Production source changes**
+
+- None. The existing implementation already matches the clarified Phase 11.5
+  contract.
+
+**Validation**
+
+- `git diff --check`: passed.
+- Targeted migration-flow coverage will be rerun as part of the final Phase
+  11.5 automated gate.
+
+**Blockers**
+
+- No implementation blocker. The signed, published transition-release
+  evidence remains an explicitly owned release-manager gate; it is not
+  fabricated by this local migration phase.
+
+**Next task**
+
+- Tasks 11.5.7 and 11.5.8 — complete the bridge/least-privilege audit and run
+  the full automated and interactive parity gate.
+
 ### Phase 11.5 — Functional Parity Closure Contract
 
 **Status:** Documentation complete. Implementation not started.
