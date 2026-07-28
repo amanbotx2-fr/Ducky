@@ -202,7 +202,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   general: true,
   notificationSounds: true,
   water: false,
-  updates: false,
+  updates: true,
   ai: true,
   aiModelExplorer: true,
   credentials: true,

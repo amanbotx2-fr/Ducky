@@ -6,12 +6,87 @@
 
 - Active work: Phase 10 — Updater Migration
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Task 10.3 — DesktopBridge
-- Next task: Task 10.4 — Settings Integration
+- Last completed task: Task 10.4 — Settings Integration
+- Next task: Task 10.5 — Update Status and Events
 - Blockers: None. Production updater trust, feed, artifacts, and live update
   verification remain deferred to Phase 11.
 
 ## Completed Tasks
+
+### Task 10.4 — Settings Integration
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Extended the native Preferences patch with only the existing
+  `updates.automatic` boolean. Unknown updater fields remain rejected.
+- Persisted automatic-check changes through the existing atomic native
+  settings repository without changing the stored settings schema or
+  defaults.
+- Synchronized each persisted setting change into the process-wide updater
+  runtime.
+- Preserved Electron behavior: a false-to-true transition schedules one
+  immediate automatic check, disabling suppresses later automatic checks,
+  and neither path downloads or installs anything.
+- Enabled only the already-existing Updates section in the Tauri Preferences
+  capability projection. Hydration remains deferred and the existing footer
+  copy now reflects that exact boundary.
+- Kept startup restoration in the native composition root, where a persisted
+  true value enables and schedules exactly one startup check.
+
+**Files changed**
+
+- `src-tauri/src/domain/settings/mod.rs`
+- `src-tauri/src/commands/settings.rs`
+- `src/desktop/tauriBridge.ts`
+- `src/renderer/PreferencesApp.tsx`
+- `tests/desktop-bridge-boundary.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (146 tests).
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests), including the new additive-patch,
+  unknown-field, persistence, and round-trip assertions.
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production-output smoke launch: passed with its unchanged update
+  settings flow.
+- Tauri development smoke launch: passed after rebuilding the debug package
+  from the current renderer output.
+- `npm run tauri:build -- --bundles app`: passed.
+- An isolated release-mode bundle with a temporary unique identifier also
+  built and launched successfully. The temporary config lived outside the
+  repository and was removed after verification.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed the current renderer bundle contains the enabled Tauri update
+  capability, dedicated update bridge, and corrected capability footer.
+- Confirmed the native application and Preferences window launch without
+  updater, permission, or renderer process errors.
+- Automated native tests verified persistence by reconstructing the settings
+  store and reading the saved `updates.automatic` value.
+- A direct GUI toggle/restart check is retained for the final Phase 10 manual
+  gate. macOS accessibility repeatedly resolved the generic Ducky target to
+  an older installed bundle with the same application identity, so no
+  interactive result is claimed here. The installed bundle was temporarily
+  isolated and then restored unchanged; no settings or application data were
+  modified.
+
+**Blockers**
+
+- No implementation blocker. Final interactive verification must target the
+  newly built bundle unambiguously.
+
+**Next task**
+
+- Task 10.5 — Update Status and Events.
 
 ### Task 10.3 — DesktopBridge
 

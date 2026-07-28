@@ -344,7 +344,7 @@ describe('DesktopBridge renderer boundary', () => {
     );
     assert.match(
       tauriAdapter,
-      /water: false,[\s\S]*updates: false,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
+      /water: false,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
     );
     assert.match(
       tauriAdapter,
@@ -364,7 +364,7 @@ describe('DesktopBridge renderer boundary', () => {
     );
     assert.match(
       preferencesUi,
-      /capabilities\.ai[\s\S]*AI changes apply when saved\. Hydration and update settings remain Electron-only during migration\./,
+      /capabilities\.ai[\s\S]*General, sound, and update changes save automatically\.[\s\S]*Hydration settings remain Electron-only during migration\./,
     );
     assert.doesNotMatch(
       preferencesUi,

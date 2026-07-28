@@ -236,6 +236,12 @@ impl SettingsState {
                 }
             }
 
+            if let Some(updates) = patch.updates {
+                if let Some(automatic) = updates.automatic {
+                    next.updates.automatic = automatic;
+                }
+            }
+
             next
         })
     }
@@ -390,6 +396,8 @@ pub(crate) struct PreferencesSettingsPatch {
     pub(crate) general: Option<GeneralSettingsPatch>,
     #[serde(default)]
     pub(crate) notification_sounds: Option<NotificationSoundSettingsPatch>,
+    #[serde(default)]
+    pub(crate) updates: Option<UpdateSettingsPatch>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -412,6 +420,13 @@ pub(crate) struct NotificationSoundSettingsPatch {
     pub(crate) sound: Option<NotificationSoundId>,
     #[serde(default)]
     pub(crate) volume: Option<u8>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UpdateSettingsPatch {
+    #[serde(default)]
+    pub(crate) automatic: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -988,6 +1003,7 @@ mod tests {
                     volume: Some(25),
                     ..NotificationSoundSettingsPatch::default()
                 }),
+                ..PreferencesSettingsPatch::default()
             })
             .expect("settings mutation");
 
@@ -1011,7 +1027,7 @@ mod tests {
                     always_on_top: Some(true),
                     ..GeneralSettingsPatch::default()
                 }),
-                notification_sounds: None,
+                ..PreferencesSettingsPatch::default()
             })
             .expect("no-op mutation");
 
@@ -1042,6 +1058,7 @@ mod tests {
                     sound: Some(NotificationSoundId::Pop),
                     ..NotificationSoundSettingsPatch::default()
                 }),
+                ..PreferencesSettingsPatch::default()
             })
         });
 
@@ -1053,13 +1070,17 @@ mod tests {
     }
 
     #[test]
-    fn preferences_patch_rejects_deferred_or_unknown_fields() {
+    fn preferences_patch_accepts_updates_and_rejects_unknown_fields() {
         assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
             "water": { "enabled": false }
         }))
         .is_err());
         assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
             "updates": { "automatic": true }
+        }))
+        .is_ok());
+        assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
+            "updates": { "automatic": true, "install": true }
         }))
         .is_err());
         assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
@@ -1073,6 +1094,7 @@ mod tests {
                 volume: Some(101),
                 ..NotificationSoundSettingsPatch::default()
             }),
+            ..PreferencesSettingsPatch::default()
         };
         let directory = tempdir().unwrap();
         let state = SettingsState::new(
@@ -1083,6 +1105,27 @@ mod tests {
             state.update_preferences(invalid),
             Err(SettingsMutationError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn automatic_update_preference_persists_without_expanding_the_schema() {
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        let state = SettingsState::new(store.clone(), SettingsDocument::default());
+
+        let update = state
+            .update_preferences(PreferencesSettingsPatch {
+                updates: Some(UpdateSettingsPatch {
+                    automatic: Some(true),
+                }),
+                ..PreferencesSettingsPatch::default()
+            })
+            .expect("update setting mutation");
+
+        assert!(update.changed);
+        assert!(update.settings.updates.automatic);
+        assert!(state.snapshot().unwrap().updates.automatic);
+        assert!(store.load().unwrap().updates.automatic);
     }
 
     #[test]

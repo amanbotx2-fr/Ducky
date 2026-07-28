@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::{AppHandle, Runtime, State, WebviewWindow};
+use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::{
     authorization, desktop,
@@ -7,6 +7,7 @@ use crate::{
         PreferencesSettings, PreferencesSettingsPatch, RuntimeSettings, SettingsMutationError,
         SettingsState, SettingsUpdate,
     },
+    domain::updater::UpdaterRuntime,
     events::{self, DesktopEvent},
 };
 
@@ -123,6 +124,26 @@ fn finish_update<R: Runtime>(app: &AppHandle<R>, update: SettingsUpdate) {
         update.settings.runtime_projection(),
     ) {
         eprintln!("[settings] runtime settings notification failed: {error}");
+    }
+
+    let Some(updater) = app.try_state::<UpdaterRuntime>() else {
+        eprintln!("[updates] automatic setting application failed: updater_unavailable");
+        return;
+    };
+
+    match updater.set_automatic_checks_enabled(update.settings.updates.automatic) {
+        Ok(true) => {
+            let updater = updater.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = updater.check_automatically().await {
+                    eprintln!("[updates] automatic check failed: {error}");
+                }
+            });
+        }
+        Ok(false) => {}
+        Err(error) => {
+            eprintln!("[updates] automatic setting application failed: {error}");
+        }
     }
 }
 
