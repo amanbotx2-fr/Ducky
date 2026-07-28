@@ -511,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn response_parsers_preserve_electron_contracts() {
+    fn response_parsers_preserve_public_contracts() {
         let response = parse_chat_response(json!({
             "message": { "content": " hello " },
             "done_reason": "length",

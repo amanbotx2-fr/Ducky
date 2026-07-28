@@ -426,7 +426,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unpackaged_checks_match_electron_behavior() {
+    async fn unpackaged_checks_remain_unavailable() {
         let backend = Arc::new(StaticBackend::new(Ok(None)));
         let (runtime, _) = runtime(backend.clone(), false);
 

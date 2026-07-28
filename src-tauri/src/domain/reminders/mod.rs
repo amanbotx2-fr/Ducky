@@ -1584,17 +1584,17 @@ mod tests {
     }
 
     #[test]
-    fn stored_reminders_preserve_electron_legacy_defaults() {
+    fn stored_reminders_preserve_schema_defaults() {
         let reminder = serde_json::from_value::<Reminder>(serde_json::json!({
-            "id": "legacy",
-            "title": "Legacy reminder",
+            "id": "stored",
+            "title": "Stored reminder",
             "message": "",
             "scheduledAt": "2030-01-02T12:00:00Z",
             "completed": false,
             "createdAt": "2030-01-01T12:00:00Z",
             "updatedAt": "2030-01-01T12:00:00Z"
         }))
-        .expect("legacy reminder");
+        .expect("stored reminder");
 
         assert_eq!(reminder.recurrence, ReminderRecurrence::None);
         assert_eq!(reminder.last_triggered_at, None);

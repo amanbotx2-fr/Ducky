@@ -24,11 +24,7 @@ import type { AIAskResult, ScreenPoint } from '../shared/types';
 import type { UpdateStatus } from '../shared/updates';
 import type { DailyPlannerBriefing } from '../shared/dailyPlanner';
 
-/**
- * Registry for commands whose native behavior is complete in the migration.
- * Later domain commands belong to their owning migration phases and must not
- * be added here as placeholders.
- */
+/** Complete native command registry used by the private bridge adapter. */
 export const TAURI_COMMANDS = Object.freeze({
   askAI: 'ask_ai',
   updateAiConfiguration: 'update_ai_configuration',

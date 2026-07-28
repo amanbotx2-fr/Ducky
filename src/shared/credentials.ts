@@ -4,8 +4,7 @@ export type CredentialId = (typeof CREDENTIAL_IDS)[number];
 
 export type CredentialState =
   | 'configured'
-  | 'missing'
-  | 'requiresReentry';
+  | 'missing';
 
 /**
  * Secret-free credential metadata safe to return to a renderer.

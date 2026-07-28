@@ -238,10 +238,7 @@ pub(crate) fn update_ai_configuration<R: tauri::Runtime>(
         update_credential(credentials.inner(), api_key)?;
     }
 
-    let update = settings.update_ai_configuration(
-        configuration.settings_patch(),
-        configuration.api_key.is_some(),
-    );
+    let update = settings.update_ai_configuration(configuration.settings_patch());
     let update = match update {
         Ok(update) => update,
         Err(error) => {

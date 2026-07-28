@@ -52,13 +52,11 @@ struct AiRuntimeState {
 
 /// Process-wide owner for the native AI domain.
 ///
-/// Provider registration and execution are added by their owning Phase 9
-/// milestones. Keeping lifecycle ownership independent from any provider
-/// prevents renderer or transport concerns from becoming runtime state.
+/// Keeping lifecycle ownership independent from any provider prevents
+/// renderer or transport concerns from becoming runtime state.
 #[derive(Clone, Debug)]
 pub(crate) struct AiRuntime {
     state: Arc<Mutex<AiRuntimeState>>,
-    #[allow(dead_code)]
     providers: AiProviderRegistry,
     credentials: CredentialStore,
 }
@@ -80,7 +78,6 @@ impl AiRuntime {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn register_provider(
         &self,
         provider: Arc<dyn AiProvider>,

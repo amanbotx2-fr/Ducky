@@ -1068,9 +1068,7 @@ export function PreferencesApp() {
             htmlFor="ai-api-key"
             label="API key"
             description={
-              credentialStatus?.state === 'requiresReentry'
-                ? 'Re-enter the existing key once to move it into native secure storage.'
-                : aiDraft.apiKeyConfigured
+              aiDraft.apiKeyConfigured
                 ? 'A key is configured. Enter a new key to replace it.'
                 : aiDraft.provider === 'custom'
                   ? 'Optional. Leave this empty for servers without authentication.'

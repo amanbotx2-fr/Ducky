@@ -445,7 +445,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn custom_base_url_policy_matches_electron() {
+    fn custom_base_url_policy_preserves_security_contract() {
         assert_eq!(
             normalize_base_url(" https://openrouter.ai/api/v1/ ").unwrap(),
             "https://openrouter.ai/api/v1"

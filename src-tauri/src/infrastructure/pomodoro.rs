@@ -25,35 +25,6 @@ impl PomodoroStore {
         &self.path
     }
 
-    pub(crate) fn import_legacy_if_missing(
-        &self,
-        legacy_path: Option<&Path>,
-    ) -> Result<(), PomodoroRepositoryError> {
-        if self.path.exists() {
-            return Ok(());
-        }
-
-        let Some(legacy_path) = legacy_path.filter(|path| path.exists()) else {
-            return Ok(());
-        };
-        let serialized = fs::read_to_string(legacy_path)
-            .map_err(|error| repository_error("Pomodoro legacy read failed", error))?;
-        let document = match parse_document(&serialized) {
-            Some(document) => document,
-            None => {
-                eprintln!("[pomodoro] Electron state import skipped: invalid document");
-                return Ok(());
-            }
-        };
-
-        self.save(&document)?;
-        eprintln!(
-            "[pomodoro] imported Electron state from {}",
-            legacy_path.display()
-        );
-        Ok(())
-    }
-
     fn save_document(
         &self,
         document: &PersistedPomodoroDocument,
@@ -157,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_store_matches_electron_and_does_not_materialize_by_itself() {
+    fn missing_store_does_not_materialize_by_itself() {
         let directory = tempdir().expect("temporary directory");
         let store = store_in(directory.path());
 
@@ -221,43 +192,5 @@ mod tests {
             & 0o777;
 
         assert_eq!(mode, 0o600);
-    }
-
-    #[test]
-    fn valid_legacy_file_imports_once_without_mutating_the_source() {
-        let directory = tempdir().expect("temporary directory");
-        let native = PomodoroStore::new(directory.path().join("native").join("pomodoro.json"));
-        let legacy = directory.path().join("electron").join("pomodoro.json");
-        fs::create_dir_all(legacy.parent().expect("legacy directory"))
-            .expect("legacy directory create");
-        let document = PersistedPomodoroDocument::new(PomodoroState::default());
-        let serialized = format!(
-            "{}\n",
-            serde_json::to_string_pretty(&document).expect("serialized document")
-        );
-        fs::write(&legacy, &serialized).expect("legacy write");
-
-        native
-            .import_legacy_if_missing(Some(&legacy))
-            .expect("legacy import");
-        assert_eq!(
-            native.load().expect("native load"),
-            PomodoroLoad::Document(document)
-        );
-        assert_eq!(
-            fs::read_to_string(&legacy).expect("legacy retained"),
-            serialized
-        );
-
-        let replacement =
-            PersistedPomodoroDocument::new(PomodoroState::idle(90).expect("replacement"));
-        native.save(&replacement).expect("native replacement");
-        native
-            .import_legacy_if_missing(Some(&legacy))
-            .expect("idempotent import");
-        assert_eq!(
-            native.load().expect("native retained"),
-            PomodoroLoad::Document(replacement)
-        );
     }
 }

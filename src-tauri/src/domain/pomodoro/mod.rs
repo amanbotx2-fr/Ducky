@@ -989,7 +989,7 @@ mod tests {
     }
 
     #[test]
-    fn state_schema_matches_electron_and_rejects_invalid_combinations() {
+    fn state_schema_rejects_invalid_combinations() {
         let idle = PomodoroState::default();
         assert_eq!(
             serde_json::to_value(&idle).expect("idle JSON"),

@@ -40,8 +40,8 @@ pub(crate) struct SettingsDocument {
     pub(crate) ai: StoredAiSettings,
     #[serde(default)]
     pub(crate) ai_model_explorer: AiModelExplorerSettings,
-    #[serde(default)]
-    pub(crate) credential: Option<Value>,
+    #[serde(default, rename = "credential", skip_serializing)]
+    retired_credential: Option<Value>,
 }
 
 impl Default for SettingsDocument {
@@ -56,7 +56,7 @@ impl Default for SettingsDocument {
             updates: UpdateSettings::default(),
             ai: StoredAiSettings::default(),
             ai_model_explorer: AiModelExplorerSettings::default(),
-            credential: None,
+            retired_credential: None,
         }
     }
 }
@@ -106,7 +106,7 @@ impl SettingsDocument {
         self.ai_model_explorer.validate_and_canonicalize()?;
 
         if self
-            .credential
+            .retired_credential
             .as_ref()
             .is_some_and(|credential| !credential.is_object())
         {
@@ -139,12 +139,7 @@ impl SettingsDocument {
                 enabled: self.ai.enabled,
                 provider: self.ai.provider.clone(),
                 model: self.ai.model.clone(),
-                api_key_configured: self.credential.is_some()
-                    || self
-                        .ai
-                        .api_key
-                        .as_ref()
-                        .is_some_and(|api_key| !api_key.trim().is_empty()),
+                api_key_configured: false,
                 endpoint: self.ai.endpoint.clone(),
                 base_url: self.ai.base_url.clone(),
             },
@@ -258,7 +253,6 @@ impl SettingsState {
     pub(crate) fn update_ai_configuration(
         &self,
         patch: AiSettingsPatch,
-        clear_legacy_credential: bool,
     ) -> Result<SettingsUpdate, SettingsMutationError> {
         self.persist_update(move |settings| {
             let mut next = settings.clone();
@@ -277,19 +271,6 @@ impl SettingsState {
             if let Some(base_url) = patch.base_url {
                 next.ai.base_url = base_url;
             }
-            if clear_legacy_credential {
-                next.credential = None;
-                next.ai.api_key = None;
-            }
-            next
-        })
-    }
-
-    pub(crate) fn clear_legacy_credential(&self) -> Result<SettingsUpdate, SettingsMutationError> {
-        self.persist_update(|settings| {
-            let mut next = settings.clone();
-            next.credential = None;
-            next.ai.api_key = None;
             next
         })
     }
@@ -612,8 +593,8 @@ pub(crate) struct StoredAiSettings {
     pub(crate) endpoint: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) base_url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) api_key: Option<String>,
+    #[serde(default, rename = "apiKey", skip_serializing)]
+    retired_api_key: Option<String>,
 }
 
 impl Default for StoredAiSettings {
@@ -624,7 +605,7 @@ impl Default for StoredAiSettings {
             model: String::new(),
             endpoint: default_ollama_endpoint(),
             base_url: String::new(),
-            api_key: None,
+            retired_api_key: None,
         }
     }
 }
@@ -648,7 +629,7 @@ impl StoredAiSettings {
         }
 
         if self
-            .api_key
+            .retired_api_key
             .as_ref()
             .is_some_and(|api_key| api_key.len() > 4_096)
         {
@@ -866,7 +847,7 @@ mod tests {
     }
 
     #[test]
-    fn defaults_match_the_electron_settings_contract() {
+    fn defaults_match_the_public_settings_contract() {
         let defaults = SettingsDocument::default();
 
         assert_eq!(defaults.user_name, "Friend");
@@ -891,7 +872,7 @@ mod tests {
             defaults.ai_model_explorer,
             AiModelExplorerSettings::default()
         );
-        assert_eq!(defaults.credential, None);
+        assert_eq!(defaults.retired_credential, None);
     }
 
     #[test]
@@ -911,7 +892,7 @@ mod tests {
                 "provider": ""
             }
         }))
-        .expect("legacy settings should parse");
+        .expect("settings with missing additive fields should parse");
 
         assert_eq!(settings.user_name, "Friend");
         assert_eq!(settings.notification_sounds.volume, 70);
@@ -945,8 +926,8 @@ mod tests {
     }
 
     #[test]
-    fn shared_electron_fixture_matches_the_native_schema() {
-        let fixture = include_str!("../../../../tests/fixtures/settings/electron-current.json");
+    fn shared_settings_fixture_matches_the_native_schema() {
+        let fixture = include_str!("../../../../tests/fixtures/settings/current.json");
         let value = serde_json::from_str(fixture).expect("fixture JSON");
         let settings = SettingsDocument::parse(value).expect("native settings fixture");
 
@@ -961,19 +942,14 @@ mod tests {
 
     #[test]
     fn reminder_data_is_typed_and_stays_out_of_renderer_state() {
-        let credential = json!({
-            "version": 1,
-            "ciphertext": "dGVzdA=="
-        });
         let reminder = stored_reminder("typed-reminder");
         let mut settings = SettingsDocument::default();
-        settings.credential = Some(credential.clone());
         settings.reminders.push(reminder.clone());
 
         settings.validate().expect("typed reminder data is valid");
         let serialized = serde_json::to_value(&settings).expect("settings serialize");
 
-        assert_eq!(serialized["credential"], credential);
+        assert!(serialized.get("credential").is_none());
         assert_eq!(
             serialized["reminders"][0],
             serde_json::to_value(reminder).expect("reminder serialize")
@@ -1183,28 +1159,5 @@ mod tests {
         assert!(update.settings.updates.automatic);
         assert!(state.snapshot().unwrap().updates.automatic);
         assert!(store.load().unwrap().updates.automatic);
-    }
-
-    #[test]
-    fn explicit_native_credential_transition_removes_only_the_imported_copy() {
-        let directory = tempdir().unwrap();
-        let store = SettingsStore::new(directory.path().join("settings.json"));
-        let mut document = SettingsDocument::default();
-        document.credential = Some(json!({
-            "version": 1,
-            "ciphertext": "opaque-electron-copy"
-        }));
-        document.ai.api_key = Some("legacy-copy".to_owned());
-        store.save(&document).unwrap();
-        let state = SettingsState::new(store.clone(), document);
-
-        let update = state.clear_legacy_credential().unwrap();
-
-        assert!(update.changed);
-        assert_eq!(update.settings.credential, None);
-        assert_eq!(update.settings.ai.api_key, None);
-        let persisted = store.load().unwrap();
-        assert_eq!(persisted.credential, None);
-        assert_eq!(persisted.ai.api_key, None);
     }
 }

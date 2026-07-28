@@ -683,7 +683,7 @@ mod tests {
     use crate::domain::settings::SettingsDocument;
 
     #[test]
-    fn static_tray_menu_matches_electron_order_and_labels() {
+    fn static_tray_menu_preserves_order_and_labels() {
         assert_eq!(
             TRAY_MENU_ENTRIES,
             [
@@ -857,7 +857,7 @@ mod tests {
     }
 
     #[test]
-    fn pomodoro_menu_state_matches_electron_for_idle_running_and_paused_sessions() {
+    fn pomodoro_menu_state_covers_idle_running_and_paused_sessions() {
         let idle = PomodoroState::default();
         assert_eq!(
             pomodoro_menu_presentation(&idle),
@@ -907,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    fn settings_menu_state_and_intervals_match_electron() {
+    fn settings_menu_state_and_intervals_preserve_public_contract() {
         assert_eq!(
             WATER_INTERVAL_MENU_ENTRIES,
             [

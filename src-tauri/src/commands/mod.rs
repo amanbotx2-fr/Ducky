@@ -9,7 +9,7 @@ pub(crate) mod updater;
 
 use tauri::{Builder, Runtime};
 
-/// Registers the complete Tauri command surface available through Phase 3.
+/// Registers the complete native command surface.
 ///
 /// Keeping command state and dispatch here prevents the application
 /// composition root from becoming a second command registry.

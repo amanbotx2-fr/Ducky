@@ -3,7 +3,6 @@ use tauri::{State, WebviewWindow};
 
 use crate::{
     authorization,
-    domain::settings::{SettingsMutationError, SettingsState},
     infrastructure::credentials::{
         CredentialId as NativeCredentialId, CredentialStore, CredentialStoreError,
     },
@@ -28,7 +27,6 @@ impl CredentialId {
 pub(crate) enum CredentialState {
     Configured,
     Missing,
-    RequiresReentry,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -44,26 +42,22 @@ pub(crate) enum CredentialCommandError {
     UnauthorizedWindow,
     InvalidCredential,
     SecureStorageUnavailable,
-    SettingsUnavailable,
-    SettingsPersistenceFailed,
 }
 
 #[tauri::command]
 pub(crate) fn get_credential_status<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     credentials: State<'_, CredentialStore>,
-    settings: State<'_, SettingsState>,
     id: CredentialId,
 ) -> Result<CredentialStatus, CredentialCommandError> {
     authorize(&window, authorization::GET_CREDENTIAL_STATUS)?;
-    status(credentials.inner(), settings.inner(), id)
+    status(credentials.inner(), id)
 }
 
 #[tauri::command]
 pub(crate) fn save_credential<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     credentials: State<'_, CredentialStore>,
-    settings: State<'_, SettingsState>,
     id: CredentialId,
     secret: String,
 ) -> Result<CredentialStatus, CredentialCommandError> {
@@ -71,9 +65,6 @@ pub(crate) fn save_credential<R: tauri::Runtime>(
     credentials
         .save(id.native(), secret)
         .map_err(map_store_error)?;
-    settings
-        .clear_legacy_credential()
-        .map_err(map_settings_error)?;
     Ok(CredentialStatus {
         id,
         state: CredentialState::Configured,
@@ -84,15 +75,11 @@ pub(crate) fn save_credential<R: tauri::Runtime>(
 pub(crate) fn delete_credential<R: tauri::Runtime>(
     window: WebviewWindow<R>,
     credentials: State<'_, CredentialStore>,
-    settings: State<'_, SettingsState>,
     id: CredentialId,
 ) -> Result<CredentialStatus, CredentialCommandError> {
     authorize(&window, authorization::DELETE_CREDENTIAL)?;
     credentials.delete(id.native()).map_err(map_store_error)?;
-    settings
-        .clear_legacy_credential()
-        .map_err(map_settings_error)?;
-    status(credentials.inner(), settings.inner(), id)
+    status(credentials.inner(), id)
 }
 
 fn authorize<R: tauri::Runtime>(
@@ -106,7 +93,6 @@ fn authorize<R: tauri::Runtime>(
 
 fn status(
     credentials: &CredentialStore,
-    settings: &SettingsState,
     id: CredentialId,
 ) -> Result<CredentialStatus, CredentialCommandError> {
     let configured = credentials
@@ -114,26 +100,10 @@ fn status(
         .map_err(map_store_error)?;
     let state = if configured {
         CredentialState::Configured
-    } else if legacy_credential_is_present(settings)? {
-        CredentialState::RequiresReentry
     } else {
         CredentialState::Missing
     };
     Ok(CredentialStatus { id, state })
-}
-
-fn legacy_credential_is_present(settings: &SettingsState) -> Result<bool, CredentialCommandError> {
-    settings
-        .snapshot()
-        .map(|settings| {
-            settings.credential.is_some()
-                || settings
-                    .ai
-                    .api_key
-                    .as_ref()
-                    .is_some_and(|value| !value.trim().is_empty())
-        })
-        .map_err(|_| CredentialCommandError::SettingsUnavailable)
 }
 
 fn map_store_error(error: CredentialStoreError) -> CredentialCommandError {
@@ -143,29 +113,11 @@ fn map_store_error(error: CredentialStoreError) -> CredentialCommandError {
     }
 }
 
-fn map_settings_error(error: SettingsMutationError) -> CredentialCommandError {
-    match error {
-        SettingsMutationError::State(_) => CredentialCommandError::SettingsUnavailable,
-        SettingsMutationError::Validation(_) | SettingsMutationError::Store(_) => {
-            CredentialCommandError::SettingsPersistenceFailed
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use tempfile::tempdir;
 
     use super::*;
-    use crate::{domain::settings::SettingsDocument, infrastructure::persistence::SettingsStore};
-
-    fn settings_state(settings: SettingsDocument) -> SettingsState {
-        SettingsState::new(
-            SettingsStore::new(tempdir().unwrap().path().join("settings.json")),
-            settings,
-        )
-    }
 
     #[test]
     fn credential_status_is_secret_free() {
@@ -181,26 +133,5 @@ mod tests {
         );
         assert!(serialized.get("secret").is_none());
         assert!(serialized.get("value").is_none());
-    }
-
-    #[test]
-    fn imported_electron_credentials_require_safe_reentry() {
-        let mut settings = SettingsDocument::default();
-        settings.credential = Some(json!({
-            "version": 1,
-            "ciphertext": "opaque-electron-value"
-        }));
-        let settings = settings_state(settings);
-
-        assert!(legacy_credential_is_present(&settings).unwrap());
-    }
-
-    #[test]
-    fn absent_and_empty_legacy_credentials_do_not_require_reentry() {
-        let mut settings = SettingsDocument::default();
-        settings.ai.api_key = Some("  ".to_owned());
-        let settings = settings_state(settings);
-
-        assert!(!legacy_credential_is_present(&settings).unwrap());
     }
 }

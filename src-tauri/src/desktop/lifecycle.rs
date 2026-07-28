@@ -69,7 +69,7 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
 
 fn should_prevent_exit(code: Option<i32>) -> bool {
     // Closing the final window exits the event loop by default on Windows and
-    // Linux. Electron stays resident while its tray is alive, so preserve that
+    // Linux. Ducky stays resident while its tray is alive, so preserve that
     // lifecycle. Explicit AppHandle::exit/request_restart calls carry an exit
     // code and are never prevented. macOS already keeps an application alive
     // after its final window closes, and native Quit must remain authoritative.

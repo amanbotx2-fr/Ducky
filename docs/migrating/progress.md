@@ -6,11 +6,11 @@
 
 - Active work: Phase 12 — Electron Removal.
 - Last completed phase: Phase 11.5 — Functional Parity Closure.
-- Last completed task: Phase 12 packaging and distribution cleanup. Release
-  automation and website downloads now accept only deterministic Tauri
-  artifacts.
-- Next task: remove native one-time migration compatibility, obsolete IPC
-  constants, fixtures, comments, permissions, and stale documentation.
+- Last completed task: Phase 12 migration compatibility cleanup. Native
+  startup, settings, Pomodoro, and credential flows no longer contain
+  Electron import or re-entry behavior.
+- Next task: replace or remove Electron-era active documentation, perform the
+  final static cleanup, clean-install validation, and manual regression sweep.
 - Blockers: none. Production credentials, signed transition-release
   publication, staged updater verification, and go-live approval are external
   Release Candidate Checklist operations after Phase 12 and do not block
@@ -201,6 +201,68 @@
 
 - Remove one-time runtime migration imports/shims and eliminate stale
   Electron-era constants, fixtures, comments, and active documentation.
+
+#### Migration Compatibility Milestone
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Removed native startup discovery of the old application-data directory.
+  Settings and Pomodoro now load exclusively from Tauri's application data
+  directory.
+- Removed the settings and Pomodoro one-time import helpers and their
+  migration-only tests/logging.
+- Removed credential re-entry detection, old encrypted-copy clearing, and the
+  transitional renderer message. Credential status now reflects only native
+  secure storage.
+- Simplified AI settings persistence so provider configuration and native
+  credential mutation remain independent, with existing rollback behavior
+  preserved.
+- Retained two deserialize-only tombstone fields for keys written by earlier
+  native builds. They are never serialized or used by runtime behavior; this
+  prevents current Tauri user settings from being treated as corrupt while
+  permanently removing the retired values on the next settings write.
+- Renamed the shared settings fixture to the runtime-neutral `current.json`
+  and verified retired credential data is omitted from serialized settings.
+- Removed the obsolete TypeScript IPC/constants files and three unreferenced
+  placeholder engine classes.
+- Removed stale migration-phase comments and runtime-source references to the
+  retired desktop implementation without changing native behavior.
+
+**Validation**
+
+- `npm install`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (85 tests).
+- `npm run build`: passed.
+- `cargo fmt`: passed.
+- `cargo test`: passed (127 tests).
+- `cargo build`: passed.
+- Tauri permission validation: passed through the authorization test suite.
+- `npm run tauri:build -- --bundles app`: passed; `Ducky.app` produced.
+- `npm run tauri:dev`: native application compiled, launched, and remained
+  alive using the existing native settings.
+- Root `npm ls electron electron-builder electron-updater --all`: empty.
+- Static import/package scan found no Electron runtime, package, preload, main
+  process, or Builder dependency outside historical migration documentation
+  and explicit absence assertions.
+
+**Manual verification**
+
+- The native application launched successfully against the existing
+  application-data document containing the retired serialized key, confirming
+  settings are preserved rather than reset.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Finalize active documentation for the Tauri-only repository, remove stale
+  task/design documents, and run clean-checkout plus full manual parity
+  verification.
 
 ### Release Operations Separated from Repository Migration
 

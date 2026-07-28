@@ -7,7 +7,7 @@ const COMPANION_ONLY: &[RendererRole] = &[RendererRole::Companion];
 const PREFERENCES_ONLY: &[RendererRole] = &[RendererRole::Preferences];
 const BOTH_RENDERERS: &[RendererRole] = &[RendererRole::Companion, RendererRole::Preferences];
 
-/// Low-frequency backend events from the existing Electron IPC contract.
+/// Low-frequency backend events in the stable renderer contract.
 ///
 /// This registry contains routing metadata only. The owning feature phases
 /// remain responsible for producing validated payloads and recovery

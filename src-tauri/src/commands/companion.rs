@@ -204,7 +204,7 @@ fn cursor_position_in_desktop_logical_space(
     companion_scale_factor: f64,
 ) -> ScreenPoint {
     // Tao represents its global cursor point using the primary monitor's scale
-    // factor. Convert with that same factor so the result matches Electron's
+    // factor. Convert with that same factor so the result matches the
     // desktop DIP coordinates and the renderer's CSS screen coordinates.
     //
     // The companion factor is only a defensive fallback for platforms or
@@ -246,7 +246,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accepts_and_rounds_coordinates_like_electron() {
+    fn accepts_and_rounds_logical_coordinates() {
         assert_eq!(
             normalize_position(ScreenPoint { x: 10.49, y: -1.5 }),
             Some(LogicalPosition::new(10, -1)),

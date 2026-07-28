@@ -192,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_requests_are_coalesced_like_the_electron_preload() {
+    fn repeated_requests_are_coalesced_before_delivery() {
         let delivered = Arc::new(Mutex::new(Vec::new()));
         let delivered_for_emitter = delivered.clone();
         let queue = PersonalAssistantEventQueue::with_emitter(Arc::new(move |panel| {

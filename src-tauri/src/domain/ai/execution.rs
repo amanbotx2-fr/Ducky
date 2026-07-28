@@ -108,7 +108,7 @@ struct AiRequestState {
     next_operation_id: u64,
 }
 
-/// Owns the same per-renderer execution policy as Electron's
+/// Owns the application per-renderer execution policy:
 /// `AIRequestManager`.
 ///
 /// Cancellation stays entirely native. Dropping the selected provider future
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn rate_limits_match_electron_per_role_and_operation() {
+    async fn rate_limits_apply_per_role_and_operation() {
         let manager = AiRequestManager::default();
 
         for request in 0..30 {

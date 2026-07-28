@@ -235,7 +235,7 @@ mod tests {
     }
 
     #[test]
-    fn matches_electron_formula_when_work_area_is_smaller_than_window() {
+    fn preserves_position_formula_when_work_area_is_smaller_than_window() {
         let position = initial_position_from_work_area(
             PhysicalRect {
                 position: PhysicalPosition::new(10, 20),

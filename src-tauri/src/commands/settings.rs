@@ -185,15 +185,11 @@ mod tests {
     }
 
     #[test]
-    fn preferences_projection_redacts_credentials() {
-        let mut settings = SettingsDocument::default();
-        settings.credential = Some(serde_json::json!({
-            "version": 1,
-            "ciphertext": "secret-ciphertext"
-        }));
-        let serialized = serde_json::to_value(settings.preferences_projection()).unwrap();
+    fn preferences_projection_contains_no_credentials() {
+        let serialized =
+            serde_json::to_value(SettingsDocument::default().preferences_projection()).unwrap();
 
-        assert_eq!(serialized["ai"]["apiKeyConfigured"], true);
+        assert_eq!(serialized["ai"]["apiKeyConfigured"], false);
         assert!(serialized.get("credential").is_none());
         assert!(serialized["ai"].get("apiKey").is_none());
         assert!(serialized.get("reminders").is_none());

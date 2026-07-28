@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn greeting_matches_electron_periods_and_name_normalization() {
+    fn greeting_preserves_periods_and_name_normalization() {
         assert_eq!(
             planner(Vec::new(), local_date(11, 59, 15))
                 .get_briefing("  Aman  ")

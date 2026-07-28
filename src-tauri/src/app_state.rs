@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use tauri::{
     webview::{PageLoadEvent, PageLoadPayload},
@@ -30,9 +30,8 @@ const POMODORO_FILE_NAME: &str = "pomodoro.json";
 
 pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error::Error>> {
     let settings_path = app.path().app_data_dir()?.join(SETTINGS_FILE_NAME);
-    let legacy_settings_path = legacy_electron_data_path(app, SETTINGS_FILE_NAME)?;
     let store = SettingsStore::new(settings_path);
-    let settings = store.load_with_legacy(legacy_settings_path.as_deref())?;
+    let settings = store.load()?;
 
     let settings_state = SettingsState::new(store, settings);
     let updater_event_app_handle = app.handle().clone();
@@ -114,9 +113,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
         }));
 
     let pomodoro_path = app.path().app_data_dir()?.join(POMODORO_FILE_NAME);
-    let legacy_pomodoro_path = legacy_electron_data_path(app, POMODORO_FILE_NAME)?;
     let pomodoro_store = PomodoroStore::new(pomodoro_path);
-    pomodoro_store.import_legacy_if_missing(legacy_pomodoro_path.as_deref())?;
     let state_app_handle = app.handle().clone();
     let completion_app_handle = app.handle().clone();
     let custom_panel_app_handle = app.handle().clone();
@@ -186,23 +183,4 @@ pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageL
     {
         events.deactivate();
     }
-}
-
-fn legacy_electron_data_path<R: Runtime>(
-    app: &App<R>,
-    file_name: &str,
-) -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
-    let directory = if cfg!(target_os = "macos") {
-        app.path()
-            .home_dir()?
-            .join("Library")
-            .join("Application Support")
-            .join("Ducky")
-    } else {
-        app.path().config_dir()?.join("Ducky")
-    };
-    let candidate = directory.join(file_name);
-    let native = app.path().app_data_dir()?.join(file_name);
-
-    Ok((candidate != native).then_some(candidate))
 }
