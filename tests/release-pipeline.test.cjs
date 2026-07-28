@@ -416,6 +416,43 @@ test("release workflow publishes only the atomic Tauri bundle", async () => {
   );
 });
 
+test("draft updater verification uses numeric REST asset IDs from the exact draft", async () => {
+  const workflow = await readFile(
+    resolve(".github/workflows/release.yml"),
+    "utf8",
+  );
+  const verificationStart = workflow.indexOf(
+    "Verify signed updater downloads from draft",
+  );
+  const publicationStart = workflow.indexOf(
+    "Publish verified GitHub Release",
+    verificationStart,
+  );
+  assert.ok(verificationStart >= 0);
+  assert.ok(publicationStart > verificationStart);
+
+  const verificationStep = workflow.slice(
+    verificationStart,
+    publicationStart,
+  );
+  assert.match(verificationStep, /release-draft\.json/);
+  assert.match(verificationStep, /jq -er --arg asset_name/);
+  assert.match(verificationStep, /\(\$matches\[0\]\.id \| type\) == "number"/);
+  assert.match(
+    verificationStep,
+    /repos\/\$GITHUB_REPOSITORY\/releases\/assets\/\$asset_id/,
+  );
+  assert.match(verificationStep, /release:verify-signatures/);
+  assert.doesNotMatch(
+    verificationStep,
+    /gh release view|gh release download|\/releases\/(?:latest|tags\/)|\/releases\/latest\/download\//,
+  );
+  assert.match(
+    workflow.slice(publicationStart),
+    /gh release edit "\$RELEASE_TAG"[\s\S]*--draft=false/,
+  );
+});
+
 test("signing preflight checks names without printing credential values", async () => {
   const [source, signingConfiguration] = await Promise.all([
     readFile(

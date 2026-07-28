@@ -575,13 +575,17 @@ jobs:
           )
           for asset_name in "${updater_assets[@]}"; do
             asset_id="$(
-              gh release view "$RELEASE_TAG" \
-                --repo "$GITHUB_REPOSITORY" \
-                --json assets \
-                --jq ".assets[] | select(.name == \"$asset_name\") | .id"
+              jq -er --arg asset_name "$asset_name" '
+                [.assets[] | select(.name == $asset_name)] as $matches
+                | if ($matches | length) == 1
+                    and ($matches[0].id | type) == "number"
+                  then $matches[0].id
+                  else error("expected exactly one REST asset with a numeric ID")
+                  end
+              ' "$RUNNER_TEMP/release-draft.json"
             )"
-            if [[ -z "$asset_id" ]]; then
-              echo "::error title=Missing draft updater asset::$asset_name"
+            if [[ ! "$asset_id" =~ ^[0-9]+$ ]]; then
+              echo "::error title=Invalid draft updater asset ID::$asset_name"
               exit 1
             fi
             gh api \
