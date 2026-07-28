@@ -1,94 +1,75 @@
 # Releasing Ducky
 
-Ducky uses one tag-triggered GitHub Actions workflow for the temporary
-Electron-to-Tauri transition. A release contains:
+Ducky uses one tag-triggered GitHub Actions workflow to build, verify, and
+publish signed Tauri packages for macOS, Windows, and Linux.
 
-- signed Tauri installers and updater artifacts for macOS, Windows, and Linux;
-- `latest.json` for Tauri v2 updates;
-- the legacy Electron installers and `latest-mac.yml`, `latest.yml`, and
-  `latest-linux.yml` required by existing installations;
-- `SHA256SUMS.txt` covering every published asset.
+A release contains:
 
-Do not create a GitHub Release or upload assets manually. The workflow preserves
-an atomic draft → verify → publish sequence and refuses to modify a release that
-has already been published.
+- deterministic platform installers;
+- signed native updater artifacts;
+- `latest.json`;
+- detached `.sig` files; and
+- `SHA256SUMS.txt`.
 
-## Production trust setup
+Do not create a GitHub Release or upload assets manually. The workflow uses an
+atomic draft → verify → publish sequence and refuses to replace assets on an
+already published release.
 
-Production credentials are external operational inputs. Never generate them in
-CI, commit them, paste them into logs, or reuse test material.
+## Required GitHub configuration
 
-### Tauri updater identity
+Configure these values under **Repository Settings → Secrets and variables →
+Actions**. Never commit or log their values.
 
-The release manager must supply one externally generated, stable Tauri updater
-key pair:
+### Updater signing
 
-1. Commit the base64-encoded public-key document at
-   `src-tauri/updater.pubkey`.
-2. Add the matching private key as the GitHub Actions secret
-   `TAURI_SIGNING_PRIVATE_KEY`.
-3. Add its password as the GitHub Actions secret
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+| Kind | Name |
+| --- | --- |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY` |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` |
 
-The committed public key is embedded only in release builds. Normal local
-builds keep the credential-free Phase 10 configuration. The workflow rejects a
-missing or placeholder public key, and the native updater rejects any artifact
-whose signature does not match it.
-
-Changing this key after a Tauri release is a trust migration: already installed
-clients will continue trusting the old key. Do not rotate it as an ordinary
-repository variable.
+Commit only the matching public key at `src-tauri/updater.pubkey`. Installed
+applications trust this key, so rotating it requires a separately reviewed
+trust migration.
 
 ### Apple signing and notarization
 
-Add these GitHub Actions secrets:
-
-| Name | Content |
+| Kind | Name |
 | --- | --- |
-| `APPLE_CERTIFICATE` | Base64 encoding of the Developer ID Application `.p12` |
-| `APPLE_CERTIFICATE_PASSWORD` | Password for that `.p12` |
-| `APPLE_API_ISSUER` | App Store Connect API issuer ID |
-| `APPLE_API_KEY` | App Store Connect API key ID |
-| `APPLE_API_PRIVATE_KEY` | Complete private `.p8` key text |
+| Secret | `APPLE_CERTIFICATE` |
+| Secret | `APPLE_CERTIFICATE_PASSWORD` |
+| Secret | `APPLE_API_ISSUER` |
+| Secret | `APPLE_API_KEY` |
+| Secret | `APPLE_API_PRIVATE_KEY` |
 
-The macOS runner imports the certificate into an ephemeral keychain, signs the
-universal application, submits it for notarization through the App Store
-Connect API, and requires valid signatures, Gatekeeper assessment, and stapled
-notarization tickets before staging artifacts.
+The macOS runner imports the Developer ID certificate into an ephemeral
+keychain, signs the universal application, notarizes it, and verifies
+Gatekeeper assessment and stapled tickets before staging artifacts.
 
 ### Windows signing
 
-Add these GitHub Actions values:
+| Kind | Name |
+| --- | --- |
+| Secret | `WINDOWS_CERTIFICATE` |
+| Secret | `WINDOWS_CERTIFICATE_PASSWORD` |
+| Repository variable | `WINDOWS_TIMESTAMP_URL` |
 
-| Kind | Name | Content |
-| --- | --- | --- |
-| Secret | `WINDOWS_CERTIFICATE` | Base64 encoding of the Authenticode `.pfx` |
-| Secret | `WINDOWS_CERTIFICATE_PASSWORD` | Password for that `.pfx` |
-| Repository variable | `WINDOWS_TIMESTAMP_URL` | Certificate issuer's HTTPS RFC 3161 timestamp URL |
+The Windows runner imports the certificate into its ephemeral user store and
+requires valid timestamped Authenticode signatures for NSIS and MSI output.
 
-The Windows runner imports the certificate into the ephemeral user certificate
-store, derives its thumbprint without logging it, configures SHA-256
-timestamped signing, and requires valid Authenticode signatures on both NSIS
-and MSI output.
+The built-in `GITHUB_TOKEN` is the only GitHub token. Only the publish job has
+`contents: write`.
 
-Configure secrets and variables under **Repository Settings → Secrets and
-variables → Actions**. The built-in `GITHUB_TOKEN` is the only GitHub token;
-only the publish job receives `contents: write`.
-
-## Release checklist
+## Release preparation
 
 1. Start from an up-to-date `main`.
-2. Update the same stable `X.Y.Z` version in:
+2. Set the same `X.Y.Z` version in:
 
    - `package.json`;
-   - `package-lock.json` root package;
-   - `src-tauri/Cargo.toml`;
+   - the root package in `package-lock.json`;
+   - `src-tauri/Cargo.toml`; and
    - `src-tauri/tauri.conf.json`.
 
-   `npm version X.Y.Z --no-git-tag-version` updates the Node package and
-   lockfile; update both Tauri version fields in the same release change.
-
-3. Run the local credential-independent checks:
+3. Run:
 
    ```bash
    npm ci
@@ -102,44 +83,40 @@ only the publish job receives `contents: write`.
    ```
 
 4. Commit and push the release change to `main`.
-5. Tag that exact commit and push the tag:
+5. Tag that exact commit:
 
    ```bash
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
 
-The tag must use exactly `vMAJOR.MINOR.PATCH`, match all four version sources,
-and point to a commit contained in `main`.
+The tag must be exactly `vMAJOR.MINOR.PATCH`, match every version source, and
+point to a commit contained in `main`.
 
 ## Pipeline architecture
 
-The release workflow has four gates:
+1. **Validate** checks tag/version consistency, membership in `main`, locked
+   dependency installation, and tests.
+2. **Build** runs a three-platform matrix:
 
-1. **Validate** checks the tag, all Node/Rust/Tauri versions, membership in
-   `main`, locked dependency installation, and tests.
-2. **Build** runs two native three-platform matrices:
-   - Electron builds the legacy universal macOS, Windows x64, and Linux x64
-     feeds without changing their existing names or metadata;
-   - Tauri builds signed/notarized universal macOS, signed Windows x64, and
-     Linux x64 packages with updater signatures.
-3. **Aggregate and stage** downloads all six build outputs, verifies the
-   Electron metadata, generates `latest.json` and SHA-256 checksums,
-   cryptographically verifies each Tauri updater artifact, and uploads the
-   complete set to a draft GitHub Release.
-4. **Verify and publish** checks the exact draft name/state/size inventory,
-   downloads the updater files back through the authenticated GitHub API,
-   verifies their signatures again, and only then publishes the draft.
+   - macOS universal DMG and updater archive;
+   - Windows x64 NSIS and MSI packages; and
+   - Linux x64 AppImage and DEB packages.
 
-`fail-fast` is disabled within each build matrix for complete diagnostics, but
-the publish job cannot run unless every native build succeeds. Re-running a
-failed tag can reset its draft assets. A published release is immutable to the
-workflow.
+3. **Stage** gives every artifact a deterministic `Ducky-Tauri-X.Y.Z-...`
+   name and retains updater signatures.
+4. **Aggregate** generates `latest.json` and checksums, verifies updater
+   signatures, and validates the complete local inventory.
+5. **Draft verification** uploads the complete bundle, verifies the exact
+   hosted inventory, redownloads updater artifacts, and verifies their
+   signatures again.
+6. **Publish** occurs only after every preceding job succeeds.
 
-## Tauri release assets
+The matrix uses `fail-fast: false` for complete diagnostics, while the publish
+job depends on every platform. A failed run may reset an unpublished draft.
+Published assets are immutable.
 
-Tauri assets use a runtime-qualified namespace, so they cannot collide with or
-be mistaken for the legacy Electron feed:
+## Asset contract
 
 | Platform | Installer assets | Updater asset |
 | --- | --- | --- |
@@ -147,77 +124,25 @@ be mistaken for the legacy Electron feed:
 | Windows x64 | `Ducky-Tauri-X.Y.Z-windows-x86_64-setup.exe`, `.msi` | NSIS installer + `.sig` |
 | Linux x64 | `Ducky-Tauri-X.Y.Z-linux-x86_64.AppImage`, `.deb` | AppImage + `.sig` |
 
-`latest.json` maps both `darwin-aarch64` and `darwin-x86_64` to the signed
-universal archive, and maps `windows-x86_64` and `linux-x86_64` to their signed
-native updater artifacts. Every URL is pinned to the exact release tag.
+`latest.json` maps both supported macOS architectures to the universal archive
+and maps Windows/Linux x64 to their signed native updater artifacts. Every URL
+is pinned to the exact release tag.
 
-The embedded production endpoint is:
+The production update endpoint is:
 
 ```text
 https://github.com/amanbotx2-fr/Ducky/releases/latest/download/latest.json
 ```
 
-## Electron transition and website cutover
+The website download routes select only namespaced Tauri installers from the
+latest GitHub release.
 
-The final Electron 2.x feed metadata remains in the same GitHub Release.
-Existing Electron clients discover that version through their existing
-Electron Builder channel and show the approved one-time manual migration
-dialog. No framework replacement or installer chaining is attempted.
+## Failure and rollback
 
-The website prefers `Ducky-Tauri-...` installers whenever they are present.
-It retains a compatibility fallback for current Electron-only v1 releases, but
-v2 and later downloads fail closed if a namespaced Tauri installer is absent.
-This prevents a public v2 download button from silently serving the transition
-Electron package.
+If draft verification fails, leave the release unpublished and fix the source
+before rerunning the tag workflow. If a published release is defective, do
+not replace its assets; publish a newer patch version.
 
-### Required transition evidence before Electron source removal
-
-The release manager owns the final Electron-to-Tauri transition verification.
-Before Phase 12 removes the Electron-only dialog source, record all of the
-following against the published transition release:
-
-- the exact final Electron tag, commit, version, and GitHub Release URL;
-- an upgrade check from an installed pre-transition Electron build that
-  resolves the final Electron release through the legacy feed;
-- the displayed `PsyDuck 2.0` dialog copy and both available actions;
-- evidence that **Download PsyDuck 2.0** opens the configured official Ducky
-  release page, without installer chaining or automatic replacement;
-- evidence that **Remind Me Later** closes the dialog without opening a URL;
-- the published macOS, Windows, and Linux legacy update metadata and every
-  asset referenced by that metadata;
-- the matching signed Tauri installers offered on the release page; and
-- the reviewer, verification date, platforms exercised, and pass/fail result.
-
-Keep that completion record with the transition release checklist. Phase 12
-may delete repository source only after the release manager has approved this
-evidence. It must not delete, replace, or rename already published Electron
-metadata or assets, because installed legacy clients still depend on their
-immutable URLs.
-
-## Production verification and rollback
-
-Before the first production publish, verify on real hardware:
-
-- clean Tauri install on macOS Apple Silicon and Intel, Windows x64, and a
-  supported Linux x64 distribution;
-- macOS Gatekeeper/notarization and Windows Authenticode publisher identity;
-- update detection from an older signed Tauri build;
-- signed download, installation, application restart, and preserved settings;
-- the final Electron migration dialog and Download/Remind Me Later paths;
-- website downloads select the matching Tauri installer;
-- legacy Electron metadata continues resolving all referenced files.
-
-The workflow performs the artifact and hosted-draft checks automatically, but
-interactive installation/restart verification is a release-manager gate.
-
-If a draft fails verification, leave it unpublished and rerun the corrected tag
-workflow. If a published release is defective, do not replace its assets:
-publish a newer patch version. Preserve old signatures, metadata, and
-installers for clients already consuming them.
-
-## Current credential gate
-
-The pipeline is implemented to fail closed, but it cannot produce a real signed
-release until the stable updater key pair, Apple credentials, and Windows
-certificate described above are supplied. A test key or unsigned package must
-never be used to bypass this gate.
+Production credentials, hardware installation tests, staged updater tests, and
+go-live approval remain release-operator responsibilities outside repository
+migration work.

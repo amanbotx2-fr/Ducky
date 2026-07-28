@@ -117,7 +117,7 @@ If a compatible ambient Idle clip such as breathing retains eye anchors, Eye Fol
 
 # Technical Design
 
-The main-process cursor adapter is responsible for cross-monitor cursor coordinates. It normalizes platform output to Electron virtual screen device-independent pixels and emits `pointer.position_changed` with `{ screenX, screenY, sampledAtMs }`. The payload contains no click target or active-application metadata. The adapter emits `pointer.position_unavailable` on lock, permission failure, or an invalid sample.
+The Rust cursor adapter is responsible for cross-monitor cursor coordinates. It normalizes platform output to logical desktop pixels and streams only `{ x, y }` through the private DesktopBridge adapter. The payload contains no click target or active-application metadata.
 
 The companion renderer owns `EyeFollowController`. Its dependencies are the typed event bus, display-topology provider, scene attachment resolver, render-demand scheduler, and monotonic clock. It stores the latest cursor sample, target offsets, displayed offsets, and blink deadline outside Zustand because these values change at frame cadence.
 
@@ -133,7 +133,7 @@ Required events:
 | `app.suspended` | Main process | Center, cancel blink deadline, stop sampling |
 | `app.resumed` | Main process | Restart sampling and choose a new blink deadline |
 
-Coordinate conversion must account for companion window bounds, Pixi stage scale, device pixel ratio, character container transform, and per-frame eye anchors. Tests use monitors positioned left and above the primary display to cover negative coordinates. Cursor containment uses the union of Electron display bounds; work-area bounds are not used because a pointer can legitimately enter menu bars or taskbars.
+Coordinate conversion accounts for companion window bounds, device scale, character transforms, and per-frame eye anchors. Native tests cover mixed-DPI monitors, Retina plus external displays, and negative virtual-desktop origins.
 
 `EyePoseMetadata` contains base anchors, allowed radii, pupil texture keys, and optional offset lookup tables. Metadata is validated during asset loading. A missing anchor disables pupil movement for that frame; it does not guess coordinates.
 

@@ -264,6 +264,49 @@
   task/design documents, and run clean-checkout plus full manual parity
   verification.
 
+#### Active Documentation Milestone
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Replaced the root README with the current Tauri v2 architecture, native
+  feature set, build commands, validation commands, package layout, and
+  platform installation guidance.
+- Rewrote the release guide around the single Tauri workflow, native bundle
+  contract, updater signatures, atomic draft verification, and
+  release-operator responsibilities.
+- Updated the active product, UI, and feature documents so native runtime,
+  window, persistence, input, and Preferences terminology matches the
+  implemented Tauri application.
+- Removed obsolete Electron-era architecture, technical specification,
+  security roadmap, release checklist, and task-roadmap documents. Historical
+  migration discovery and evidence remain intact under `docs/migrating/`.
+- Kept the post-migration Release Candidate Checklist unchanged; documentation
+  cleanup does not perform or claim external publication operations.
+
+**Validation**
+
+- `git diff --check`: passed.
+- Static documentation scan found no Electron references in active
+  documentation outside the intentionally historical migration ledger.
+- Confirmed no production source was changed by this documentation milestone.
+
+**Manual verification**
+
+- Reviewed the rendered Markdown structure, local links, build commands,
+  package names, release asset names, and repository paths against the current
+  source tree.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Run clean-checkout validation, final static/dependency checks, and the full
+  native application regression sweep.
+
 ### Release Operations Separated from Repository Migration
 
 **Status:** Documentation complete. No production source was changed and

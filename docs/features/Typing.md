@@ -113,7 +113,7 @@ Returning from a reminder, Thinking, Celebrate, Drag, or Landing reevaluates cur
 
 # Technical Design
 
-Global keyboard activity is a privileged platform concern and remains in the Electron main process behind `KeyboardActivityAdapter`. The adapter's public contract is intentionally lossy:
+Global keyboard activity is a privileged platform concern and belongs behind a narrow Rust adapter. Its public contract is intentionally lossy:
 
 ```ts
 type KeyboardActivityEvent = {

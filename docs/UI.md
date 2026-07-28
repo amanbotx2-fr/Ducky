@@ -91,7 +91,7 @@ All text and essential control boundaries meet WCAG 2.2 AA contrast. Focus indic
 
 The settings window automatically follows the operating system appearance. There is no separate theme setting in V1. Switching appearance while the window is open updates tokens without recreating the form or discarding edits.
 
-Dark mode uses dark neutral surfaces, light primary text, and an accent adjusted to preserve contrast. Borders remain visible without becoming bright boxes. Native title bar treatment should match the chosen Electron window frame. Screenshots, previews, and icons with fixed backgrounds provide theme variants where required.
+Dark mode uses dark neutral surfaces, light primary text, and an accent adjusted to preserve contrast. Borders remain visible without becoming bright boxes. Native title bar treatment should match the Tauri window configuration. Screenshots, previews, and icons with fixed backgrounds provide theme variants where required.
 
 The transparent companion does not tint or recolor in dark mode. Pixel-art outline and bubble border must be tested over both theme extremes and real desktop imagery.
 

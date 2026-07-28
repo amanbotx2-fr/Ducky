@@ -134,7 +134,7 @@ The main process may persist the last consumed completion ID for a very short re
 
 `AgentDoneBehavior` owns the animation instance, vertical body, ground-origin snapshot, expanded safe bounds token, particle-emitter lease, marker subscriptions, and coalesced-completion flag. Its `dispose(reason)` is idempotent and performs all cleanup before the next state's entry effects depend on the scene.
 
-The vertical body is separate from the general companion window position. Apply jump translation inside the scene so Electron window moves are not generated every frame. Before entry, the window expands upward and sideways around the character's fixed on-screen ground point. After particles and recovery finish, shrink safe bounds without moving that ground point.
+The vertical body is separate from the general companion window position. Apply jump translation inside the scene so native window moves are not generated every frame. Before entry, the window expands upward and sideways around the character's fixed on-screen ground point. After particles and recovery finish, shrink safe bounds without moving that ground point.
 
 Use an analytical trajectory when possible: start height zero, apply configured initial velocity and gravity, clamp to ground, and emit one contact. Fixed-step integration is acceptable if it shares Physics Engine invariants. Frame stalls clamp delta; a stall beyond the full reaction snaps to the landing recovery rather than leaving Ducky airborne.
 
