@@ -5,6 +5,7 @@ import type {
   CredentialBridge,
   PreferencesAiBridge,
   PreferencesSettingsBridge,
+  PreferencesUpdateBridge,
   ReminderBridge,
   RuntimeSettingsChangeListener,
   RuntimeSettingsBridge,
@@ -125,6 +126,23 @@ const preferencesAiBridge: PreferencesAiBridge = Object.freeze({
     dispatchTauriCommand(TAURI_COMMANDS.testAIConnection, {}),
 });
 
+const preferencesUpdateBridge: PreferencesUpdateBridge = Object.freeze({
+  getUpdateStatus: () =>
+    dispatchTauriCommand(TAURI_COMMANDS.getUpdateStatus, {}),
+  checkForUpdates: () =>
+    dispatchTauriCommand(TAURI_COMMANDS.checkForUpdates, {}),
+  onUpdateStatusChanged: (
+    listener: Parameters<
+      PreferencesUpdateBridge['onUpdateStatusChanged']
+    >[0],
+  ) =>
+    subscribeToTauriEvent(
+      'preferences',
+      'updateStatusChanged',
+      listener,
+    ),
+});
+
 const credentialBridge: CredentialBridge = Object.freeze({
   getCredentialStatus: (id: CredentialId) =>
     dispatchTauriCommand(TAURI_COMMANDS.getCredentialStatus, { id }),
@@ -203,9 +221,9 @@ export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionWindowBridge: () => companionWindowBridge,
   getReminderBridge: () => reminderBridge,
   getPomodoroBridge: () => tauriPomodoroBridge,
-  getPreferencesBridge: () => undefined,
   getPreferencesAiBridge: () => preferencesAiBridge,
   getPreferencesSettingsBridge: () => preferencesSettingsBridge,
+  getPreferencesUpdateBridge: () => preferencesUpdateBridge,
   getCredentialBridge: () => credentialBridge,
   getPreferencesSettingsCapabilities: () =>
     TAURI_PREFERENCES_SETTINGS_CAPABILITIES,

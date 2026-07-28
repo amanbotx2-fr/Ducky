@@ -4,9 +4,9 @@ import type {
   CompanionSettingsBridge,
   CompanionWindowBridge,
   CredentialBridge,
-  PreferencesBridge,
   PreferencesAiBridge,
   PreferencesSettingsBridge,
+  PreferencesUpdateBridge,
   PomodoroBridge,
   ReminderBridge,
   RuntimeSettingsBridge,
@@ -41,10 +41,12 @@ export interface CompanionDesktopBridge {
 
 /** Native capabilities available to the Preferences renderer. */
 export interface PreferencesDesktopBridge {
-  readonly getPreferencesBridge: () => PreferencesBridge | undefined;
   readonly getPreferencesAiBridge: () => PreferencesAiBridge | undefined;
   readonly getPreferencesSettingsBridge: () =>
     | PreferencesSettingsBridge
+    | undefined;
+  readonly getPreferencesUpdateBridge: () =>
+    | PreferencesUpdateBridge
     | undefined;
   readonly getCredentialBridge: () => CredentialBridge | undefined;
   readonly getPreferencesSettingsCapabilities: () =>

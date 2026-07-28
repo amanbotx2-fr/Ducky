@@ -199,13 +199,18 @@ export interface CompanionBridge
   readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
 }
 
-export interface PreferencesBridge extends PreferencesSettingsBridge {
-  readonly updateAiConfiguration: PreferencesAiBridge['updateAiConfiguration'];
-  readonly listAIModels: PreferencesAiBridge['listAIModels'];
-  readonly testAIConnection: PreferencesAiBridge['testAIConnection'];
+export interface PreferencesUpdateBridge {
   readonly getUpdateStatus: () => Promise<UpdateStatus>;
   readonly checkForUpdates: () => Promise<UpdateStatus>;
   readonly onUpdateStatusChanged: (
     listener: UpdateStatusListener,
   ) => () => void;
+}
+
+export interface PreferencesBridge
+  extends PreferencesSettingsBridge,
+    PreferencesUpdateBridge {
+  readonly updateAiConfiguration: PreferencesAiBridge['updateAiConfiguration'];
+  readonly listAIModels: PreferencesAiBridge['listAIModels'];
+  readonly testAIConnection: PreferencesAiBridge['testAIConnection'];
 }

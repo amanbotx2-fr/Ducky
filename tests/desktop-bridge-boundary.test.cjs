@@ -267,6 +267,35 @@ describe('DesktopBridge renderer boundary', () => {
     }
   });
 
+  it('routes updater status and checks through the exact Preferences bridge', async () => {
+    const [hook, contracts, adapter, commands] = await Promise.all(
+      [
+        ['renderer', 'hooks', 'useUpdateStatus.ts'],
+        ['desktop', 'contracts.ts'],
+        ['desktop', 'tauriBridge.ts'],
+        ['desktop', 'tauriCommands.ts'],
+      ].map((segments) =>
+        readFile(path.join(sourceRoot, ...segments), 'utf8'),
+      ),
+    );
+
+    assert.match(hook, /getPreferencesUpdateBridge\(\)/);
+    assert.doesNotMatch(hook, /getPreferencesBridge\(\)/);
+    assert.match(contracts, /getPreferencesUpdateBridge/);
+    assert.match(
+      adapter,
+      /const preferencesUpdateBridge[\s\S]*TAURI_COMMANDS\.getUpdateStatus[\s\S]*TAURI_COMMANDS\.checkForUpdates[\s\S]*'updateStatusChanged'/,
+    );
+    assert.match(commands, /getUpdateStatus:\s*'get_update_status'/);
+    assert.match(commands, /checkForUpdates:\s*'check_for_updates'/);
+    for (const source of [hook, contracts, adapter, commands]) {
+      assert.doesNotMatch(
+        source,
+        /downloadUpdate|installUpdate|restartToUpdate/,
+      );
+    }
+  });
+
   it('routes reminder UI through the exact reminder bridge', async () => {
     const [application, notifications, contracts, adapter] =
       await Promise.all(

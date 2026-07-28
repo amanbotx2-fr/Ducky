@@ -21,6 +21,7 @@ import type {
   UpdateReminderInput,
 } from '../shared/reminders';
 import type { AIAskResult, ScreenPoint } from '../shared/types';
+import type { UpdateStatus } from '../shared/updates';
 
 /**
  * Registry for commands whose native behavior is complete in the migration.
@@ -40,6 +41,7 @@ export const TAURI_COMMANDS = Object.freeze({
   getCursorPosition: 'get_cursor_position',
   getCredentialStatus: 'get_credential_status',
   getPreferencesSettings: 'get_preferences_settings',
+  getUpdateStatus: 'get_update_status',
   getRuntimeSettings: 'get_runtime_settings',
   getCompanionWindowPosition: 'get_companion_window_position',
   getReminder: 'get_reminder',
@@ -52,6 +54,7 @@ export const TAURI_COMMANDS = Object.freeze({
   startPomodoro: 'start_pomodoro',
   streamCursorPositions: 'stream_cursor_positions',
   stopCursorPositions: 'stop_cursor_positions',
+  checkForUpdates: 'check_for_updates',
   updatePreferencesSettings: 'update_preferences_settings',
   updateReminder: 'update_reminder',
   updateStickyMessage: 'update_sticky_message',
@@ -85,6 +88,7 @@ interface TauriCommandArguments {
     readonly id: CredentialId;
   };
   readonly get_preferences_settings: Record<string, never>;
+  readonly get_update_status: Record<string, never>;
   readonly get_runtime_settings: Record<string, never>;
   readonly get_companion_window_position: Record<string, never>;
   readonly get_reminder: {
@@ -112,6 +116,7 @@ interface TauriCommandArguments {
     readonly onPosition: Channel<ScreenPoint>;
   };
   readonly stop_cursor_positions: Record<string, never>;
+  readonly check_for_updates: Record<string, never>;
   readonly update_preferences_settings: {
     readonly patch: PreferencesSettingsPatch;
   };
@@ -143,6 +148,7 @@ interface TauriCommandResults {
   readonly get_cursor_position: ScreenPoint;
   readonly get_credential_status: CredentialStatus;
   readonly get_preferences_settings: PreferencesSettings;
+  readonly get_update_status: UpdateStatus;
   readonly get_runtime_settings: RuntimeSettings;
   readonly get_companion_window_position: ScreenPoint;
   readonly get_reminder: Reminder | null;
@@ -155,6 +161,7 @@ interface TauriCommandResults {
   readonly start_pomodoro: void;
   readonly stream_cursor_positions: void;
   readonly stop_cursor_positions: void;
+  readonly check_for_updates: UpdateStatus;
   readonly update_preferences_settings: PreferencesSettings;
   readonly update_reminder: Reminder;
   readonly update_sticky_message: string | null;

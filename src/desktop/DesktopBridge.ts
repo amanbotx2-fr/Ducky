@@ -34,10 +34,11 @@ export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
 /** Electron/Tauri-neutral native surface for the Preferences renderer. */
 export const preferencesDesktopBridge: PreferencesDesktopBridge =
   Object.freeze({
-    getPreferencesBridge: runtimeDesktopBridge.getPreferencesBridge,
     getPreferencesAiBridge: runtimeDesktopBridge.getPreferencesAiBridge,
     getPreferencesSettingsBridge:
       runtimeDesktopBridge.getPreferencesSettingsBridge,
+    getPreferencesUpdateBridge:
+      runtimeDesktopBridge.getPreferencesUpdateBridge,
     getCredentialBridge: runtimeDesktopBridge.getCredentialBridge,
     getPreferencesSettingsCapabilities:
       runtimeDesktopBridge.getPreferencesSettingsCapabilities,

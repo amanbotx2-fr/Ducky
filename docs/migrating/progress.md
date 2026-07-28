@@ -6,12 +6,85 @@
 
 - Active work: Phase 10 — Updater Migration
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Task 10.2 — Native Updater
-- Next task: Task 10.3 — DesktopBridge
+- Last completed task: Task 10.3 — DesktopBridge
+- Next task: Task 10.4 — Settings Integration
 - Blockers: None. Production updater trust, feed, artifacts, and live update
   verification remain deferred to Phase 11.
 
 ## Completed Tasks
+
+### Task 10.3 — DesktopBridge
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added a narrow `PreferencesUpdateBridge` containing only Electron's
+  existing `getUpdateStatus`, `checkForUpdates`, and
+  `onUpdateStatusChanged` methods.
+- Replaced the renderer's use of the broad Preferences preload view with the
+  exact role-scoped updater bridge while preserving the hook's initial
+  snapshot, event subscription, manual-check behavior, and user-facing error
+  states.
+- Kept Electron behavior unchanged by adapting the existing
+  `window.psyduckPreferences` methods through `electronDesktopBridge`.
+- Added the Tauri adapter using typed custom-command dispatch and the
+  existing targeted `updates:status-changed` event route.
+- Removed the now-unused broad `getPreferencesBridge` DesktopBridge getter.
+  Preferences features continue to use their own settings, AI, credentials,
+  and updater views.
+- Added typed Tauri command argument/result mappings for status and checks.
+  No raw Tauri call, updater plugin API, download/install/restart method, or
+  renderer runtime detection was added.
+
+**Files changed**
+
+- `src/shared/types.ts`
+- `src/desktop/contracts.ts`
+- `src/desktop/DesktopBridge.ts`
+- `src/desktop/electronBridge.ts`
+- `src/desktop/tauriBridge.ts`
+- `src/desktop/tauriCommands.ts`
+- `src/renderer/hooks/useUpdateStatus.ts`
+- `tests/desktop-bridge-boundary.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (146 tests), including the new exact updater bridge
+  boundary test.
+- `npm run build`: passed.
+- `cargo fmt` / `cargo fmt --check`: passed.
+- `cargo test`: passed (120 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production-output smoke launch: passed with the existing
+  Preferences preload adapter.
+- `npx tauri dev --no-watch`: passed; the companion initialized and the
+  process remained alive with only the known development custom-protocol
+  fallback warning.
+- `npm run tauri:build -- --bundles app`: passed and produced a release-mode
+  macOS application bundle.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed Electron and Tauri both start with the runtime-neutral bridge
+  selected and no renderer startup exception.
+- Confirmed the updater bridge is not exposed to the companion capability and
+  no updater download/install/restart surface exists.
+- Interactive manual check/status verification remains intentionally
+  capability-gated until Task 10.4 enables the migrated update settings
+  domain.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 10.4 — Settings Integration.
 
 ### Task 10.2 — Native Updater
 
