@@ -8,10 +8,10 @@
 - Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
   external production credential gate remains documented for the release
   manager and is explicitly accepted by the updated Phase 12 contract.
-- Last completed task: Phase 11.5 Task 11.5.4 — hydration Preferences,
-  persistence, and runtime-settings parity.
-- Next task: Phase 11.5 Task 11.5.5 — complete dynamic companion context-menu
-  parity.
+- Last completed task: Phase 11.5 Task 11.5.5 — complete dynamic companion
+  context-menu structure, state, and native callbacks.
+- Next task: Phase 11.5 Task 11.5.6 — verify and record the Electron-only
+  migration-dialog final disposition, then run the final parity audit.
 - Blockers: the migrated Tauri runtime still lacks several working Electron
   behaviors required by the Phase 12 preservation and exit criteria. Removing
   Electron now would delete those behaviors. The ownership ambiguity is
@@ -366,6 +366,77 @@ remains part of the Phase 11.5 manual gate.
 
 - Task 11.5.5 — complete the remaining Water Reminders, Eye Tracking, and
   Always On Top menu hierarchy, dynamic state, and native callbacks.
+
+### Task 11.5.5 — Dynamic Companion Context Menu Parity
+
+**Status:** Implementation complete. Interactive menu verification remains
+part of the Phase 11.5 manual gate.
+
+**Implementation summary**
+
+- Rebuilt the Tauri companion context menu from current native Pomodoro and
+  settings snapshots on every open, matching Electron's dynamic menu model.
+- Completed the authoritative hierarchy and order: Pomodoro; Personal
+  Assistant; Water Reminders; Eye Tracking; Always On Top; Preferences;
+  About Ducky; Restart; Quit, with the same separators and nested menus.
+- Added Water Reminders Enabled state and all six supported interval choices,
+  Eye Tracking checked state, Always On Top checked state, and the existing
+  dynamic Clear Sticky Message enabled state.
+- Added closed native action dispatch for each new menu ID. Water, eye
+  tracking, and always-on-top callbacks mutate only the existing settings
+  patch contract, persist atomically, emit the existing runtime snapshot, and
+  apply native window state through the established settings completion path.
+- Preserved all existing Personal Assistant, Reminder, Pomodoro, Preferences,
+  About, Restart, Quit, tray, and renderer-originated popup paths.
+- Added native tests for the full menu-action ID inventory, supported water
+  intervals, and settings-derived checked/enabled presentation. Unknown IDs
+  remain denied.
+- No renderer menu permission, generic menu access, new event, or new menu
+  action was introduced.
+
+**Files changed**
+
+- `src-tauri/src/desktop/menus.rs` — full dynamic hierarchy, menu
+  presentation, native settings callbacks, and parity tests.
+- `docs/migrating/progress.md` — milestone record.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (160 tests across 49 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (132 native tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed. Capability inspection confirms the
+  renderer still has no native menu or event-emission authority.
+- Electron production-output smoke launch: passed through the unchanged
+  authoritative context-menu implementation.
+- `npx tauri dev --no-watch`: passed with no menu, settings, capability, or
+  renderer errors; WebKit logged only the known development custom-protocol
+  fallback warning.
+- `npm run tauri:build -- --bundles app`: passed and produced the release-mode
+  macOS application bundle.
+- Release-mode Tauri binary smoke launch: passed and remained alive until the
+  intentional smoke-test shutdown.
+
+**Manual verification**
+
+- Automated coverage proves the Electron interval inventory, default/changed
+  checked state, Clear Sticky enabled state, every closed action mapping, and
+  unknown-ID denial.
+- Interactive native menu hierarchy, checked-state refresh after actions, and
+  every callback remain to be exercised in the final Phase 11.5 application
+  sweep.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 11.5.6 — record final Electron transition-dialog ownership/evidence,
+  then execute Task 11.5.8's complete automated and manual parity audit.
 
 ### Phase 11.5 — Functional Parity Closure Contract
 
