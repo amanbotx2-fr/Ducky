@@ -4,7 +4,6 @@ import type { PomodoroState } from '../shared/pomodoro';
 import type { ReminderFiredNotification } from '../shared/reminders';
 import type { RuntimeSettings } from '../shared/settings';
 import type { UpdateStatus } from '../shared/updates';
-import { IPC_CHANNELS } from '../shared/events';
 
 export type TauriRendererTarget = 'companion' | 'preferences';
 
@@ -32,53 +31,52 @@ interface TauriEventRoute {
 /**
  * Typed routing table for low-frequency Tauri events.
  *
- * Event names reuse the frozen Electron contract while payload production and
- * recovery semantics remain owned by their later feature phases. The ordered
- * cursor channel is intentionally absent until Task 3.3.
+ * Event names are part of the stable renderer contract. The ordered cursor
+ * stream uses its dedicated channel transport.
  */
 export const TAURI_EVENTS = Object.freeze({
   runtimeSettingsChanged: {
-    name: IPC_CHANNELS.runtimeSettingsChanged,
+    name: 'runtime-settings:changed',
     targets: ['companion', 'preferences'],
   },
   userNamePanelRequested: {
-    name: IPC_CHANNELS.userNamePanelRequested,
+    name: 'personal-assistant:user-name-requested',
     targets: ['companion'],
   },
   stickyMessagePanelRequested: {
-    name: IPC_CHANNELS.stickyMessagePanelRequested,
+    name: 'personal-assistant:sticky-message-requested',
     targets: ['companion'],
   },
   reminderCreationPanelRequested: {
-    name: IPC_CHANNELS.reminderCreationPanelRequested,
+    name: 'reminders:creation-panel-requested',
     targets: ['companion'],
   },
   reminderManagerPanelRequested: {
-    name: IPC_CHANNELS.reminderManagerPanelRequested,
+    name: 'reminders:manager-panel-requested',
     targets: ['companion'],
   },
   dailyPlannerPanelRequested: {
-    name: IPC_CHANNELS.dailyPlannerPanelRequested,
+    name: 'daily-planner:panel-requested',
     targets: ['companion'],
   },
   reminderFired: {
-    name: IPC_CHANNELS.reminderFired,
+    name: 'reminders:fired',
     targets: ['companion'],
   },
   updateStatusChanged: {
-    name: IPC_CHANNELS.updateStatusChanged,
+    name: 'updates:status-changed',
     targets: ['preferences'],
   },
   customPomodoroDurationRequested: {
-    name: IPC_CHANNELS.customPomodoroDurationRequested,
+    name: 'pomodoro:custom-duration-requested',
     targets: ['companion'],
   },
   pomodoroStateChanged: {
-    name: IPC_CHANNELS.pomodoroStateChanged,
+    name: 'pomodoro:state-changed',
     targets: ['companion'],
   },
   pomodoroCompleted: {
-    name: IPC_CHANNELS.pomodoroCompleted,
+    name: 'pomodoro:completed',
     targets: ['companion'],
   },
 } as const satisfies Record<TauriEventKey, TauriEventRoute>);

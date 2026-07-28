@@ -1,8 +1,3 @@
-import type {
-  AIModel,
-  AIProviderHttpDiagnostics,
-  AIResponse,
-} from '../ai/AIProvider';
 import type { AIConversationRequest } from './aiConversation';
 import type {
   CredentialId,
@@ -23,6 +18,7 @@ import type {
 } from './reminders';
 import type {
   AiConfigurationUpdate,
+  AiProvider,
   PreferencesSettings,
   PreferencesSettingsPatch,
   RuntimeSettings,
@@ -31,6 +27,37 @@ import type {
   UpdateStatus,
   UpdateStatusListener,
 } from './updates';
+
+export interface AIModel {
+  readonly id: string;
+  readonly displayName?: string;
+}
+
+export interface AIProviderHttpDiagnostics {
+  readonly requestUrl: string;
+  readonly httpStatusCode: number | null;
+  readonly httpStatusText: string | null;
+  readonly responseBody: string;
+  readonly errorCode: string | null;
+  readonly errorMessage: string;
+}
+
+export type AIResponseFinishReason =
+  | 'stop'
+  | 'length'
+  | 'cancelled';
+
+export interface AIUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+}
+
+export interface AIResponse {
+  readonly providerId: AiProvider;
+  readonly content: string;
+  readonly finishReason: AIResponseFinishReason;
+  readonly usage?: AIUsage;
+}
 
 export interface ScreenPoint {
   readonly x: number;

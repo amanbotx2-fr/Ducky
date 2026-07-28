@@ -6,7 +6,6 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { AIProviderHttpDiagnostics } from '../ai/AIProvider';
 import { preferencesDesktopBridge } from '../desktop/DesktopBridge';
 import {
   createModelReference,
@@ -32,6 +31,7 @@ import {
   type PreferencesAiSettings,
   type PreferencesSettingsPatch,
 } from '../shared/settings';
+import type { AIProviderHttpDiagnostics } from '../shared/types';
 import { personalityService } from '../personality';
 import { AIModelExplorer } from './components/AIModelExplorer';
 import { usePreferencesSettings } from './hooks/usePreferencesSettings';
@@ -543,7 +543,7 @@ export function PreferencesApp() {
 
   const providerStatusMessage =
     !capabilities.ai
-      ? 'Provider and model controls remain Electron-only during migration.'
+      ? 'Provider and model controls are unavailable.'
       : modelLoadingStatus.phase === 'loading'
       ? 'Loading models...'
       : modelLoadingStatus.phase === 'empty'
@@ -1323,10 +1323,10 @@ export function PreferencesApp() {
         {capabilities.water && capabilities.updates
           ? 'General, sound, hydration, and update changes save automatically. AI changes apply when saved.'
           : capabilities.ai
-            ? 'General, sound, and update changes save automatically. AI changes apply when saved. Hydration settings remain Electron-only during migration.'
+            ? 'General, sound, and update changes save automatically. AI changes apply when saved. Hydration settings are unavailable.'
           : capabilities.credentials
-            ? 'General and sound changes save automatically. Credentials use native secure storage; other AI settings remain Electron-only during migration.'
-            : 'General and sound changes save automatically. Other feature settings remain Electron-only during migration.'}
+            ? 'General and sound changes save automatically. Credentials use native secure storage; other AI settings are unavailable.'
+            : 'General and sound changes save automatically. Other feature settings are unavailable.'}
       </footer>
     </main>
   );

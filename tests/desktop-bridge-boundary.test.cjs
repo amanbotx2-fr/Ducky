@@ -43,24 +43,14 @@ const readRendererSources = async () => {
 };
 
 describe('DesktopBridge renderer boundary', () => {
-  it('keeps Electron and Tauri APIs outside renderer-owned code', async () => {
+  it('keeps native runtime APIs outside renderer-owned code', async () => {
     const sources = await readRendererSources();
 
     for (const { file, source } of sources) {
       assert.doesNotMatch(
         source,
-        /(?:from|import\()\s*['"]electron(?:\/[^'"]*)?['"]/,
-        `${file} imports Electron directly`,
-      );
-      assert.doesNotMatch(
-        source,
         /(?:from|import\()\s*['"]@tauri-apps\//,
         `${file} imports Tauri directly`,
-      );
-      assert.doesNotMatch(
-        source,
-        /\bwindow\.psyduck(?:Preferences)?\b/,
-        `${file} accesses an Electron preload global directly`,
       );
     }
   });
@@ -122,6 +112,8 @@ describe('DesktopBridge renderer boundary', () => {
       boundary,
       /export const (?:runtime)?desktopBridge\b/,
     );
+    assert.match(boundary, /from '.\/tauriBridge'/);
+    assert.doesNotMatch(boundary, /isTauri|electronBridge|window\./);
   });
 
   it('dispatches companion context menus through the narrow window bridge', async () => {
@@ -356,12 +348,11 @@ describe('DesktopBridge renderer boundary', () => {
     );
   });
 
-  it('keeps deferred Preferences domains runtime-capability gated', async () => {
-    const [contracts, electronAdapter, tauriAdapter, preferencesUi] =
+  it('keeps Preferences domains capability gated', async () => {
+    const [contracts, tauriAdapter, preferencesUi] =
       await Promise.all(
         [
           ['desktop', 'contracts.ts'],
-          ['desktop', 'electronBridge.ts'],
           ['desktop', 'tauriBridge.ts'],
           ['renderer', 'PreferencesApp.tsx'],
         ].map((segments) =>
@@ -371,10 +362,6 @@ describe('DesktopBridge renderer boundary', () => {
 
     assert.match(contracts, /getPreferencesSettingsCapabilities/);
     assert.match(contracts, /getPreferencesAiBridge/);
-    assert.match(
-      electronAdapter,
-      /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,
-    );
     assert.match(
       tauriAdapter,
       /water: true,[\s\S]*updates: true,[\s\S]*ai: true,[\s\S]*aiModelExplorer: true,[\s\S]*credentials: true/,

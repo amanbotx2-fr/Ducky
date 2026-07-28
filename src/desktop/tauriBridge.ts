@@ -239,11 +239,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   credentials: true,
 });
 
-/**
- * Exposes only Tauri capabilities that have completed their migration.
- * Unmigrated domain bridges intentionally remain unavailable until their
- * backend commands and event recovery semantics reach parity.
- */
+/** Complete native adapter, exposed to renderers through role-scoped views. */
 export const tauriDesktopBridge: DesktopBridge = Object.freeze({
   getCompanionBridge: () => companionBridge,
   getCompanionAiBridge: () => companionAiBridge,

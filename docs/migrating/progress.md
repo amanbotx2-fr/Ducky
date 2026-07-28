@@ -4,20 +4,88 @@
 
 ## Current Status
 
-- Active work: none. Phase 11.5 — Functional Parity Closure is complete.
-- Last completed phase: Phase 11.5. Every renderer-accessible Electron
-  behavior found by the pre-removal audit now has a working Tauri equivalent,
-  or—in the migration dialog's explicitly documented case—is a final
-  Electron transition-release obligation rather than ongoing Tauri behavior.
-- Last completed task: Phase 11.5 Task 11.5.8 — final automated and manual
-  Electron-versus-Tauri parity gate.
-- Next task: Phase 12 — Electron Removal, only after a separate instruction.
+- Active work: Phase 12 — Electron Removal.
+- Last completed phase: Phase 11.5 — Functional Parity Closure.
+- Last completed task: Phase 12 renderer boundary cleanup. DesktopBridge is
+  now a Tauri-only native boundary with unchanged renderer-facing APIs.
+- Next task: remove the legacy Electron main process, preload, provider, and
+  Node-only runtime implementation.
 - Blockers: none. Production credentials, signed transition-release
   publication, staged updater verification, and go-live approval are external
   Release Candidate Checklist operations after Phase 12 and do not block
   repository migration.
 
 ## Active Verification
+
+### Phase 12 — Electron Removal
+
+**Status:** In progress. Renderer boundary cleanup is complete.
+
+**Discovery summary**
+
+- The complete legacy Electron runtime is isolated under `src/main/` and
+  `src/ai/`, with its preload adapter in `src/desktop/electronBridge.ts`.
+- Electron packaging is owned by `electron-builder.yml`, the root icon set,
+  Electron-specific package scripts/dependencies, and the Electron job in
+  `.github/workflows/release.yml`.
+- Tauri owns every current user-facing native domain. No renderer component
+  imports Electron or Tauri directly; the role-scoped DesktopBridge remains
+  the single renderer abstraction.
+- Shared TypeScript AI response DTOs were still imported from the legacy
+  Electron provider layer. They have been moved into `src/shared/types.ts`
+  without changing their serialized contract.
+- The release workflow, release verifier, website installer resolver, tests,
+  and active documentation still contain dual-runtime transition assumptions
+  that will be removed in later Phase 12 milestones.
+- Native persistence still contains explicit one-time Electron settings,
+  Pomodoro, and credential compatibility paths. These are compatibility
+  shims—not user-facing feature implementations—and will be removed after the
+  runtime and build cleanup.
+- External publication, production credentials, and staged updater evidence
+  remain exclusively owned by the post-migration Release Candidate Checklist.
+
+**Renderer boundary milestone**
+
+- Removed the Electron preload globals and Electron DesktopBridge adapter.
+- Bound the existing companion and Preferences role views directly to the
+  private Tauri adapter. The renderer-facing bridge API and least-privilege
+  role separation are unchanged.
+- Kept all Tauri API imports inside `src/desktop/`; renderer-owned code
+  continues to have no runtime detection or native API imports.
+- Replaced stale migration-only Preferences fallback wording with neutral
+  unavailable-state wording.
+- Updated bridge boundary tests to enforce the Tauri-only adapter path and
+  the absence of renderer-owned native imports.
+
+**Validation**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (160 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (132 tests).
+- `cargo build`: passed.
+- Tauri permission validation: passed through the authorization test suite.
+- `npm run tauri:build -- --bundles app`: passed; `Ducky.app` produced.
+- `npm run tauri:dev`: application compiled, launched, and remained alive.
+  The known WebKit custom-protocol fallback warnings were emitted before
+  Tauri switched to its supported `postMessage` transport.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Development launch reached the running native application process. Complete
+  end-user regression verification remains reserved for the final Phase 12
+  gate after all Electron artifacts are removed.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Remove the legacy Electron runtime and Electron-only provider code while
+  retaining the shared renderer contracts and Rust implementations.
 
 ### Release Operations Separated from Repository Migration
 

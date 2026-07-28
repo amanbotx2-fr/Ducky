@@ -53,12 +53,7 @@ export interface PreferencesDesktopBridge {
     PreferencesSettingsCapabilities;
 }
 
-/**
- * Internal adapter contract implemented by each desktop runtime.
- *
- * Renderer entry points receive one of the role-scoped views above rather
- * than this complete privileged surface.
- */
+/** Complete native adapter kept private behind the role-scoped views. */
 export interface DesktopBridge
   extends CompanionDesktopBridge,
     PreferencesDesktopBridge {}

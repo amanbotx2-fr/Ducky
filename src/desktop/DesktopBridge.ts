@@ -1,45 +1,37 @@
-import { isTauri } from '@tauri-apps/api/core';
-
 import type {
   CompanionDesktopBridge,
   PreferencesDesktopBridge,
 } from './contracts';
-import { electronDesktopBridge } from './electronBridge';
 import { tauriDesktopBridge } from './tauriBridge';
 
 /**
- * Runtime adapter selected once for the current desktop shell.
+ * Role-scoped native surface for the companion renderer.
  *
  * The complete adapter remains private so a renderer cannot request native
  * capabilities belonging to the other window role.
  */
-const runtimeDesktopBridge = isTauri()
-  ? tauriDesktopBridge
-  : electronDesktopBridge;
-
-/** Electron/Tauri-neutral native surface for the companion renderer. */
 export const companionDesktopBridge: CompanionDesktopBridge = Object.freeze({
-  getCompanionBridge: runtimeDesktopBridge.getCompanionBridge,
-  getCompanionAiBridge: runtimeDesktopBridge.getCompanionAiBridge,
+  getCompanionBridge: tauriDesktopBridge.getCompanionBridge,
+  getCompanionAiBridge: tauriDesktopBridge.getCompanionAiBridge,
   getCompanionSettingsBridge:
-    runtimeDesktopBridge.getCompanionSettingsBridge,
+    tauriDesktopBridge.getCompanionSettingsBridge,
   getRuntimeSettingsBridge:
-    runtimeDesktopBridge.getRuntimeSettingsBridge,
+    tauriDesktopBridge.getRuntimeSettingsBridge,
   getCompanionWindowBridge:
-    runtimeDesktopBridge.getCompanionWindowBridge,
-  getReminderBridge: runtimeDesktopBridge.getReminderBridge,
-  getPomodoroBridge: runtimeDesktopBridge.getPomodoroBridge,
+    tauriDesktopBridge.getCompanionWindowBridge,
+  getReminderBridge: tauriDesktopBridge.getReminderBridge,
+  getPomodoroBridge: tauriDesktopBridge.getPomodoroBridge,
 });
 
-/** Electron/Tauri-neutral native surface for the Preferences renderer. */
+/** Role-scoped native surface for the Preferences renderer. */
 export const preferencesDesktopBridge: PreferencesDesktopBridge =
   Object.freeze({
-    getPreferencesAiBridge: runtimeDesktopBridge.getPreferencesAiBridge,
+    getPreferencesAiBridge: tauriDesktopBridge.getPreferencesAiBridge,
     getPreferencesSettingsBridge:
-      runtimeDesktopBridge.getPreferencesSettingsBridge,
+      tauriDesktopBridge.getPreferencesSettingsBridge,
     getPreferencesUpdateBridge:
-      runtimeDesktopBridge.getPreferencesUpdateBridge,
-    getCredentialBridge: runtimeDesktopBridge.getCredentialBridge,
+      tauriDesktopBridge.getPreferencesUpdateBridge,
+    getCredentialBridge: tauriDesktopBridge.getCredentialBridge,
     getPreferencesSettingsCapabilities:
-      runtimeDesktopBridge.getPreferencesSettingsCapabilities,
+      tauriDesktopBridge.getPreferencesSettingsCapabilities,
   });
