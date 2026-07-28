@@ -4,19 +4,19 @@
 
 ## Current Status
 
-- Active work: Phase 11.5 — Functional Parity Closure implementation.
-- Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
-  external production credential gate remains documented for the release
-  manager and is explicitly accepted by the updated Phase 12 contract.
-- Last completed task: Phase 11.5 Task 11.5.5 — complete dynamic companion
-  context-menu structure, state, and native callbacks.
-- Next task: Phase 11.5 Task 11.5.6 — verify and record the Electron-only
-  migration-dialog final disposition, then run the final parity audit.
-- Blockers: the migrated Tauri runtime still lacks several working Electron
-  behaviors required by the Phase 12 preservation and exit criteria. Removing
-  Electron now would delete those behaviors. The ownership ambiguity is
-  resolved, but Phase 12 remains blocked until the Phase 11.5 implementation
-  and manual parity gate are complete.
+- Active work: none. Phase 11.5 — Functional Parity Closure is complete.
+- Last completed phase: Phase 11.5. Every renderer-accessible Electron
+  behavior found by the pre-removal audit now has a working Tauri equivalent,
+  or—in the migration dialog's explicitly documented case—is a final
+  Electron transition-release obligation rather than ongoing Tauri behavior.
+- Last completed task: Phase 11.5 Task 11.5.8 — final automated and manual
+  Electron-versus-Tauri parity gate.
+- Next task: Phase 12 — Electron Removal, only after a separate instruction
+  and after the release manager records the signed transition-release
+  evidence required by `docs/RELEASING.md`.
+- Blockers: none for Phase 11.5. The external signing/publication and
+  transition-release evidence gate remains mandatory before Electron source
+  deletion; it is not an unimplemented Tauri feature.
 
 ## Active Verification
 
@@ -507,6 +507,162 @@ not represented as having run before a signed transition release exists.
 
 - Tasks 11.5.7 and 11.5.8 — complete the bridge/least-privilege audit and run
   the full automated and interactive parity gate.
+
+### Tasks 11.5.7 and 11.5.8 — Final DesktopBridge and Parity Gate
+
+**Status:** Complete. Phase 11.5 exit criteria are satisfied.
+
+**Final bridge and authorization audit**
+
+- Compared every Electron companion and Preferences preload member, every
+  `IPC_CHANNELS` command/event, every renderer-accessible main service, every
+  native menu action, and every Preferences control against the Tauri command
+  registry, targeted event registry, DesktopBridge adapters, authorization
+  table, generated permissions, and role capabilities.
+- `getCompanionBridge()` returns the complete typed Tauri companion adapter.
+  Its window, settings, Personal Assistant, Daily Planner, reminder, Pomodoro,
+  and AI members all dispatch through the existing runtime-neutral bridge.
+- Cursor delivery remains a typed Tauri channel; all low-frequency Electron
+  events have exact targeted Tauri event routes. Personal Assistant,
+  reminder, and Pomodoro activation happens only after listeners are
+  registered, preserving startup/reload recovery.
+- The companion and Preferences capabilities contain only exact custom
+  commands plus event listen/unlisten. Cross-role grants, wildcard labels,
+  remote capabilities, generic invoke/event emission, and frontend
+  filesystem, HTTP, shell, process, clipboard, menu, tray, notification, and
+  updater plugin authority remain absent.
+- A complete renderer-source scan found no Electron imports, Tauri imports,
+  preload-global access, or runtime detection outside the private
+  `src/desktop` adapter boundary.
+- Repeated searches found no additional renderer-accessible Electron-only
+  operation, menu action, Preferences control, or user-visible service.
+  Compatibility branches that keep Electron running are still required until
+  Phase 12 and were not prematurely removed.
+
+**Interactive parity verification**
+
+- **Set My Name:** opened from the native context menu, saved the temporary
+  name `Parity Test`, observed the immediate greeting, restarted Tauri, and
+  confirmed the saved value in the unchanged React panel. Restored the
+  original `Friend` value afterward.
+- **Sticky Message:** opened the existing panel, saved `Phase 11.5 parity
+  check`, observed the persistent companion message, restarted Tauri,
+  confirmed it remained visible, and used the newly enabled native **Clear
+  Sticky Message** action. Restored the original `null` state.
+- **Daily Planner:** opened from the native context menu and received the
+  native Rust briefing with the correct local `Good Afternoon, Parity Test.`
+  greeting and empty-schedule presentation.
+- **Hydration:** disabled/re-enabled reminders, changed 30 → 15 minutes,
+  restarted and confirmed persistence, then allowed the unchanged production
+  renderer timer to run for the complete 15-minute interval. It fired on
+  schedule and displayed `Your duck recommends hydration.` through the
+  existing React speech bubble. The context menu then restored the interval
+  to 30 minutes, toggled Enabled off/on, and Preferences reflected each native
+  mutation. The original enabled/30-minute values were confirmed in the
+  persisted native settings file.
+- **Context menu:** captured the live Electron and Tauri menus and confirmed
+  the same hierarchy, ordering, labels, disabled states, and six hydration
+  intervals. Exercised Set My Name, New/Manage Reminders, Daily Planner,
+  Sticky Message, Water Reminders, Eye Tracking, Always On Top, Preferences,
+  About, Restart, and Quit paths.
+- **Pomodoro regression:** started the 25-minute preset, observed the live
+  countdown, confirmed Pause/Resume/Stop enabled states changed dynamically,
+  then paused, resumed, and stopped successfully. The Custom panel also
+  opened with the existing 1–720 minute validation UI.
+- **Reminder regression:** opened the creation and management panels through
+  native callbacks. Both loaded through the migrated bridge with the existing
+  fields, recurrence control, empty state, and no renderer error.
+- **Settings regression:** Preferences loaded every migrated section and
+  state; the notification Test Sound action remained operational. Native Eye
+  Tracking and Always On Top menu mutations were reflected immediately in
+  Preferences and both original enabled values were restored.
+- **About/restart/quit regression:** About displayed Ducky 1.1.0 and the Tauri
+  metadata; native Restart created a replacement process; Quit terminated the
+  requested runtime. Tray-specific visibility, menu, and Show Ducky behavior
+  remain covered by the completed Phase 4 manual gate.
+- **Earlier feature domains:** the final automated suites and existing
+  Phase 5–10 manual records continue covering credentials, all AI providers,
+  eye tracking/dragging, reminders/firing, Pomodoro restoration/completion,
+  settings, updater status/checks, tray, and window lifecycle. No Phase 11.5
+  change regressed those paths.
+- **Migration dialog:** retained the completed Phase 10 interactive evidence
+  for exact copy, Download, and Remind Me Later, and reverified its wiring and
+  action contract automatically. Task 11.5.6 records the final
+  release-manager ownership.
+- No renderer exception or Tauri permission warning appeared. Development
+  WebKit emitted only the known custom-protocol-to-postMessage fallback
+  warning already accepted in earlier phases.
+
+**Production-launch diagnostic resolution**
+
+- Rebuilding a running bundle in place caused macOS Accessibility automation
+  to lose attachment after Restart, although the replacement process remained
+  alive. A temporary unique-identifier bundle and temporary native
+  diagnostics were used to distinguish automation state from application
+  startup.
+- The isolated optimized bundle emitted page-load **started**, page-load
+  **finished**, and companion-show completion in order. This proved the
+  companion was created and shown; no Ducky lifecycle defect was present.
+- Every temporary diagnostic and configuration change was removed. The final
+  production bundle was rebuilt from the clean source, and both its executable
+  and the release binary were scanned to prove no diagnostic marker remained.
+  The temporary verification bundle was moved to Trash. No credential or
+  environment secret was added, changed, or committed, and the temporary
+  production diagnostics logged only lifecycle markers.
+
+**Final automated validation**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (160 tests across 49 suites; 0 failures).
+- `npm run build`: passed, including Electron main, companion renderer, and
+  Preferences renderer production output.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (132 native tests; 0 failures).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron universal production package
+  (`npm run dist:mac -- --publish never`): passed.
+- Electron release verification
+  (`npm run release:verify -- macos release`): passed for DMG, ZIP,
+  `latest-mac.yml`, and both blockmaps.
+- Packaged Electron smoke launch: process remained alive until the
+  intentional verification shutdown.
+- `npm run tauri:dev -- --no-watch`: passed; the companion was visible and
+  interactive.
+- `npm run tauri:build -- --bundles app`: passed in the optimized release
+  profile after all diagnostics were removed.
+- Optimized Tauri application startup/page-load/show: passed through the
+  isolated production verification described above.
+- `git diff --check`: passed.
+
+**Commits**
+
+- `1fb98fe docs(tauri): audit phase 11.5 parity gaps`
+- `e72cdb5 feat(tauri): migrate daily planner backend`
+- `bf68c84 feat(tauri): migrate personal assistant parity`
+- `f4a20dd feat(tauri): restore hydration settings`
+- `014b614 feat(tauri): complete context menu parity`
+- `b09679e docs(tauri): finalize migration dialog disposition`
+- `docs(tauri): complete phase 11.5 verification` records this final gate.
+
+**Phase 11.5 completion**
+
+- The parity matrix has no remaining Electron-only user-facing feature that
+  belongs in Tauri.
+- Electron remains intact, buildable, and releasable.
+- No Electron dependency, source, test, feed, or compatibility path was
+  removed.
+- The signed transition-release evidence remains a release-manager gate
+  before Phase 12 source deletion, as documented in `docs/RELEASING.md`.
+
+**Blockers**
+
+- None for Phase 11.5.
+
+**Next task**
+
+- Stop. Do not begin Phase 12 without a separate instruction and the required
+  transition-release evidence.
 
 ### Phase 11.5 — Functional Parity Closure Contract
 
