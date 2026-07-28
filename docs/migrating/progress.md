@@ -4,13 +4,13 @@
 
 ## Current Status
 
-- Active work: Phase 12 — Electron Removal.
-- Last completed phase: Phase 11.5 — Functional Parity Closure.
-- Last completed task: Phase 12 migration compatibility cleanup. Native
-  startup, settings, Pomodoro, and credential flows no longer contain
-  Electron import or re-entry behavior.
-- Next task: replace or remove Electron-era active documentation, perform the
-  final static cleanup, clean-install validation, and manual regression sweep.
+- Active work: none. The repository migration is complete.
+- Last completed phase: Phase 12 — Electron Removal.
+- Last completed task: Phase 12 clean-checkout validation and final native
+  regression verification.
+- Next task: the external Release Candidate Checklist only. It requires a
+  separate release-operation instruction and is not part of repository
+  migration.
 - Blockers: none. Production credentials, signed transition-release
   publication, staged updater verification, and go-live approval are external
   Release Candidate Checklist operations after Phase 12 and do not block
@@ -20,7 +20,7 @@
 
 ### Phase 12 — Electron Removal
 
-**Status:** In progress. Renderer boundary cleanup is complete.
+**Status:** Complete. The desktop repository is Tauri-only.
 
 **Discovery summary**
 
@@ -306,6 +306,120 @@
 
 - Run clean-checkout validation, final static/dependency checks, and the full
   native application regression sweep.
+
+#### Final Repository and Regression Gate
+
+**Status:** Complete.
+
+**Repository cleanup**
+
+- Confirmed the tracked tree contains no Electron runtime, preload, main
+  process, IPC implementation, Builder configuration, packaging asset,
+  compatibility adapter, or Electron-only test.
+- Confirmed `package.json`, `package-lock.json`, and the installed dependency
+  graph contain no `electron`, `electron-builder`, `electron-updater`, or
+  `@electron/*` package.
+- Confirmed renderer-owned code has no native-runtime imports. The private
+  adapter under `src/desktop/` is the only TypeScript Tauri boundary.
+- Confirmed active documentation is Tauri-only. The discovery, contract, and
+  evidence under `docs/migrating/` intentionally retain historical Electron
+  references.
+- Confirmed the release workflow and release verifier accept only Tauri
+  packages and the website selects only namespaced Tauri installers.
+- Moved the ignored stale local `release/` directory containing an old
+  Electron package to the macOS Trash. It remains recoverable and is not part
+  of the repository.
+
+**Commits**
+
+- `bb72692 refactor(tauri): remove electron desktop bridge`
+- `3cc3000 refactor(tauri): remove electron runtime`
+- `5760dfa refactor(tauri): remove electron packaging`
+- `81a0ad5 refactor(tauri): remove migration compatibility`
+- `aa3fbab docs(tauri): finalize migration`
+
+**Validation**
+
+- `npm install`: passed; no Electron package was installed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (85 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (127 tests).
+- `cargo build`: passed.
+- Tauri permission validation: passed through both
+  `npx tauri permission list` and the exact role/command authorization tests.
+- Website `npm install`, `npm run lint`, `npm run typecheck`, `npm test`
+  (14 tests), and `npm run build`: passed.
+- Release version validation and the focused Tauri-only release suite
+  (8 tests): passed.
+- `npm run tauri:build`: passed in the optimized release profile and produced
+  `Ducky.app` plus `Ducky_1.1.0_aarch64.dmg`.
+- A clean `git archive` checkout passed locked root and website installs,
+  root typecheck/tests/build, website lint/typecheck/tests/build, and fresh
+  Rust tests/build.
+- Production dependency audits for both root and website reported zero
+  vulnerabilities. The remaining npm advisories affect development-only
+  glob/lint tooling and do not enter either shipped runtime.
+- Windows and Linux packages cannot be built locally on this macOS host.
+  Their Tauri-only jobs, exact artifact contracts, and required publication
+  dependencies are covered by the release workflow and release tests.
+- Static scans found no production TODO/FIXME, Electron import, Electron
+  package, preload, main-process, Builder, or legacy feed reference.
+
+**Manual verification**
+
+- Launched the optimized packaged `Ducky.app`; only the Companion appeared at
+  startup and the process remained alive.
+- Verified companion rendering, startup speech, animations, native logical
+  drag transport, cursor/eye-tracking controls, and always-on-top controls.
+  The repeated-drag and mixed-DPI pipelines also passed their dedicated
+  renderer and Rust regression suites.
+- Verified the complete native context menu: Pomodoro, Set My Name,
+  Reminders, Daily Planner, Sticky Message, Water Reminders, Eye Tracking,
+  Always On Top, Preferences, About, Restart, and Quit.
+- Opened Set My Name, Sticky Message, Daily Planner, reminder creation,
+  reminder management, Preferences, and About through native menu actions.
+- Created a temporary reminder, verified it persisted in the manager, waited
+  for the native scheduler, observed the React reminder notification, dismissed
+  it, and deleted the completed test record.
+- Started, paused, resumed, and stopped a 25-minute Pomodoro session.
+- Played the selected notification sound and observed its active UI state.
+- Disabled and restored hydration reminders, eye tracking, and always-on-top;
+  every control updated immediately and the original values were restored.
+- Restarted through the native menu and confirmed the Companion returned,
+  Preferences remained closed until requested, and settings persisted.
+- Verified updater status and manual-check error handling. Production feed
+  credentials and live signed-update installation remain external Release
+  Candidate Checklist work.
+- Reused the completed Phase 9 credentialed provider evidence for live AI
+  services and re-ran every provider/registry/transport test after removal.
+  The current packaged Preferences AI controls rendered through
+  DesktopBridge; no credential was read or changed during this pass.
+- The tray lifecycle initialized successfully in the current packaged app;
+  its decoded canonical icon and exact action structure passed native tests.
+  The prior Phase 4 visible tray/menu/Show Ducky verification remains valid
+  because Phase 12 removed only the retired runtime and repointed that
+  unchanged tray implementation to the canonical Tauri icon.
+- Quit through the native menu and confirmed the packaged process terminated
+  cleanly.
+- No renderer error, permission warning, crash, orphan process, or functional
+  regression was observed.
+
+**Blockers**
+
+- None for repository migration.
+
+**Phase 12 completion**
+
+- Every Phase 12 exit criterion is satisfied. Electron is removed, Tauri is
+  the only desktop runtime, the repository is buildable from a clean checkout,
+  native feature parity is preserved, and the migration is **COMPLETE**.
+
+**Next task**
+
+- Stop. Do not perform the Release Candidate Checklist without a separate
+  release-operation instruction.
 
 ### Release Operations Separated from Repository Migration
 
