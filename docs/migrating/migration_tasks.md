@@ -3530,9 +3530,12 @@ Validate only the presence and wiring of secrets.
 Never fabricate or commit secret values.
 
 Production credential availability is not a Phase 11 or Phase 12 completion
-gate. Missing credentials must fail release jobs closed without exposing
-values, and the exact required external inputs must be documented for the
-Release Candidate Checklist.
+gate. Missing updater-signing credentials must fail release jobs closed
+without exposing values. Apple and Windows platform signing credentials are
+optional as a complete set: all configured values enable signing and
+verification, while an absent or partial set selects the documented unsigned
+platform build. The exact external inputs and resulting signing state must be
+documented for the Release Candidate Checklist.
 
 ## Validation
 
@@ -3540,7 +3543,8 @@ Run all repository validation plus:
 
 - tag/package/Cargo/Tauri version consistency
 - Tauri updater configuration validation
-- missing-signing-secret preflight behavior without logging secret values
+- mandatory updater-signing failure and optional platform-signing selection
+  without logging secret values
 - release artifact and `.sig` verifier tests using deterministic fixtures
 - `latest.json` schema and URL verifier tests
 - cross-platform packaging configuration validation
@@ -4245,12 +4249,15 @@ every applicable item below is complete and its evidence is recorded in
   reviewed path
 - configure `TAURI_SIGNING_PRIVATE_KEY` and its password in the production CI
   environment
-- configure required Apple signing/notarization credentials
-- configure required Windows signing credentials and timestamp service
+- optionally configure the complete Apple signing/notarization credential set;
+  otherwise record that macOS artifacts will be unsigned
+- optionally configure the complete Windows signing credential set and
+  timestamp service; otherwise record that Windows artifacts will be unsigned
 - verify every production credential is available to the intended protected
   workflow and is absent from source, logs, artifacts, and untrusted jobs
 - run the release preflight and confirm it fails closed for missing or
-  mismatched trust material
+  mismatched updater trust material while selecting the documented unsigned
+  path when optional platform-signing credentials are incomplete
 
 ## Signed Transition Release
 
@@ -4267,10 +4274,13 @@ every applicable item below is complete and its evidence is recorded in
 
 ## Staged Updater Verification
 
-- generate signed Tauri packages, updater archives, `.sig` files, checksums,
+- generate Tauri packages, signed updater archives, `.sig` files, checksums,
   and `latest.json` for every supported platform and architecture
 - verify signatures against the committed updater public key
 - verify every metadata URL, version, platform, architecture, and checksum
+- when platform signing is enabled, verify Apple notarization and Windows
+  Authenticode signatures/timestamps; otherwise verify the generated release
+  notes disclose that the affected artifacts are unsigned
 - exercise clean installation and staged update detection
 - verify signed download, installation, restart, settings preservation, and
   rollback behavior on supported macOS, Windows, and Linux systems

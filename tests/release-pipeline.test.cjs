@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const { mkdtemp, readFile, writeFile } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
@@ -7,6 +8,12 @@ const { test } = require("node:test");
 async function releaseContract() {
   return import(
     new URL("../scripts/release/release-contract.mjs", `file://${__filename}`)
+  );
+}
+
+async function platformSigning() {
+  return import(
+    new URL("../scripts/release/platform-signing.mjs", `file://${__filename}`)
   );
 }
 
@@ -100,6 +107,194 @@ test("release-only configuration rejects missing and placeholder updater keys", 
   );
 });
 
+test("unsigned releases preserve mandatory updater signing", async () => {
+  const {
+    formatPlatformSigningStatus,
+    prepareReleaseNotes,
+    resolvePlatformSigning,
+    unsignedPlatformReleaseNote,
+    validateMandatoryUpdaterSigning,
+  } = await platformSigning();
+  const updaterEnvironment = {
+    TAURI_SIGNING_PRIVATE_KEY: "private-key",
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "private-key-password",
+  };
+
+  assert.ok(
+    validateMandatoryUpdaterSigning(
+      updaterEnvironment,
+      resolve("src-tauri/updater.pubkey"),
+    ),
+  );
+  const apple = resolvePlatformSigning("macos", updaterEnvironment);
+  const windows = resolvePlatformSigning("windows", updaterEnvironment);
+
+  assert.equal(apple.status, "skipped");
+  assert.equal(windows.status, "skipped");
+  assert.equal(
+    formatPlatformSigningStatus(apple),
+    "Apple signing: skipped (credentials not configured)",
+  );
+  assert.equal(
+    formatPlatformSigningStatus(windows),
+    "Windows signing: skipped (credentials not configured)",
+  );
+  assert.ok(
+    prepareReleaseNotes("Generated notes\n", {
+      appleSigningStatus: apple.status,
+      windowsSigningStatus: windows.status,
+    }).includes(unsignedPlatformReleaseNote),
+  );
+});
+
+test("fully signed releases enable Apple and Windows signing", async () => {
+  const {
+    prepareReleaseNotes,
+    resolvePlatformSigning,
+    unsignedPlatformReleaseNote,
+  } = await platformSigning();
+  const environment = {
+    APPLE_CERTIFICATE: "certificate",
+    APPLE_CERTIFICATE_PASSWORD: "certificate-password",
+    APPLE_API_ISSUER: "issuer",
+    APPLE_API_KEY: "key-id",
+    APPLE_API_PRIVATE_KEY: "private-key",
+    WINDOWS_CERTIFICATE: "certificate",
+    WINDOWS_CERTIFICATE_PASSWORD: "certificate-password",
+    WINDOWS_TIMESTAMP_URL: "https://timestamp.example.test",
+  };
+
+  assert.equal(resolvePlatformSigning("macos", environment).status, "enabled");
+  assert.equal(
+    resolvePlatformSigning("windows", environment).status,
+    "enabled",
+  );
+  assert.ok(
+    !prepareReleaseNotes("Generated notes\n", {
+      appleSigningStatus: "enabled",
+      windowsSigningStatus: "enabled",
+    }).includes(unsignedPlatformReleaseNote),
+  );
+});
+
+test("mixed releases sign only the fully configured platform", async () => {
+  const {
+    prepareReleaseNotes,
+    resolvePlatformSigning,
+    unsignedPlatformReleaseNote,
+  } = await platformSigning();
+  const environment = {
+    APPLE_CERTIFICATE: "certificate",
+    APPLE_CERTIFICATE_PASSWORD: "certificate-password",
+    APPLE_API_ISSUER: "issuer",
+    APPLE_API_KEY: "key-id",
+    APPLE_API_PRIVATE_KEY: "private-key",
+    WINDOWS_TIMESTAMP_URL: "https://timestamp.example.test",
+  };
+
+  assert.equal(resolvePlatformSigning("macos", environment).status, "enabled");
+  assert.equal(
+    resolvePlatformSigning("windows", environment).status,
+    "skipped",
+  );
+  assert.ok(
+    prepareReleaseNotes("Generated notes\n", {
+      appleSigningStatus: "enabled",
+      windowsSigningStatus: "skipped",
+    }).includes(unsignedPlatformReleaseNote),
+  );
+});
+
+test("release-note signing disclosure is idempotent and removed for fully signed releases", async () => {
+  const { prepareReleaseNotes, unsignedPlatformReleaseNote } =
+    await platformSigning();
+  const unsignedNotes = prepareReleaseNotes("Generated notes\n", {
+    appleSigningStatus: "skipped",
+    windowsSigningStatus: "enabled",
+  });
+  const repeatedUnsignedNotes = prepareReleaseNotes(unsignedNotes, {
+    appleSigningStatus: "skipped",
+    windowsSigningStatus: "enabled",
+  });
+  const signedNotes = prepareReleaseNotes(repeatedUnsignedNotes, {
+    appleSigningStatus: "enabled",
+    windowsSigningStatus: "enabled",
+  });
+
+  assert.equal(
+    repeatedUnsignedNotes.split(unsignedPlatformReleaseNote).length - 1,
+    1,
+  );
+  assert.ok(!signedNotes.includes(unsignedPlatformReleaseNote));
+});
+
+test("release configuration omits Windows signing unless it is enabled", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ducky-signing-config-"));
+  const unsignedPath = join(directory, "unsigned.json");
+  const signedPath = join(directory, "signed.json");
+  const script = resolve("scripts/release/create-tauri-config.mjs");
+  const baseEnvironment = {
+    ...process.env,
+    RELEASE_TAG: "v2.0.0",
+    WINDOWS_TIMESTAMP_URL: "https://timestamp.example.test",
+  };
+
+  execFileSync(process.execPath, [script, unsignedPath, "windows"], {
+    env: { ...baseEnvironment, PLATFORM_SIGNING: "skipped" },
+    stdio: "pipe",
+  });
+  execFileSync(process.execPath, [script, signedPath, "windows"], {
+    env: {
+      ...baseEnvironment,
+      PLATFORM_SIGNING: "enabled",
+      WINDOWS_CERTIFICATE_THUMBPRINT: "ABCDEF123456",
+    },
+    stdio: "pipe",
+  });
+
+  const unsigned = JSON.parse(await readFile(unsignedPath, "utf8"));
+  const signed = JSON.parse(await readFile(signedPath, "utf8"));
+  assert.equal(unsigned.bundle.windows, undefined);
+  assert.deepEqual(signed.bundle.windows, {
+    certificateThumbprint: "ABCDEF123456",
+    digestAlgorithm: "sha256",
+    timestampUrl: "https://timestamp.example.test/",
+  });
+  assert.equal(unsigned.bundle.createUpdaterArtifacts, true);
+  assert.equal(signed.bundle.createUpdaterArtifacts, true);
+});
+
+test("missing updater public key fails mandatory signing validation", async () => {
+  const { validateMandatoryUpdaterSigning } = await platformSigning();
+
+  assert.throws(
+    () =>
+      validateMandatoryUpdaterSigning(
+        {
+          TAURI_SIGNING_PRIVATE_KEY: "private-key",
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "private-key-password",
+        },
+        join(tmpdir(), "ducky-missing-mandatory-updater.pubkey"),
+      ),
+    /Committed updater public key is missing/,
+  );
+});
+
+test("missing updater private key fails mandatory signing validation", async () => {
+  const { validateMandatoryUpdaterSigning } = await platformSigning();
+
+  assert.throws(
+    () =>
+      validateMandatoryUpdaterSigning(
+        {
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "private-key-password",
+        },
+        resolve("src-tauri/updater.pubkey"),
+      ),
+    /Missing mandatory updater signing configuration: TAURI_SIGNING_PRIVATE_KEY/,
+  );
+});
+
 test("website cutover selects namespaced Tauri installers", async () => {
   const source = await readFile(
     resolve("website/lib/downloads/githubRelease.ts"),
@@ -122,6 +317,8 @@ test("release workflow publishes only the atomic Tauri bundle", async () => {
   assert.match(workflow, /platform: macos[\s\S]*platform: windows[\s\S]*platform: linux/);
   assert.match(releaseConfig, /createUpdaterArtifacts: true/);
   assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\./);
+  assert.match(workflow, /Validate mandatory updater signing/);
+  assert.match(workflow, /validate-signing-environment\.mjs updater/);
   assert.match(
     workflow,
     /APPLE_CERTIFICATE: \$\{\{ matrix\.platform == 'macos' && secrets\./,
@@ -134,6 +331,27 @@ test("release workflow publishes only the atomic Tauri bundle", async () => {
   assert.match(workflow, /verify-github-draft\.mjs/);
   assert.match(workflow, /release:verify-signatures/);
   assert.match(workflow, /Verify complete Tauri bundle/);
+  assert.match(
+    workflow,
+    /Apple signing: skipped \(credentials not configured\)/,
+  );
+  assert.match(workflow, /Apple signing: enabled/);
+  assert.match(
+    workflow,
+    /Windows signing: skipped \(credentials not configured\)/,
+  );
+  assert.match(workflow, /Windows signing: enabled/);
+  assert.match(workflow, /TimeStamperCertificate/);
+  assert.match(
+    workflow,
+    /steps\.signing\.outputs\.platform_signing == 'enabled'/,
+  );
+  assert.match(
+    workflow,
+    /platform-signing-status-\$\{\{ matrix\.platform \}\}\.txt/,
+  );
+  assert.match(workflow, /prepare-release-notes\.mjs/);
+  assert.match(releaseConfig, /platformSigning === "enabled"/);
   assert.ok(
     workflow.indexOf("Verify remote draft inventory") <
       workflow.indexOf("Publish verified GitHub Release"),
@@ -149,13 +367,20 @@ test("release workflow publishes only the atomic Tauri bundle", async () => {
 });
 
 test("signing preflight checks names without printing credential values", async () => {
-  const source = await readFile(
-    resolve("scripts/release/validate-signing-environment.mjs"),
-    "utf8",
-  );
-  assert.match(source, /TAURI_SIGNING_PRIVATE_KEY/);
-  assert.match(source, /APPLE_API_PRIVATE_KEY/);
-  assert.match(source, /WINDOWS_CERTIFICATE/);
-  assert.match(source, /missing\.join/);
+  const [source, signingConfiguration] = await Promise.all([
+    readFile(
+      resolve("scripts/release/validate-signing-environment.mjs"),
+      "utf8",
+    ),
+    readFile(resolve("scripts/release/platform-signing.mjs"), "utf8"),
+  ]);
+  assert.match(signingConfiguration, /TAURI_SIGNING_PRIVATE_KEY/);
+  assert.match(signingConfiguration, /APPLE_API_PRIVATE_KEY/);
+  assert.match(signingConfiguration, /WINDOWS_CERTIFICATE/);
+  assert.match(signingConfiguration, /missing\.join/);
   assert.doesNotMatch(source, /console\.(?:log|error)\([^)]*process\.env/);
+  assert.doesNotMatch(
+    signingConfiguration,
+    /console\.(?:log|error)\([^)]*environment/,
+  );
 });
