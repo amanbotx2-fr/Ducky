@@ -370,6 +370,15 @@ test("release workflow publishes only the atomic Tauri bundle", async () => {
   );
   assert.match(workflow, /Verify signed updater downloads from draft/);
   assert.match(workflow, /verify-github-draft\.mjs/);
+  assert.match(workflow, /--json databaseId/);
+  assert.match(
+    workflow,
+    /DRAFT_RELEASE_ID=\$draft_release_id[\s\S]*repos\/\$GITHUB_REPOSITORY\/releases\/\$DRAFT_RELEASE_ID/,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /repos\/\$GITHUB_REPOSITORY\/releases\/tags\/\$RELEASE_TAG/,
+  );
   assert.match(workflow, /release:verify-signatures/);
   assert.match(workflow, /Verify complete Tauri bundle/);
   assert.match(

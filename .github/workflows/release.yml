@@ -497,6 +497,17 @@ jobs:
               --generate-notes \
               --title "Ducky ${RELEASE_TAG}"
           fi
+          draft_release_id="$(
+            gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json databaseId \
+              --jq '.databaseId'
+          )"
+          if [[ ! "$draft_release_id" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid draft release ID::GitHub returned '$draft_release_id'."
+            exit 1
+          fi
+          echo "DRAFT_RELEASE_ID=$draft_release_id" >> "$GITHUB_ENV"
 
       - name: Add platform signing status to release notes
         shell: bash
@@ -536,7 +547,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            "repos/$GITHUB_REPOSITORY/releases/$DRAFT_RELEASE_ID" \
             > "$RUNNER_TEMP/release-draft.json"
           node scripts/release/verify-github-draft.mjs \
             release-artifacts \
