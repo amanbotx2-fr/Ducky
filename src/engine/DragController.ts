@@ -2,19 +2,22 @@ import type { ScreenPoint } from '../shared/types';
 
 export interface DragControllerOptions {
   readonly surface: HTMLElement;
-  readonly getWindowPosition: () => ScreenPoint;
+  readonly getWindowPosition: () => Promise<ScreenPoint>;
   readonly moveWindow: (position: ScreenPoint) => void;
   readonly onDraggingChange?: (dragging: boolean) => void;
 }
 
 export class DragController {
   private readonly surface: HTMLElement;
-  private readonly getWindowPosition: () => ScreenPoint;
+  private readonly getWindowPosition: () => Promise<ScreenPoint>;
   private readonly moveWindow: (position: ScreenPoint) => void;
   private readonly onDraggingChange: ((dragging: boolean) => void) | undefined;
-  private dragOffset: ScreenPoint = { x: 0, y: 0 };
+  private dragAnchor: ScreenPoint | null = null;
+  private dragWindowPosition: ScreenPoint | null = null;
+  private pendingPointerPosition: ScreenPoint | null = null;
   private lastWindowPosition: ScreenPoint | null = null;
   private activePointerId: number | null = null;
+  private dragGeneration = 0;
   private attached = false;
   private dragging = false;
 
@@ -60,18 +63,23 @@ export class DragController {
 
     event.preventDefault();
 
-    const windowPosition = this.getWindowPosition();
-    this.dragOffset = {
-      x: event.screenX - windowPosition.x,
-      y: event.screenY - windowPosition.y,
-    };
-    this.lastWindowPosition = windowPosition;
     this.activePointerId = event.pointerId;
     this.dragging = true;
+    this.dragAnchor = null;
+    this.dragWindowPosition = null;
+    this.pendingPointerPosition = null;
+    this.lastWindowPosition = null;
+    const generation = ++this.dragGeneration;
 
     this.surface.setPointerCapture(event.pointerId);
     this.addActiveListeners();
     this.onDraggingChange?.(true);
+
+    void this.initializeDragAnchor(
+      generation,
+      event.clientX,
+      event.clientY,
+    );
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -84,9 +92,30 @@ export class DragController {
       return;
     }
 
+    const pointerPosition = {
+      x: event.screenX,
+      y: event.screenY,
+    };
+    this.pendingPointerPosition = pointerPosition;
+
+    this.moveToPointerPosition(pointerPosition);
+  };
+
+  private moveToPointerPosition(pointerPosition: ScreenPoint): void {
+    if (
+      this.dragAnchor === null ||
+      this.dragWindowPosition === null
+    ) {
+      return;
+    }
+
+    const grabOffset = {
+      x: this.dragAnchor.x - this.dragWindowPosition.x,
+      y: this.dragAnchor.y - this.dragWindowPosition.y,
+    };
     const nextWindowPosition = {
-      x: event.screenX - this.dragOffset.x,
-      y: event.screenY - this.dragOffset.y,
+      x: pointerPosition.x - grabOffset.x,
+      y: pointerPosition.y - grabOffset.y,
     };
 
     if (
@@ -98,7 +127,40 @@ export class DragController {
 
     this.lastWindowPosition = nextWindowPosition;
     this.moveWindow(nextWindowPosition);
-  };
+  }
+
+  private async initializeDragAnchor(
+    generation: number,
+    clientX: number,
+    clientY: number,
+  ): Promise<void> {
+    try {
+      const windowPosition = await this.getWindowPosition();
+
+      if (!this.dragging || generation !== this.dragGeneration) {
+        return;
+      }
+
+      this.dragWindowPosition = windowPosition;
+      this.dragAnchor = {
+        x: windowPosition.x + clientX,
+        y: windowPosition.y + clientY,
+      };
+      this.lastWindowPosition = windowPosition;
+
+      if (this.pendingPointerPosition !== null) {
+        this.moveToPointerPosition(this.pendingPointerPosition);
+      }
+    } catch (error) {
+      if (this.dragging && generation === this.dragGeneration) {
+        console.error(
+          '[drag] Unable to read the native companion window position.',
+          error,
+        );
+        this.endDrag();
+      }
+    }
+  }
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
     if (this.isActivePointer(event)) {
@@ -146,6 +208,10 @@ export class DragController {
     const pointerId = this.activePointerId;
     this.dragging = false;
     this.activePointerId = null;
+    this.dragGeneration += 1;
+    this.dragAnchor = null;
+    this.dragWindowPosition = null;
+    this.pendingPointerPosition = null;
     this.lastWindowPosition = null;
     this.removeActiveListeners();
 

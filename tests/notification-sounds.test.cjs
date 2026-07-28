@@ -1,16 +1,11 @@
 const assert = require('node:assert/strict');
 const {
-  mkdtemp,
   readFile,
-  rm,
   stat,
-  writeFile,
 } = require('node:fs/promises');
-const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { describe, test } = require('node:test');
 
-const { SettingsService } = require('../dist/main/SettingsService.js');
 const {
   createDefaultSettings,
   parsePreferencesSettingsPatch,
@@ -23,33 +18,6 @@ const {
   NOTIFICATION_SOUND_OPTIONS,
   parseNotificationSoundSettingsPatch,
 } = require('../dist/shared/notificationSounds.js');
-
-const unavailableCredentialManager = {
-  decrypt: () => '',
-  encrypt: () => {
-    throw new Error('Credential storage is unavailable in this test.');
-  },
-  isEncryptionAvailable: () => false,
-};
-
-const legacySettingsDocument = {
-  general: {
-    alwaysOnTop: true,
-    launchAtStartup: false,
-    eyeTracking: true,
-  },
-  water: {
-    enabled: true,
-    interval: 30,
-  },
-  ai: {
-    enabled: false,
-    provider: '',
-    model: '',
-    endpoint: 'http://localhost:11434',
-  },
-  credential: null,
-};
 
 describe('notification sound settings', () => {
   test('uses safe defaults in runtime and Preferences settings', () => {
@@ -106,56 +74,6 @@ describe('notification sound settings', () => {
     }
   });
 
-  test('migrates legacy settings and restores persisted preferences', async () => {
-    const directory = await mkdtemp(
-      join(tmpdir(), 'ducky-notification-sounds-'),
-    );
-    const filePath = join(directory, 'settings.json');
-
-    try {
-      await writeFile(
-        filePath,
-        JSON.stringify(legacySettingsDocument),
-        'utf8',
-      );
-      const settingsService = new SettingsService(
-        filePath,
-        unavailableCredentialManager,
-      );
-      const migratedSettings = await settingsService.load();
-
-      assert.deepEqual(
-        migratedSettings.notificationSounds,
-        DEFAULT_NOTIFICATION_SOUND_SETTINGS,
-      );
-
-      await settingsService.update({
-        notificationSounds: {
-          enabled: true,
-          sound: 'digital-bell',
-          volume: 42,
-        },
-      });
-
-      const storedDocument = JSON.parse(await readFile(filePath, 'utf8'));
-      assert.deepEqual(storedDocument.notificationSounds, {
-        enabled: true,
-        sound: 'digital-bell',
-        volume: 42,
-      });
-
-      const restoredService = new SettingsService(
-        filePath,
-        unavailableCredentialManager,
-      );
-      assert.deepEqual(
-        (await restoredService.load()).notificationSounds,
-        storedDocument.notificationSounds,
-      );
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
-  });
 });
 
 describe('built-in notification sound pack', () => {

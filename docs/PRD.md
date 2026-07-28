@@ -521,7 +521,8 @@ Frontend
 
 Desktop
 
-- Electron
+- Tauri v2
+- Rust
 
 Rendering
 
@@ -538,11 +539,12 @@ State
 
 Storage
 
-- Electron Store
+- Native JSON settings store
+- Operating-system credential vault
 
 Packaging
 
-- Electron Builder
+- Tauri Bundler
 
 ---
 

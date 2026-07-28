@@ -108,7 +108,7 @@ Every exit from Dragging releases pointer capture, clears sample history, resets
 
 # Technical Design
 
-The companion renderer owns `DragController` because pointer capture and Pixi hit testing occur there. Electron's main process owns actual companion-window position and display topology. The renderer computes desired screen-space ground position and sends coalesced `window:set-companion-position` commands at most once per animation frame. The main process applies bounds and returns the accepted window position when platform constraints change it.
+The companion renderer owns `DragController` because pointer capture and hit testing occur there. Rust owns the authoritative companion-window position and display topology. The renderer computes the desired logical desktop position and sends coalesced movement commands through DesktopBridge at most once per animation frame. The native runtime applies bounds and returns the accepted position when platform constraints change it.
 
 Required events:
 
@@ -122,7 +122,7 @@ Required events:
 | `physics.body_rested` | safe screen point | Recover, persist, and return to Idle |
 | `display.topology_changed` | display bounds and scale | Recompute collision surfaces |
 
-Pointer coordinates must be converted from canvas/client space to Electron screen DIP coordinates using the current window bounds and scale factor. Do not rely on DOM `screenX` alone across all Electron platforms without adapter tests. Pointer capture has a renderer path and a main-process safety path for window blur or application suspension.
+Pointer coordinates and native window coordinates use the same logical desktop coordinate space. Do not rely on DOM `screenX` because WebView implementations can report an unreliable window origin. DesktopBridge supplies the authoritative native window position, while pointer capture remains renderer-owned.
 
 The physics body contains position, previous position, velocity, scale, deformation velocity, grounded state, and collision extents. The engine uses a fixed 120 Hz step, gravity, bounded restitution, horizontal air resistance, grounded friction, and a maximum of four substeps per render frame. Maximum throw speed prevents crossing an entire display in one stalled frame.
 

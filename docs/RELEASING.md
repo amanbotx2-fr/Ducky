@@ -1,123 +1,148 @@
 # Releasing Ducky
 
-Ducky releases are built and published by
-[`release.yml`](../.github/workflows/release.yml). A stable version tag is the
-only release trigger; installers must not be uploaded manually.
+Ducky uses one tag-triggered GitHub Actions workflow to build, verify, and
+publish signed Tauri packages for macOS, Windows, and Linux.
 
-## Release checklist
+A release contains:
 
-1. Start from an up-to-date `main` branch and choose a semantic version such as
-   `1.0.1`.
-2. Update both `package.json` and `package-lock.json` to that version:
+- deterministic platform installers;
+- signed native updater artifacts;
+- `latest.json`;
+- detached `.sig` files; and
+- `SHA256SUMS.txt`.
+
+Do not create a GitHub Release or upload assets manually. The workflow uses an
+atomic draft → verify → publish sequence and refuses to replace assets on an
+already published release.
+
+## Required GitHub configuration
+
+Configure these values under **Repository Settings → Secrets and variables →
+Actions**. Never commit or log their values.
+
+### Updater signing
+
+| Kind | Name |
+| --- | --- |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY` |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` |
+
+Commit only the matching public key at `src-tauri/updater.pubkey`. Installed
+applications trust this key, so rotating it requires a separately reviewed
+trust migration.
+
+### Apple signing and notarization
+
+| Kind | Name |
+| --- | --- |
+| Secret | `APPLE_CERTIFICATE` |
+| Secret | `APPLE_CERTIFICATE_PASSWORD` |
+| Secret | `APPLE_API_ISSUER` |
+| Secret | `APPLE_API_KEY` |
+| Secret | `APPLE_API_PRIVATE_KEY` |
+
+The macOS runner imports the Developer ID certificate into an ephemeral
+keychain, signs the universal application, notarizes it, and verifies
+Gatekeeper assessment and stapled tickets before staging artifacts.
+
+### Windows signing
+
+| Kind | Name |
+| --- | --- |
+| Secret | `WINDOWS_CERTIFICATE` |
+| Secret | `WINDOWS_CERTIFICATE_PASSWORD` |
+| Repository variable | `WINDOWS_TIMESTAMP_URL` |
+
+The Windows runner imports the certificate into its ephemeral user store and
+requires valid timestamped Authenticode signatures for NSIS and MSI output.
+
+The built-in `GITHUB_TOKEN` is the only GitHub token. Only the publish job has
+`contents: write`.
+
+## Release preparation
+
+1. Start from an up-to-date `main`.
+2. Set the same `X.Y.Z` version in:
+
+   - `package.json`;
+   - the root package in `package-lock.json`;
+   - `src-tauri/Cargo.toml`; and
+   - `src-tauri/tauri.conf.json`.
+
+3. Run:
 
    ```bash
-   npm version 1.0.1 --no-git-tag-version
+   npm ci
+   npm run release:validate-versions
+   npm run typecheck
+   npm test
+   npm run build
+   cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+   cargo test --manifest-path src-tauri/Cargo.toml
+   cargo build --manifest-path src-tauri/Cargo.toml
    ```
 
-3. Complete the release changes and push them to `main`:
+4. Commit and push the release change to `main`.
+5. Tag that exact commit:
 
    ```bash
-   git add .
-   git commit -m "release: Ducky v1.0.1"
-   git push origin main
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
-4. Tag that exact commit and push the tag:
+The tag must be exactly `vMAJOR.MINOR.PATCH`, match every version source, and
+point to a commit contained in `main`.
 
-   ```bash
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
+## Pipeline architecture
 
-Replace `1.0.1` with `X.Y.Z` throughout. The tag must use the exact stable
-`vX.Y.Z` form and must match the version in `package.json`. The workflow fails
-before packaging if either condition is not met, if `package-lock.json` has a
-different root version, or if the tagged commit is not contained in `main`.
+1. **Validate** checks tag/version consistency, membership in `main`, locked
+   dependency installation, and tests.
+2. **Build** runs a three-platform matrix:
 
-Do not create a GitHub Release or upload files by hand. Follow the run under the
-repository's **Actions → Release** page. Once every job succeeds, the finished
-release appears under **Releases**.
+   - macOS universal DMG and updater archive;
+   - Windows x64 NSIS and MSI packages; and
+   - Linux x64 AppImage and DEB packages.
 
-## What the pipeline does
+3. **Stage** gives every artifact a deterministic `Ducky-Tauri-X.Y.Z-...`
+   name and retains updater signatures.
+4. **Aggregate** generates `latest.json` and checksums, verifies updater
+   signatures, and validates the complete local inventory.
+5. **Draft verification** uploads the complete bundle, verifies the exact
+   hosted inventory, redownloads updater artifacts, and verifies their
+   signatures again.
+6. **Publish** occurs only after every preceding job succeeds.
 
-The tag-triggered run has three stages:
+The matrix uses `fail-fast: false` for complete diagnostics, while the publish
+job depends on every platform. A failed run may reset an unpublished draft.
+Published assets are immutable.
 
-1. **Validate** checks the tag/package version match, installs from
-   `package-lock.json` with `npm ci`, and runs the test suite.
-2. **Build** runs a fail-independent matrix on `macos-latest`,
-   `windows-latest`, and `ubuntu-latest`. Each runner type-checks and builds the
-   application, packages only its native platform, verifies the expected files
-   and their update-manifest references, and stages them as short-lived
-   workflow artifacts.
-3. **Publish** runs only when all matrix jobs pass. It downloads all verified
-   files, creates `SHA256SUMS.txt`, uploads everything to a draft GitHub
-   Release, and publishes that release only after the upload succeeds.
+## Asset contract
 
-If one platform fails, the other matrix jobs are allowed to finish for useful
-diagnostics, but the publish job is skipped. A failed new upload remains a
-draft instead of exposing a partially populated release. Re-running a failed
-tag workflow resumes that draft, clears its previous draft assets, and uploads
-the newly verified set. The workflow refuses to replace assets after a release
-has been published.
+| Platform | Installer assets | Updater asset |
+| --- | --- | --- |
+| macOS universal | `Ducky-Tauri-X.Y.Z-macos-universal.dmg` | `Ducky-Tauri-X.Y.Z-darwin-universal.app.tar.gz` + `.sig` |
+| Windows x64 | `Ducky-Tauri-X.Y.Z-windows-x86_64-setup.exe`, `.msi` | NSIS installer + `.sig` |
+| Linux x64 | `Ducky-Tauri-X.Y.Z-linux-x86_64.AppImage`, `.deb` | AppImage + `.sig` |
 
-The workflow uses separate, platform-scoped caches for:
+`latest.json` maps both supported macOS architectures to the universal archive
+and maps Windows/Linux x64 to their signed native updater artifacts. Every URL
+is pinned to the exact release tag.
 
-- npm's dependency download cache, keyed by `package-lock.json`;
-- Electron binary downloads;
-- Electron Builder tool downloads.
+The production update endpoint is:
 
-## Published files
-
-| Platform | Runner | Architecture | Release files |
-| --- | --- | --- | --- |
-| macOS | `macos-latest` | Universal (`arm64` + `x64`) | DMG, ZIP, both blockmaps, `latest-mac.yml` |
-| Windows | `windows-latest` | `x64` | NSIS Setup EXE, EXE blockmap, MSI, `latest.yml` |
-| Linux | `ubuntu-latest` | `x64` | AppImage, DEB, `latest-linux.yml` |
-
-Windows Portable is not generated because it is not an existing target in
-`electron-builder.yml`. MSI is generated because the existing configuration
-already supports it.
-
-The `latest-mac.yml`, `latest.yml`, `latest-linux.yml`, ZIP, NSIS installer, and
-blockmaps are uploaded without modification so Electron's auto-update metadata
-continues to point at the exact published assets. The verifier rejects metadata
-that has the wrong version, lacks SHA-512 hashes, names a missing file, or uses
-the wrong primary updater target.
-
-The Linux job installs `libopenjp2-tools`, the system package Electron Builder
-requires when creating distributable Linux formats. GitHub selects the Latest
-release automatically by version and date; the workflow does not force an older
-tag to become Latest when tags are processed out of order.
-
-## Credentials and repository settings
-
-No manually configured GitHub Secret is required for the current pipeline.
-GitHub creates the short-lived `GITHUB_TOKEN` automatically for each run. Only
-the publish job receives `contents: write`; validation and builds remain
-read-only. No personal access token is stored or used.
-
-If an organization policy prevents write access, a repository administrator
-must allow GitHub Actions to create releases under **Settings → Actions →
-General → Workflow permissions**. Do not add a personal token unless repository
-policy makes the built-in token unusable.
-
-The existing Electron Builder configuration intentionally produces unsigned
-macOS and Windows packages (`mac.identity: null` and
-`win.signExecutable: false`). This automation preserves that behavior, so no
-certificate or notarization secrets are currently required. Signing and Apple
-notarization are a separate security change: they require real credentials and
-corresponding Electron Builder configuration before any secrets should be
-added under **Settings → Secrets and variables → Actions**.
-
-## Local verification
-
-Normal development builds continue to work:
-
-```bash
-npm run dist:mac
-npm run release:verify -- macos
+```text
+https://github.com/amanbotx2-fr/Ducky/releases/latest/download/latest.json
 ```
 
-Use `windows` or `linux` for the verifier on those platforms. Cross-platform
-release packages must be produced by their matching GitHub-hosted runner; the
-release workflow does not attempt unsupported cross-compilation.
+The website download routes select only namespaced Tauri installers from the
+latest GitHub release.
+
+## Failure and rollback
+
+If draft verification fails, leave the release unpublished and fix the source
+before rerunning the tag workflow. If a published release is defective, do
+not replace its assets; publish a newer patch version.
+
+Production credentials, hardware installation tests, staged updater tests, and
+go-live approval remain release-operator responsibilities outside repository
+migration work.

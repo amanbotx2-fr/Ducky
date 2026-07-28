@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-daily-planner"
+description = "Enables the get_daily_planner command without any pre-configured scope."
+commands.allow = ["get_daily_planner"]
+
+[[permission]]
+identifier = "deny-get-daily-planner"
+description = "Denies the get_daily_planner command without any pre-configured scope."
+commands.deny = ["get_daily_planner"]

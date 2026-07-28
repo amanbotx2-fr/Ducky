@@ -31,7 +31,7 @@ const capabilities: Capability[] = [
   },
   {
     title: "Secure",
-    description: "Credentials stay in the Electron main process.",
+    description: "Credentials stay in native secure storage.",
     icon: ShieldCheck,
     color: "bg-yellow",
   },

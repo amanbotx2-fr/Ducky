@@ -1,9 +1,8 @@
-import type {
-  AIModel,
-  AIProviderHttpDiagnostics,
-  AIResponse,
-} from '../ai/AIProvider';
 import type { AIConversationRequest } from './aiConversation';
+import type {
+  CredentialId,
+  CredentialStatus,
+} from './credentials';
 import type { DailyPlannerBriefing } from './dailyPlanner';
 import type {
   PomodoroCompletionListener,
@@ -19,6 +18,7 @@ import type {
 } from './reminders';
 import type {
   AiConfigurationUpdate,
+  AiProvider,
   PreferencesSettings,
   PreferencesSettingsPatch,
   RuntimeSettings,
@@ -28,12 +28,55 @@ import type {
   UpdateStatusListener,
 } from './updates';
 
+export interface AIModel {
+  readonly id: string;
+  readonly displayName?: string;
+}
+
+export interface AIProviderHttpDiagnostics {
+  readonly requestUrl: string;
+  readonly httpStatusCode: number | null;
+  readonly httpStatusText: string | null;
+  readonly responseBody: string;
+  readonly errorCode: string | null;
+  readonly errorMessage: string;
+}
+
+export type AIResponseFinishReason =
+  | 'stop'
+  | 'length'
+  | 'cancelled';
+
+export interface AIUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+}
+
+export interface AIResponse {
+  readonly providerId: AiProvider;
+  readonly content: string;
+  readonly finishReason: AIResponseFinishReason;
+  readonly usage?: AIUsage;
+}
+
 export interface ScreenPoint {
   readonly x: number;
   readonly y: number;
 }
 
 export type CursorPositionListener = (position: ScreenPoint) => void;
+
+export interface CompanionWindowBridge {
+  readonly getCursorPosition: () => Promise<ScreenPoint>;
+  readonly getWindowPosition: () => Promise<ScreenPoint>;
+  readonly onCursorPosition: (
+    listener: CursorPositionListener,
+  ) => () => void;
+  readonly moveWindow: (position: ScreenPoint) => void;
+  readonly setCompanionContentHeight: (height: number) => void;
+  readonly showCompanionContextMenu: () => void;
+}
+
 export type RuntimeSettingsChangeListener = (
   settings: RuntimeSettings,
 ) => void;
@@ -77,48 +120,64 @@ export type AIConnectionTestResult =
       readonly diagnostics?: AIProviderHttpDiagnostics;
     };
 
-export interface CompanionBridge {
-  readonly platform: string;
-  readonly getCursorPosition: () => Promise<ScreenPoint>;
-  readonly onCursorPosition: (listener: CursorPositionListener) => () => void;
-  readonly moveWindow: (position: ScreenPoint) => void;
-  readonly setCompanionContentHeight: (height: number) => void;
-  readonly showCompanionContextMenu: () => void;
+export interface CompanionAiBridge {
+  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
+}
+
+export interface PreferencesAiBridge {
+  readonly updateAiConfiguration: (
+    configuration: AiConfigurationUpdate,
+  ) => Promise<PreferencesSettings>;
+  readonly listAIModels: () => Promise<AIModelListResult>;
+  readonly testAIConnection: () => Promise<AIConnectionTestResult>;
+}
+
+export interface SettingsChangeBridge {
+  readonly onRuntimeSettingsChanged: (
+    listener: RuntimeSettingsChangeListener,
+  ) => () => void;
+}
+
+export interface RuntimeSettingsBridge extends SettingsChangeBridge {
   readonly getRuntimeSettings: () => Promise<RuntimeSettings>;
+}
+
+export interface CompanionSettingsBridge extends RuntimeSettingsBridge {
   readonly updateUserName: (name: string) => Promise<string>;
   readonly updateStickyMessage: (
     message: string | null,
   ) => Promise<string | null>;
-  readonly onUserNamePanelRequested: (
-    listener: UserNamePanelRequestListener,
-  ) => () => void;
-  readonly onStickyMessagePanelRequested: (
-    listener: StickyMessagePanelRequestListener,
-  ) => () => void;
+}
+
+export interface PreferencesSettingsBridge extends SettingsChangeBridge {
+  readonly getPreferencesSettings: () => Promise<PreferencesSettings>;
+  readonly updatePreferencesSettings: (
+    patch: PreferencesSettingsPatch,
+  ) => Promise<PreferencesSettings>;
+}
+
+export interface CredentialBridge {
+  readonly getCredentialStatus: (
+    id: CredentialId,
+  ) => Promise<CredentialStatus>;
+  readonly saveCredential: (
+    id: CredentialId,
+    secret: string,
+  ) => Promise<CredentialStatus>;
+  readonly deleteCredential: (
+    id: CredentialId,
+  ) => Promise<CredentialStatus>;
+}
+
+export interface ReminderBridge {
   readonly onReminderCreationPanelRequested: (
     listener: ReminderCreationPanelRequestListener,
   ) => () => void;
   readonly onReminderManagerPanelRequested: (
     listener: ReminderManagerPanelRequestListener,
   ) => () => void;
-  readonly onDailyPlannerPanelRequested: (
-    listener: DailyPlannerPanelRequestListener,
-  ) => () => void;
   readonly onReminderFired: (
     listener: ReminderFiredListener,
-  ) => () => void;
-  readonly askAI: (request: AIConversationRequest) => Promise<AIAskResult>;
-  readonly startPomodoro: (durationMinutes: number) => Promise<void>;
-  readonly notifyCustomPomodoroPanelClosed: () => void;
-  readonly onCustomPomodoroDurationRequested: (
-    listener: PomodoroCustomDurationRequestListener,
-  ) => () => void;
-  readonly getPomodoroState: () => PomodoroState | null;
-  readonly onPomodoroStateChanged: (
-    listener: PomodoroStateListener,
-  ) => () => void;
-  readonly onPomodoroCompleted: (
-    listener: PomodoroCompletionListener,
   ) => () => void;
   readonly createReminder: (
     input: CreateReminderInput,
@@ -131,28 +190,54 @@ export interface CompanionBridge {
   readonly getReminder: (id: string) => Promise<Reminder | null>;
   readonly listReminders: () => Promise<readonly Reminder[]>;
   readonly markReminderCompleted: (id: string) => Promise<Reminder>;
-  readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
-  readonly onRuntimeSettingsChanged: (
-    listener: RuntimeSettingsChangeListener,
+}
+
+export interface PomodoroBridge {
+  readonly startPomodoro: (durationMinutes: number) => Promise<void>;
+  readonly notifyCustomPomodoroPanelClosed: () => void;
+  readonly onCustomPomodoroDurationRequested: (
+    listener: PomodoroCustomDurationRequestListener,
+  ) => () => void;
+  readonly getPomodoroState: () => PomodoroState | null;
+  readonly onPomodoroStateChanged: (
+    listener: PomodoroStateListener,
+  ) => () => void;
+  readonly onPomodoroCompleted: (
+    listener: PomodoroCompletionListener,
   ) => () => void;
 }
 
-export interface PreferencesBridge {
-  readonly getPreferencesSettings: () => Promise<PreferencesSettings>;
-  readonly updatePreferencesSettings: (
-    patch: PreferencesSettingsPatch,
-  ) => Promise<PreferencesSettings>;
-  readonly updateAiConfiguration: (
-    configuration: AiConfigurationUpdate,
-  ) => Promise<PreferencesSettings>;
-  readonly listAIModels: () => Promise<AIModelListResult>;
-  readonly testAIConnection: () => Promise<AIConnectionTestResult>;
+export interface CompanionBridge
+  extends CompanionWindowBridge,
+    CompanionSettingsBridge,
+    ReminderBridge,
+    PomodoroBridge {
+  readonly platform: string;
+  readonly onUserNamePanelRequested: (
+    listener: UserNamePanelRequestListener,
+  ) => () => void;
+  readonly onStickyMessagePanelRequested: (
+    listener: StickyMessagePanelRequestListener,
+  ) => () => void;
+  readonly onDailyPlannerPanelRequested: (
+    listener: DailyPlannerPanelRequestListener,
+  ) => () => void;
+  readonly askAI: CompanionAiBridge['askAI'];
+  readonly getDailyPlanner: () => Promise<DailyPlannerBriefing>;
+}
+
+export interface PreferencesUpdateBridge {
   readonly getUpdateStatus: () => Promise<UpdateStatus>;
   readonly checkForUpdates: () => Promise<UpdateStatus>;
   readonly onUpdateStatusChanged: (
     listener: UpdateStatusListener,
   ) => () => void;
-  readonly onRuntimeSettingsChanged: (
-    listener: RuntimeSettingsChangeListener,
-  ) => () => void;
+}
+
+export interface PreferencesBridge
+  extends PreferencesSettingsBridge,
+    PreferencesUpdateBridge {
+  readonly updateAiConfiguration: PreferencesAiBridge['updateAiConfiguration'];
+  readonly listAIModels: PreferencesAiBridge['listAIModels'];
+  readonly testAIConnection: PreferencesAiBridge['testAIConnection'];
 }

@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
+import { companionDesktopBridge } from '../../desktop/DesktopBridge';
 import {
   AnimationEngine,
   type PlayAnimationOptions,
@@ -311,9 +312,10 @@ export function PsyDuck({
   }, [onAnimationControllerChange]);
 
   useEffect(() => {
-    const desktopBridge = window.psyduck;
+    const companionWindowBridge =
+      companionDesktopBridge.getCompanionWindowBridge();
 
-    if (desktopBridge === undefined || !eyeTrackingEnabled) {
+    if (companionWindowBridge === undefined || !eyeTrackingEnabled) {
       eyesRef.current?.style.setProperty('--pupil-x', '0px');
       eyesRef.current?.style.setProperty('--pupil-y', '0px');
       return;
@@ -321,15 +323,23 @@ export function PsyDuck({
 
     const tracker = new EyeTracker({
       cursorSource: {
-        getCurrentPosition: desktopBridge.getCursorPosition,
-        subscribe: desktopBridge.onCursorPosition,
+        getCurrentPosition: companionWindowBridge.getCursorPosition,
+        subscribe: companionWindowBridge.onCursorPosition,
       },
-      getEyeOrigin: () => {
+      getEyeOrigin: async () => {
+        const windowPosition =
+          await companionWindowBridge.getWindowPosition();
         const stageBounds = stageRef.current?.getBoundingClientRect();
 
         return {
-          x: window.screenX + (stageBounds?.left ?? 0) + EYE_ORIGIN_X,
-          y: window.screenY + (stageBounds?.top ?? 0) + EYE_ORIGIN_Y,
+          x:
+            windowPosition.x +
+            (stageBounds?.left ?? 0) +
+            EYE_ORIGIN_X,
+          y:
+            windowPosition.y +
+            (stageBounds?.top ?? 0) +
+            EYE_ORIGIN_Y,
         };
       },
       onOffsetChange: (offset) => {
@@ -368,7 +378,9 @@ export function PsyDuck({
 
     const handleContextMenu = (event: MouseEvent): void => {
       event.preventDefault();
-      window.psyduck?.showCompanionContextMenu();
+      companionDesktopBridge
+        .getCompanionWindowBridge()
+        ?.showCompanionContextMenu();
     };
 
     stage.addEventListener('contextmenu', handleContextMenu);
@@ -379,17 +391,18 @@ export function PsyDuck({
   }, []);
 
   useEffect(() => {
-    const desktopBridge = window.psyduck;
+    const companionWindowBridge =
+      companionDesktopBridge.getCompanionWindowBridge();
     const stage = stageRef.current;
 
-    if (desktopBridge === undefined || stage === null) {
+    if (companionWindowBridge === undefined || stage === null) {
       return;
     }
 
     const dragController = new DragController({
       surface: stage,
-      getWindowPosition: () => ({ x: window.screenX, y: window.screenY }),
-      moveWindow: desktopBridge.moveWindow,
+      getWindowPosition: companionWindowBridge.getWindowPosition,
+      moveWindow: companionWindowBridge.moveWindow,
       onDraggingChange: (isDragging) => {
         draggingRef.current = isDragging;
         setDragging(isDragging);

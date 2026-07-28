@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Settings provides one reliable desktop window for configuring companion scale, reminder intervals, animation speed, always-on-top behavior, auto-launch, and Developer mode. It also owns reset, import, and export workflows. Settings are validated and persisted by the Electron main process and applied to the companion without requiring a restart wherever the platform permits.
+Preferences provides one reliable native window for configuring general behavior, hydration reminders, notification sounds, updates, and AI providers. Settings are validated and persisted by Rust and applied to the companion without a restart wherever the platform permits.
 
 ## User story
 

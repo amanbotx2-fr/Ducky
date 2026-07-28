@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { preferencesDesktopBridge } from '../../desktop/DesktopBridge';
 import type { UpdateStatus } from '../../shared/updates';
 
 export interface UpdateStatusController {
@@ -15,9 +16,10 @@ export function useUpdateStatus(): UpdateStatusController {
 
   useEffect(() => {
     mountedRef.current = true;
-    const preferencesBridge = window.psyduckPreferences;
+    const updateBridge =
+      preferencesDesktopBridge.getPreferencesUpdateBridge();
 
-    if (preferencesBridge === undefined) {
+    if (updateBridge === undefined) {
       setUpdateStatus({
         phase: 'error',
         currentVersion: 'Unknown',
@@ -29,7 +31,7 @@ export function useUpdateStatus(): UpdateStatusController {
       };
     }
 
-    const unsubscribe = preferencesBridge.onUpdateStatusChanged(
+    const unsubscribe = updateBridge.onUpdateStatusChanged(
       (nextStatus) => {
         if (mountedRef.current) {
           setUpdateStatus(nextStatus);
@@ -37,7 +39,7 @@ export function useUpdateStatus(): UpdateStatusController {
       },
     );
 
-    void preferencesBridge
+    void updateBridge
       .getUpdateStatus()
       .then((nextStatus) => {
         if (mountedRef.current) {
@@ -61,9 +63,10 @@ export function useUpdateStatus(): UpdateStatusController {
   }, []);
 
   const checkForUpdates = useCallback(async (): Promise<void> => {
-    const preferencesBridge = window.psyduckPreferences;
+    const updateBridge =
+      preferencesDesktopBridge.getPreferencesUpdateBridge();
 
-    if (preferencesBridge === undefined) {
+    if (updateBridge === undefined) {
       setUpdateStatus({
         phase: 'error',
         currentVersion: updateStatus?.currentVersion ?? 'Unknown',
@@ -73,7 +76,7 @@ export function useUpdateStatus(): UpdateStatusController {
     }
 
     try {
-      const nextStatus = await preferencesBridge.checkForUpdates();
+      const nextStatus = await updateBridge.checkForUpdates();
 
       if (mountedRef.current) {
         setUpdateStatus(nextStatus);

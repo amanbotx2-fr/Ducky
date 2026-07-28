@@ -12,7 +12,7 @@ export interface CursorPositionSource {
 
 export interface EyeTrackerOptions {
   readonly cursorSource: CursorPositionSource;
-  readonly getEyeOrigin: () => ScreenPoint;
+  readonly getEyeOrigin: () => Promise<ScreenPoint>;
   readonly onOffsetChange: (offset: NormalizedEyeOffset) => void;
   readonly normalizationDistance?: number;
   readonly smoothing?: number;
@@ -25,16 +25,19 @@ const SETTLED_THRESHOLD = 0.001;
 
 export class EyeTracker {
   private readonly cursorSource: CursorPositionSource;
-  private readonly getEyeOrigin: () => ScreenPoint;
+  private readonly getEyeOrigin: () => Promise<ScreenPoint>;
   private readonly onOffsetChange: (offset: NormalizedEyeOffset) => void;
   private readonly normalizationDistance: number;
   private readonly smoothing: number;
+  private eyeOrigin: ScreenPoint | null = null;
   private currentOffset: NormalizedEyeOffset = { x: 0, y: 0 };
   private targetOffset: NormalizedEyeOffset = { x: 0, y: 0 };
   private animationFrameId: number | null = null;
   private previousTimestamp: number | null = null;
   private unsubscribeFromCursor: (() => void) | null = null;
   private cursorRevision = 0;
+  private lifecycleRevision = 0;
+  private starting = false;
   private running = false;
 
   public constructor(options: EyeTrackerOptions) {
@@ -62,29 +65,56 @@ export class EyeTracker {
   }
 
   public start(): void {
-    if (this.running) {
+    if (this.running || this.starting) {
       return;
     }
 
-    this.running = true;
-    this.unsubscribeFromCursor = this.cursorSource.subscribe(
-      this.handleCursorPosition,
-    );
+    this.starting = true;
+    const lifecycleRevision = ++this.lifecycleRevision;
 
-    const revisionAtRequest = this.cursorRevision;
+    void this.getEyeOrigin()
+      .then((origin) => {
+        if (
+          !this.starting ||
+          this.lifecycleRevision !== lifecycleRevision
+        ) {
+          return;
+        }
 
-    void this.cursorSource.getCurrentPosition().then((position) => {
-      if (this.running && this.cursorRevision === revisionAtRequest) {
-        this.handleCursorPosition(position);
-      }
-    });
+        this.starting = false;
+        this.running = true;
+        this.eyeOrigin = origin;
+        this.unsubscribeFromCursor = this.cursorSource.subscribe(
+          this.handleCursorPosition,
+        );
+
+        const revisionAtRequest = this.cursorRevision;
+
+        void this.cursorSource.getCurrentPosition().then((position) => {
+          if (this.running && this.cursorRevision === revisionAtRequest) {
+            this.handleCursorPosition(position);
+          }
+        });
+      })
+      .catch((error: unknown) => {
+        if (this.lifecycleRevision === lifecycleRevision) {
+          this.starting = false;
+          console.error(
+            '[eye-tracking] Unable to read the native companion window position.',
+            error,
+          );
+        }
+      });
   }
 
   public stop(): void {
+    this.lifecycleRevision += 1;
+    this.starting = false;
     this.running = false;
     this.cursorRevision += 1;
     this.unsubscribeFromCursor?.();
     this.unsubscribeFromCursor = null;
+    this.eyeOrigin = null;
 
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
@@ -100,7 +130,12 @@ export class EyeTracker {
     }
 
     this.cursorRevision += 1;
-    const origin = this.getEyeOrigin();
+    const origin = this.eyeOrigin;
+
+    if (origin === null) {
+      return;
+    }
+
     const relativeX = (position.x - origin.x) / this.normalizationDistance;
     const relativeY = (position.y - origin.y) / this.normalizationDistance;
     const magnitude = Math.hypot(relativeX, relativeY);

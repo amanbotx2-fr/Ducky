@@ -1,7 +1,4 @@
 const assert = require('node:assert/strict');
-const { mkdtemp, readFile, rm, writeFile } = require('node:fs/promises');
-const { tmpdir } = require('node:os');
-const { join } = require('node:path');
 const { describe, test } = require('node:test');
 
 const {
@@ -19,41 +16,7 @@ const {
   MAXIMUM_RECENT_AI_MODELS_PER_PROVIDER,
   createDefaultSettings,
   parsePreferencesSettingsPatch,
-  toPreferencesSettings,
-  toRuntimeSettings,
 } = require('../dist/shared/settings.js');
-const { SettingsService } = require('../dist/main/SettingsService.js');
-
-const unavailableCredentialManager = {
-  decrypt: () => '',
-  encrypt: () => {
-    throw new Error('Credential storage is unavailable in this test.');
-  },
-  isEncryptionAvailable: () => false,
-};
-
-const createLegacySettingsDocument = () => ({
-  userName: 'Aman',
-  stickyMessage: null,
-  reminders: [],
-  general: {
-    alwaysOnTop: true,
-    launchAtStartup: false,
-    eyeTracking: true,
-  },
-  water: {
-    enabled: true,
-    interval: 30,
-  },
-  ai: {
-    enabled: true,
-    provider: 'custom',
-    model: 'openai/gpt-4.1-mini',
-    endpoint: 'http://localhost:11434',
-    baseUrl: 'https://openrouter.ai/api/v1',
-  },
-  credential: null,
-});
 
 describe('AI model explorer catalog', () => {
   test('searches 1,000 models by ID, provider, display name, and alias', () => {
@@ -256,70 +219,6 @@ describe('AI model explorer preferences', () => {
       }),
       null,
     );
-  });
-
-  test('migrates, persists, and keeps explorer state out of runtime settings', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'psyduck-models-'));
-    const filePath = join(directory, 'settings.json');
-
-    try {
-      await writeFile(
-        filePath,
-        JSON.stringify(createLegacySettingsDocument()),
-        'utf8',
-      );
-      const settingsService = new SettingsService(
-        filePath,
-        unavailableCredentialManager,
-      );
-      const migratedSettings = await settingsService.load();
-      const migratedDocument = JSON.parse(await readFile(filePath, 'utf8'));
-
-      assert.deepEqual(migratedSettings.aiModelExplorer, {
-        favorites: [],
-        recent: [],
-      });
-      assert.deepEqual(migratedDocument.aiModelExplorer, {
-        favorites: [],
-        recent: [],
-      });
-      assert.equal(
-        Object.hasOwn(toRuntimeSettings(migratedSettings), 'aiModelExplorer'),
-        false,
-      );
-
-      const explorerSettings = {
-        favorites: [
-          createModelReference('custom', 'google/gemma-3-27b-it:free'),
-        ],
-        recent: [
-          createModelReference('custom', 'openai/gpt-4.1-mini'),
-        ],
-      };
-      await settingsService.update({
-        aiModelExplorer: explorerSettings,
-      });
-
-      const restoredService = new SettingsService(
-        filePath,
-        unavailableCredentialManager,
-      );
-      const restoredSettings = await restoredService.load();
-      const preferences = toPreferencesSettings(restoredSettings);
-
-      assert.deepEqual(preferences.aiModelExplorer, explorerSettings);
-      assert.deepEqual(
-        restoredSettings.aiModelExplorer,
-        explorerSettings,
-      );
-      assert.equal(restoredSettings.userName, 'Aman');
-      assert.equal(
-        restoredSettings.ai.baseUrl,
-        'https://openrouter.ai/api/v1',
-      );
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
   });
 
   test('provides empty explorer defaults for fresh settings', () => {

@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "preferences",
+  "description": "Least-privilege capability for the Preferences window.",
+  "local": true,
+  "webviews": ["preferences"],
+  "permissions": [
+    "allow-update-ai-configuration",
+    "allow-list-ai-models",
+    "allow-test-ai-connection",
+    "allow-get-preferences-settings",
+    "allow-update-preferences-settings",
+    "allow-get-credential-status",
+    "allow-save-credential",
+    "allow-delete-credential",
+    "allow-get-update-status",
+    "allow-check-for-updates",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

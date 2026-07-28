@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-sticky-message"
+description = "Enables the update_sticky_message command without any pre-configured scope."
+commands.allow = ["update_sticky_message"]
+
+[[permission]]
+identifier = "deny-update-sticky-message"
+description = "Denies the update_sticky_message command without any pre-configured scope."
+commands.deny = ["update_sticky_message"]

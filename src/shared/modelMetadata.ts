@@ -102,6 +102,7 @@ const GROUP_BY_PROVIDER: Readonly<
 > = {
   openai: 'OpenAI',
   gemini: 'Google',
+  claude: 'Anthropic',
   grok: 'xAI',
   ollama: 'Ollama',
 };
@@ -109,6 +110,7 @@ const GROUP_BY_PROVIDER: Readonly<
 const PROVIDER_LABELS: Readonly<Record<AiProvider, string>> = {
   openai: 'OpenAI',
   gemini: 'Google',
+  claude: 'Anthropic',
   grok: 'xAI',
   ollama: 'Ollama',
   custom: 'Custom',
