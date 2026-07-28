@@ -232,7 +232,7 @@ const companionBridge: CompanionBridge = Object.freeze({
 const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   general: true,
   notificationSounds: true,
-  water: false,
+  water: true,
   updates: true,
   ai: true,
   aiModelExplorer: true,

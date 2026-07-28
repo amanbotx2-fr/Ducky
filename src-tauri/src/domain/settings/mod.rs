@@ -224,6 +224,15 @@ impl SettingsState {
                 }
             }
 
+            if let Some(water) = patch.water {
+                if let Some(enabled) = water.enabled {
+                    next.water.enabled = enabled;
+                }
+                if let Some(interval) = water.interval {
+                    next.water.interval = interval;
+                }
+            }
+
             if let Some(notification_sounds) = patch.notification_sounds {
                 if let Some(enabled) = notification_sounds.enabled {
                     next.notification_sounds.enabled = enabled;
@@ -395,6 +404,8 @@ pub(crate) struct PreferencesSettingsPatch {
     #[serde(default)]
     pub(crate) general: Option<GeneralSettingsPatch>,
     #[serde(default)]
+    pub(crate) water: Option<WaterSettingsPatch>,
+    #[serde(default)]
     pub(crate) notification_sounds: Option<NotificationSoundSettingsPatch>,
     #[serde(default)]
     pub(crate) updates: Option<UpdateSettingsPatch>,
@@ -409,6 +420,15 @@ pub(crate) struct GeneralSettingsPatch {
     pub(crate) launch_at_startup: Option<bool>,
     #[serde(default)]
     pub(crate) eye_tracking: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct WaterSettingsPatch {
+    #[serde(default)]
+    pub(crate) enabled: Option<bool>,
+    #[serde(default)]
+    pub(crate) interval: Option<u16>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -1078,7 +1098,7 @@ mod tests {
         assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
             "water": { "enabled": false }
         }))
-        .is_err());
+        .is_ok());
         assert!(serde_json::from_value::<PreferencesSettingsPatch>(json!({
             "updates": { "automatic": true }
         }))
@@ -1109,6 +1129,39 @@ mod tests {
             state.update_preferences(invalid),
             Err(SettingsMutationError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn hydration_preferences_apply_immediately_and_persist() {
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().join("settings.json"));
+        let state = SettingsState::new(store.clone(), SettingsDocument::default());
+
+        let update = state
+            .update_preferences(PreferencesSettingsPatch {
+                water: Some(WaterSettingsPatch {
+                    enabled: Some(false),
+                    interval: Some(90),
+                }),
+                ..PreferencesSettingsPatch::default()
+            })
+            .expect("hydration setting mutation");
+
+        assert!(update.changed);
+        assert!(!update.settings.water.enabled);
+        assert_eq!(update.settings.water.interval, 90);
+        assert_eq!(state.snapshot().unwrap().water, update.settings.water);
+        assert_eq!(store.load().unwrap().water, update.settings.water);
+
+        let invalid = state.update_preferences(PreferencesSettingsPatch {
+            water: Some(WaterSettingsPatch {
+                enabled: None,
+                interval: Some(10),
+            }),
+            ..PreferencesSettingsPatch::default()
+        });
+        assert!(matches!(invalid, Err(SettingsMutationError::Validation(_))));
+        assert_eq!(state.snapshot().unwrap().water.interval, 90);
     }
 
     #[test]

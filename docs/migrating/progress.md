@@ -8,10 +8,10 @@
 - Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
   external production credential gate remains documented for the release
   manager and is explicitly accepted by the updated Phase 12 contract.
-- Last completed task: Phase 11.5 Tasks 11.5.2 and 11.5.7 — recoverable
-  Personal Assistant panel events, Set My Name / Sticky Message menu
-  integration, and complete Tauri `CompanionBridge` composition.
-- Next task: Phase 11.5 Task 11.5.4 — hydration settings parity.
+- Last completed task: Phase 11.5 Task 11.5.4 — hydration Preferences,
+  persistence, and runtime-settings parity.
+- Next task: Phase 11.5 Task 11.5.5 — complete dynamic companion context-menu
+  parity.
 - Blockers: the migrated Tauri runtime still lacks several working Electron
   behaviors required by the Phase 12 preservation and exit criteria. Removing
   Electron now would delete those behaviors. The ownership ambiguity is
@@ -293,6 +293,79 @@ part of the Phase 11.5 manual gate.
 - Task 11.5.4 — accept and persist the existing hydration Preferences patch,
   enable the existing controls in Tauri, and regression-verify the unchanged
   renderer-owned `WaterReminder`.
+
+### Task 11.5.4 — Hydration Settings Parity
+
+**Status:** Implementation complete. Final interactive timer verification
+remains part of the Phase 11.5 manual gate.
+
+**Implementation summary**
+
+- Extended the existing Rust `PreferencesSettingsPatch` with only the
+  established `water.enabled` and `water.interval` fields.
+- Applied hydration changes through the existing serialized settings mutation:
+  validation completes before the atomic save and shared snapshot replacement,
+  then the existing `runtime-settings:changed` event immediately reaches the
+  Companion renderer.
+- Preserved the Electron-supported intervals `15`, `30`, `45`, `60`, `90`,
+  and `120`, the existing defaults, and failure semantics. Unsupported
+  intervals leave both the in-memory and persisted snapshot unchanged.
+- Enabled the already-built hydration Preferences controls in the private
+  Tauri capability report. The renderer, UI, copy, `WaterReminder`, and
+  single-instance timer lifecycle remain unchanged.
+- Added native persistence coverage for combined enable/interval updates and
+  invalid-interval rollback. Updated the renderer-boundary test to prove that
+  both Electron and Tauri expose the same hydration capability.
+- No native hydration scheduler, OS notification, new permission, or new
+  schema was introduced.
+
+**Files changed**
+
+- `src-tauri/src/domain/settings/mod.rs` — existing patch DTO integration,
+  persisted mutation, validation, and native tests.
+- `src/desktop/tauriBridge.ts` — hydration capability enabled for Tauri
+  Preferences.
+- `tests/desktop-bridge-boundary.test.cjs` — cross-runtime capability and
+  existing UI-copy assertions.
+- `docs/migrating/progress.md` — milestone record.
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (160 tests across 49 suites).
+- `npm run build`: passed, including Electron main and both renderer entries.
+- `cargo fmt --check`: passed after canonical formatting.
+- `cargo test`: passed (131 native tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed; hydration reuses the existing exact
+  Preferences settings command and requires no added authority.
+- Electron production-output smoke launch: passed through the unchanged
+  Preferences and renderer-owned hydration timer paths.
+- `npx tauri dev --no-watch`: passed with no settings, capability, or renderer
+  errors; WebKit logged only the known development custom-protocol fallback
+  warning.
+- `npm run tauri:build -- --bundles app`: passed and produced the release-mode
+  macOS application bundle.
+- Release-mode Tauri binary smoke launch: passed and remained alive until the
+  intentional smoke-test shutdown.
+
+**Manual verification**
+
+- The unchanged renderer continues to construct exactly one `WaterReminder`,
+  starts/stops it with the Companion lifecycle, and responds to the latest
+  runtime snapshot by rescheduling on interval change or cancelling on
+  disable.
+- Interactive Preferences changes, timer firing, and restart restoration
+  remain to be exercised in the final Phase 11.5 application sweep.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 11.5.5 — complete the remaining Water Reminders, Eye Tracking, and
+  Always On Top menu hierarchy, dynamic state, and native callbacks.
 
 ### Phase 11.5 — Functional Parity Closure Contract
 
