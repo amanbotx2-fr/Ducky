@@ -1,6 +1,7 @@
 pub(crate) mod ai;
 pub(crate) mod companion;
 pub(crate) mod credentials;
+pub(crate) mod planner;
 pub(crate) mod pomodoro;
 pub(crate) mod reminders;
 pub(crate) mod settings;
@@ -30,6 +31,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             credentials::get_credential_status,
             credentials::save_credential,
             credentials::delete_credential,
+            planner::get_daily_planner,
             reminders::create_reminder,
             reminders::update_reminder,
             reminders::delete_reminder,

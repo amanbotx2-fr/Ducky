@@ -121,6 +121,8 @@ pub(crate) const GET_UPDATE_STATUS: CommandAuthorization =
     CommandAuthorization::preferences_only("get_update_status");
 pub(crate) const CHECK_FOR_UPDATES: CommandAuthorization =
     CommandAuthorization::preferences_only("check_for_updates");
+pub(crate) const GET_DAILY_PLANNER: CommandAuthorization =
+    CommandAuthorization::companion_only("get_daily_planner");
 
 #[cfg(test)]
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
@@ -155,6 +157,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     TEST_AI_CONNECTION,
     GET_UPDATE_STATUS,
     CHECK_FOR_UPDATES,
+    GET_DAILY_PLANNER,
 ];
 
 // Consumed by build.rs through a path module; retained here as the single
@@ -192,6 +195,7 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     TEST_AI_CONNECTION.name(),
     GET_UPDATE_STATUS.name(),
     CHECK_FOR_UPDATES.name(),
+    GET_DAILY_PLANNER.name(),
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -266,6 +270,7 @@ mod tests {
                 "test_ai_connection",
                 "get_update_status",
                 "check_for_updates",
+                "get_daily_planner",
             ],
         );
     }

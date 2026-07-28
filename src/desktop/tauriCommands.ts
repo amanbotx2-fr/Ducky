@@ -22,6 +22,7 @@ import type {
 } from '../shared/reminders';
 import type { AIAskResult, ScreenPoint } from '../shared/types';
 import type { UpdateStatus } from '../shared/updates';
+import type { DailyPlannerBriefing } from '../shared/dailyPlanner';
 
 /**
  * Registry for commands whose native behavior is complete in the migration.
@@ -39,6 +40,7 @@ export const TAURI_COMMANDS = Object.freeze({
   customPomodoroPanelClosed: 'custom_pomodoro_panel_closed',
   deleteReminder: 'delete_reminder',
   getCursorPosition: 'get_cursor_position',
+  getDailyPlanner: 'get_daily_planner',
   getCredentialStatus: 'get_credential_status',
   getPreferencesSettings: 'get_preferences_settings',
   getUpdateStatus: 'get_update_status',
@@ -84,6 +86,7 @@ interface TauriCommandArguments {
     readonly id: string;
   };
   readonly get_cursor_position: Record<string, never>;
+  readonly get_daily_planner: Record<string, never>;
   readonly get_credential_status: {
     readonly id: CredentialId;
   };
@@ -146,6 +149,7 @@ interface TauriCommandResults {
   readonly custom_pomodoro_panel_closed: void;
   readonly delete_reminder: boolean;
   readonly get_cursor_position: ScreenPoint;
+  readonly get_daily_planner: DailyPlannerBriefing;
   readonly get_credential_status: CredentialStatus;
   readonly get_preferences_settings: PreferencesSettings;
   readonly get_update_status: UpdateStatus;

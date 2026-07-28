@@ -25,6 +25,7 @@ const companionCommandPermissions = [
   'allow-list-reminders',
   'allow-mark-reminder-completed',
   'allow-get-cursor-position',
+  'allow-get-daily-planner',
   'allow-get-runtime-settings',
   'allow-get-companion-window-position',
   'allow-move-companion-window',

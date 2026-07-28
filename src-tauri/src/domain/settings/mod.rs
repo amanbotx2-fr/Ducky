@@ -695,6 +695,10 @@ fn default_user_name() -> String {
     DEFAULT_USER_NAME.to_owned()
 }
 
+pub(crate) fn normalize_user_name(value: &str) -> Option<String> {
+    normalize_required_text(value, MAXIMUM_USER_NAME_LENGTH, "userName").ok()
+}
+
 fn default_ollama_endpoint() -> String {
     DEFAULT_OLLAMA_ENDPOINT.to_owned()
 }
