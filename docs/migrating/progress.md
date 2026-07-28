@@ -11,14 +11,46 @@
   Electron transition-release obligation rather than ongoing Tauri behavior.
 - Last completed task: Phase 11.5 Task 11.5.8 — final automated and manual
   Electron-versus-Tauri parity gate.
-- Next task: Phase 12 — Electron Removal, only after a separate instruction
-  and after the release manager records the signed transition-release
-  evidence required by `docs/RELEASING.md`.
-- Blockers: none for Phase 11.5. The external signing/publication and
-  transition-release evidence gate remains mandatory before Electron source
-  deletion; it is not an unimplemented Tauri feature.
+- Next task: Phase 12 — Electron Removal, only after a separate instruction.
+- Blockers: none. Production credentials, signed transition-release
+  publication, staged updater verification, and go-live approval are external
+  Release Candidate Checklist operations after Phase 12 and do not block
+  repository migration.
 
 ## Active Verification
+
+### Release Operations Separated from Repository Migration
+
+**Status:** Documentation complete. No production source was changed and
+Phase 12 was not started.
+
+**Clarification**
+
+- The accepted signed transition-release requirement is an external
+  release-operation prerequisite, not an engineering prerequisite.
+- `docs/migrating/migration_tasks.md` now ends with a distinct **Release
+  Candidate Checklist** after Phase 12. It owns production credential
+  verification, the signed Electron transition release, staged updater
+  verification, production publication, and final go-live approval.
+- Phase 11 remains the owner of repository release infrastructure,
+  deterministic verification, secret-input wiring, artifact contracts, and
+  fail-closed workflow behavior.
+- Phase 12 now depends only on completed migration engineering and functional
+  parity. It may remove Electron source without claiming that a live
+  production release has already been signed or published.
+- Published legacy Electron feed metadata and assets remain immutable release
+  records; Phase 12 removes repository implementation, not published assets.
+
+**Validation**
+
+- `git diff --check`: passed.
+- Only migration documentation changed.
+- No build or test run was required for the documentation-only clarification.
+
+**Next task**
+
+- Stop. Phase 12 requires a separate instruction but no external
+  release-operation evidence.
 
 ### Task 11.5.1 — Re-audit Remaining Electron-only Behavior
 
@@ -441,8 +473,9 @@ part of the Phase 11.5 manual gate.
 ### Task 11.5.6 — Migration Dialog Final Disposition
 
 **Status:** Repository implementation and disposition verification complete.
-The release-manager evidence record remains an external cutover gate and is
-not represented as having run before a signed transition release exists.
+The release-manager evidence record is an external Release Candidate
+Checklist item and is not represented as having run before a signed
+transition release exists.
 
 **Verified disposition**
 
@@ -471,9 +504,9 @@ not represented as having run before a signed transition release exists.
   metadata/assets, matching signed Tauri installers, platforms, reviewer,
   verification date, and pass/fail result.
 - The release manager must approve that record against the actual published
-  transition release before Phase 12 deletes the Electron-only dialog source.
-  The current repository cannot truthfully claim that external production
-  ceremony before the documented signing credential gate is satisfied.
+  transition release before public go-live. Phase 12 may delete the
+  Electron-only dialog source after parity because the signed publication is
+  an external operation, not a repository-engineering prerequisite.
 
 **Evidence already available in the repository**
 
@@ -500,8 +533,8 @@ not represented as having run before a signed transition release exists.
 **Blockers**
 
 - No implementation blocker. The signed, published transition-release
-  evidence remains an explicitly owned release-manager gate; it is not
-  fabricated by this local migration phase.
+  evidence remains an explicitly owned Release Candidate Checklist item; it
+  is not fabricated by this local migration phase and does not block Phase 12.
 
 **Next task**
 
@@ -652,8 +685,9 @@ not represented as having run before a signed transition release exists.
 - Electron remains intact, buildable, and releasable.
 - No Electron dependency, source, test, feed, or compatibility path was
   removed.
-- The signed transition-release evidence remains a release-manager gate
-  before Phase 12 source deletion, as documented in `docs/RELEASING.md`.
+- Signed transition-release evidence remains a release-manager gate before
+  public go-live, as documented in `docs/RELEASING.md`; it is not a Phase 12
+  source-deletion gate.
 
 **Blockers**
 
@@ -661,8 +695,7 @@ not represented as having run before a signed transition release exists.
 
 **Next task**
 
-- Stop. Do not begin Phase 12 without a separate instruction and the required
-  transition-release evidence.
+- Stop. Do not begin Phase 12 without a separate instruction.
 
 ### Phase 11.5 — Functional Parity Closure Contract
 
@@ -807,11 +840,12 @@ removal has not started.
 - Stop. Do not delete Electron or begin a Phase 12 implementation milestone
   until the parity-closure contract is approved and completed.
 
-### Phase 11 — External Credential and Production Verification Gate
+### Release Candidate Operations — External Credential and Production Verification
 
-**Status:** External production verification remains pending. The updated
-Phase 12 contract accepts the implemented release infrastructure as complete
-for repository migration purposes and authorizes the Phase 12 discovery gate.
+**Status:** External production verification remains pending as a
+post-Phase-12 Release Candidate Checklist. The updated Phase 12 contract
+accepts the implemented release infrastructure as complete for repository
+migration purposes.
 
 **Completed implementation**
 
@@ -890,7 +924,8 @@ for repository migration purposes and authorizes the Phase 12 discovery gate.
 
 - Complete this external trust verification before the first signed
   production Tauri release. Under the updated Phase 12 contract, it does not
-  replace the separate functional-parity gate documented above.
+  block Electron source removal or replace the completed functional-parity
+  gate documented above.
 
 ### Phase 11 — Atomic Dual-Runtime Workflow
 
@@ -1344,8 +1379,8 @@ for repository migration purposes and authorizes the Phase 12 discovery gate.
 
 **Blockers**
 
-- None. Production discovery of the transition release remains a Phase 11
-  responsibility by contract.
+- None. Production discovery of the transition release is a later Release
+  Candidate Checklist responsibility.
 
 **Next task**
 
@@ -1675,11 +1710,13 @@ for repository migration purposes and authorizes the Phase 12 discovery gate.
   Tauri adapter boundary, exact DesktopBridge contract, settings,
   persistence, status/events, migration dialog, and least-privilege
   Preferences authorization.
-- Defined Phase 11 as the release-infrastructure phase: signing identity,
-  updater public key, private CI secrets, `.sig` generation, `latest.json`,
-  GitHub feed/hosting, CI/CD, code signing/notarization, production updater
-  verification, legacy Electron metadata, transition-release publication,
-  and website cutover.
+- Defined Phase 11 as the release-infrastructure phase: signing input
+  contracts, updater public-key path, private CI-secret wiring, `.sig`
+  generation, `latest.json`, GitHub feed/hosting, CI/CD,
+  code-signing/notarization automation, verification tooling, legacy Electron
+  metadata generation, and website cutover. Live production verification and
+  transition-release publication are now owned by the post-Phase-12 Release
+  Candidate Checklist.
 - Phase 10 runtime validation uses a deterministic updater backend and must
   not introduce placeholder production signing material. Phase 11 must not
   use its release responsibilities to expand the Phase 10 renderer contract.
@@ -1874,12 +1911,14 @@ resolved by the Phase 10 contract clarification. Task 10.2 has not started.
 
 - Not applicable. Discovery did not change runtime behavior.
 - Live production update detection, signed download, installation, restart,
-  and transition-release discovery are Phase 11 verification gates.
+  and transition-release discovery are Release Candidate Checklist gates.
 
 **Blockers**
 
 - None after the contract clarification.
-- Production signing/feed prerequisites remain mandatory Phase 11 work.
+- Production signing/feed automation remains mandatory Phase 11 engineering;
+  real credential provisioning and live verification are Release Candidate
+  Checklist operations.
 
 **Next task**
 

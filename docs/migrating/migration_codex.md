@@ -664,6 +664,12 @@ Use a deliberate cutover:
 6. Switch website latest-asset selection only when Tauri installers are production-ready; current website patterns such as “first `.exe`” may become ambiguous.
 7. Update README/site “Electron” wording only at the cutover release.
 
+Steps that require real signing identities, protected production credentials,
+published releases, installed-client staging, or go-live approval are external
+release operations. They belong to the Release Candidate Checklist after the
+repository migration; they do not block Phase 12 engineering or Electron
+source removal.
+
 ### Updater phase ownership
 
 The updater migration is intentionally split across two phases:
@@ -675,11 +681,13 @@ The updater migration is intentionally split across two phases:
   authorization, and the approved one-time Electron → Tauri migration dialog.
   Test the runtime through a deterministic backend. Do not add renderer
   download/install/restart controls, updater menus, or updater notifications.
-- **Phase 11 — release infrastructure:** configure the stable updater public
-  key and endpoints, protect private signing material in CI, generate signed
-  artifacts/`.sig`/`latest.json`, host the GitHub release feed, preserve legacy
-  Electron metadata, add code signing/notarization, and perform staged
-  production updater and transition-release verification.
+- **Phase 11 — release infrastructure:** configure the updater public-key and
+  endpoint contracts, protect private signing-material inputs in CI, automate
+  signed artifacts/`.sig`/`latest.json`, configure the GitHub release feed,
+  preserve legacy Electron metadata, and automate code
+  signing/notarization. Live production credential verification, staged
+  updater verification, transition-release publication, and go-live are
+  Release Candidate Checklist operations.
 
 Phase 10 may define and compile the Tauri adapter boundary, but it does not use
 placeholder signing identities or claim live production update verification.
@@ -711,14 +719,14 @@ Phase 11.5 owns:
 - any additional renderer-accessible Electron behavior found during the final
   parity audit.
 
-The migration dialog remains an Electron transition-release obligation rather
-than ongoing Tauri functionality. Phase 11.5 verifies that obligation and
-records when its repository implementation can be deleted; it does not invent
-a Tauri-side prompt.
+The migration dialog remains an Electron transition-release mechanism rather
+than ongoing Tauri functionality. Phase 11.5 verifies its implementation and
+records its external release-operation ownership; it does not invent a
+Tauri-side prompt or make publication evidence a Phase 12 engineering gate.
 
 Phase 12 may begin only after Phase 11.5 proves that no required
 renderer-accessible Electron behavior remains without a working Tauri
-equivalent or an explicitly completed legacy-transition disposition.
+equivalent and the legacy-transition disposition is documented.
 
 ## Tauri Equivalent Summary by Feature
 
@@ -967,11 +975,13 @@ Exit: provider contract, adversarial URL/network, size, timeout, and secret-expo
 Deliver:
 
 - Tauri bundles;
-- updater keys/signatures/feed;
+- updater key/signature/feed configuration and automation;
 - release workflow/verifier;
 - legacy Electron transition and website download plan.
 
-Exit: clean install, Electron-to-Tauri upgrade, Tauri update, rollback policy, and uninstall tested per OS.
+Exit: the repository can produce and verify every required release artifact,
+fails closed when external trust material is absent, and documents the live
+operations deferred to the Release Candidate Checklist.
 
 ### Milestone 6.5 — Functional parity closure
 
@@ -997,7 +1007,9 @@ Deliver:
 - removed Electron implementation/dependencies/config;
 - performance/security review.
 
-Exit: production release candidate with no required Node runtime/sidecar.
+Exit: Tauri-only repository with no required Node runtime/sidecar and no
+remaining Electron implementation. Public-release approval is a separate
+Release Candidate Checklist outcome.
 
 ## Everything That Must Be Migrated
 
@@ -1016,9 +1028,11 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Always-on-top, start-at-login, theme/background, restart, and quit behavior.
 - Update status/check/events/settings runtime parity and the approved manual
   Electron → Tauri migration dialog (Phase 10).
-- Release verification, bundling, updater public-key configuration, update
-  signing, hosted metadata, GitHub publication, notarization, production
-  updater verification, and website asset selection (Phase 11).
+- Release verification, bundling, updater public-key configuration, signing
+  and notarization automation, hosted-metadata generation, atomic GitHub
+  publication workflow, and website asset selection (Phase 11). Supplying
+  production credentials and executing a live publication remain external
+  Release Candidate Checklist operations.
 - Deferred profile, sticky-message, hydration, dynamic context-menu, complete
   companion bridge, Daily Planner, and legacy transition-disposition work
   discovered by the pre-removal audit (Phase 11.5).
@@ -1055,7 +1069,7 @@ Exit: production release candidate with no required Node runtime/sidecar.
 ## Everything That Should Be Deleted After Parity
 
 Do not delete these early. Delete them only after Phase 11.5 functional parity
-and the applicable transition-release obligation are complete:
+is complete:
 
 - `src/main/preload.ts`;
 - `src/main/preferencesPreload.ts`;
@@ -1105,8 +1119,9 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - Custom provider URL rules and response limits remain enforced.
 - Phase 10 grants only the Preferences status/check authority present in
   Electron.
-- Phase 11 verifies Tauri updater signatures against the stable production
-  public key.
+- Phase 11 implements signature-verification tooling and the reviewed
+  public-key path. The Release Candidate Checklist verifies real production
+  signatures against the supplied stable key.
 
 ### Release
 
@@ -1115,14 +1130,45 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - Release publication remains atomic and avoids published-asset replacement.
 - Existing Electron installs have an explicit supported transition.
 - Website routes select only intended Tauri installer assets.
-- The Phase 11.5 record proves the one-time migration dialog's final Electron
-  release obligation before its repository source is removed.
+- The Phase 11.5 record proves the one-time migration dialog implementation
+  and assigns its live transition-release verification to release operations.
 
-These release gates belong to Phase 11. They are not prerequisites for
-implementing or unit-testing the Phase 10 runtime abstraction, and Phase 10
-must not use placeholder production signing material to satisfy them early.
-The separate Phase 11.5 functional-parity gate is mandatory before Phase 12
-regardless of release-infrastructure readiness.
+Phase 11 implements and tests the repository-owned release machinery. The
+live checks that require production credentials, published assets, installed
+clients, or release-manager approval belong to the Release Candidate
+Checklist. They are not prerequisites for Phase 12. Phase 10 and Phase 11
+must never use placeholder production signing material to claim those
+external checks.
+
+## Release Candidate Checklist
+
+This is a release-operations checklist after Phase 12, not an engineering
+migration phase or a prerequisite for Electron source removal.
+
+Before public go-live, release operators must:
+
+- provision and verify the stable updater signing identity, updater public
+  key, and protected updater-signing secrets;
+- verify Apple and Windows production signing credentials and the configured
+  timestamp/notarization services without exposing secret values;
+- produce the final signed Electron transition release and retain its legacy
+  updater metadata and referenced assets;
+- verify installed Electron clients discover that transition release and
+  exercise both migration-dialog actions;
+- stage signed Tauri artifacts, signatures, checksums, and updater metadata
+  for every supported platform and architecture;
+- verify clean installation, signed update detection, download, install,
+  restart, persistence, rollback, and website installer selection;
+- populate and redownload a draft GitHub release, verify feed separation and
+  every artifact, and publish atomically only after all checks pass;
+- perform final production updater, public download, signing/notarization,
+  security, support, rollback, and go-live verification; and
+- record the release tag, commit, version, URLs, platforms, reviewer, date,
+  evidence, and final release-manager approval in `docs/RELEASING.md`.
+
+The completed repository migration may exist before this checklist is run.
+The product may not be declared ready for public release until the checklist
+passes.
 
 ## Complexity Conclusion
 

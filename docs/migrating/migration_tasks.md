@@ -3439,7 +3439,9 @@ Phase 10 is complete only if:
 ✓ Repository builds successfully
 
 Phase 10 completion does not mean the production updater feed is releasable.
-Production updater signing and distribution remain mandatory Phase 11 gates.
+Phase 11 must implement updater signing and distribution infrastructure.
+Production credential provisioning and live distribution remain Release
+Candidate Checklist operations after repository migration.
 
 Only then may Phase 11 begin.
 
@@ -3451,11 +3453,16 @@ Release Pipeline
 
 Goal
 
-Make the migrated Tauri updater and cross-platform application releasable using
-production signing, hosted metadata, and atomic GitHub publication.
+Implement the repository-owned release pipeline that can produce, verify, and
+atomically publish the migrated Tauri updater and cross-platform application
+when externally managed production credentials and release approval are
+provided.
 
-Phase 11 owns all release-infrastructure inputs intentionally excluded from
-Phase 10.
+Phase 11 owns release infrastructure and automation intentionally excluded
+from Phase 10. Executing that infrastructure with production credentials,
+publishing a real release, and completing live staged verification are
+external release operations owned by the Release Candidate Checklist after
+Phase 12.
 
 ---
 
@@ -3463,9 +3470,9 @@ Phase 10.
 
 Phase 11 includes:
 
-- stable Tauri updater signing identity
-- committed updater public key
-- private signing key and password stored only as CI secrets
+- configuration for a stable Tauri updater signing identity
+- a committed-path contract for the externally supplied updater public key
+- CI-only inputs for the private signing key and password
 - `bundle.createUpdaterArtifacts`
 - signed updater bundles and `.sig` files
 - `latest.json` generation
@@ -3473,11 +3480,11 @@ Phase 11 includes:
 - cross-platform Tauri artifact generation
 - release asset naming and collision prevention
 - CI/CD and release automation
-- macOS signing and notarization
-- Windows signing where configured
+- macOS signing and notarization automation
+- Windows signing automation where configured
 - production updater endpoint configuration
-- production updater verification
-- final Electron transition-release metadata
+- production updater verification tooling
+- final Electron transition-release metadata generation
 - preservation of legacy Electron feed assets
 - website download selection at cutover
 
@@ -3489,21 +3496,22 @@ from Phase 10.
 
 ## Required Work
 
-1. Configure the production Tauri updater public key and endpoints.
-2. Store the private signing material only in approved GitHub Actions secrets.
+1. Configure the Tauri updater public-key path and production endpoints.
+2. Reference private signing material only through approved GitHub Actions
+   secrets.
 3. Generate platform-specific Tauri bundles, updater archives, signatures, and
    `latest.json`.
 4. Preserve the existing atomic draft/verify/publish release architecture.
 5. Prevent Electron and Tauri assets from colliding or being selected
    ambiguously.
 6. Keep legacy Electron update metadata available for existing installs.
-7. Publish the final Electron transition metadata that triggers the approved
-   one-time PsyDuck 2.0 migration dialog.
-8. Add macOS notarization and configured platform signing.
+7. Generate and preserve the final Electron transition metadata required to
+   trigger the approved one-time PsyDuck 2.0 migration dialog.
+8. Add macOS notarization and configured platform-signing automation.
 9. Update release verification for every expected package, signature,
    checksum, URL, version, platform, and architecture.
-10. Verify the production update path against a signed staged release before
-    publication.
+10. Provide deterministic verification commands for the signed staged release
+    path that the Release Candidate Checklist will execute before publication.
 
 ---
 
@@ -3521,9 +3529,10 @@ Validate only the presence and wiring of secrets.
 
 Never fabricate or commit secret values.
 
-If real signing credentials are required for final production verification,
-stop at the verification gate and report the exact external credentials
-required.
+Production credential availability is not a Phase 11 or Phase 12 completion
+gate. Missing credentials must fail release jobs closed without exposing
+values, and the exact required external inputs must be documented for the
+Release Candidate Checklist.
 
 ## Validation
 
@@ -3531,17 +3540,18 @@ Run all repository validation plus:
 
 - tag/package/Cargo/Tauri version consistency
 - Tauri updater configuration validation
-- signing-secret presence checks without logging secret values
-- signed-artifact and `.sig` verification
-- `latest.json` schema and URL verification
-- cross-platform package verification
-- notarization/signing verification where configured
-- staged production updater check
-- signed download verification
-- installation and restart verification
-- final Electron migration-dialog discovery verification
-- legacy Electron feed compatibility verification
-- atomic GitHub release publication verification
+- missing-signing-secret preflight behavior without logging secret values
+- release artifact and `.sig` verifier tests using deterministic fixtures
+- `latest.json` schema and URL verifier tests
+- cross-platform packaging configuration validation
+- signing/notarization workflow validation
+- legacy Electron feed compatibility tests
+- atomic draft/verify/publish workflow validation without publishing a
+  production release
+
+Live signed artifacts, staged updater checks, installation/restart checks,
+transition-release discovery, production publication, and production
+credential verification are Release Candidate Checklist operations.
 
 ---
 
@@ -3549,33 +3559,42 @@ Run all repository validation plus:
 
 Phase 11 is complete only if:
 
-✓ Stable updater signing identity configured
+✓ Stable updater-signing configuration and external input contract implemented
 
-✓ Updater public key committed
+✓ Updater public-key path and validation implemented
 
-✓ Private signing material remains secret
+✓ Private signing material is accepted only through CI secrets
 
-✓ Signed Tauri updater artifacts generated
+✓ Tauri updater artifact and signature generation is automated
 
-✓ `latest.json` generated and hosted
+✓ `latest.json` generation and hosting contract is automated
 
 ✓ GitHub release feed configured
 
 ✓ CI/CD builds every supported platform
 
-✓ Required signing and notarization pass
+✓ Required signing and notarization steps are implemented
 
-✓ Production updater detection is verified
+✓ Production updater verification tooling is implemented
 
-✓ Signed download, installation, and restart are verified
+✓ Signed download, installation, and restart verification commands are
+documented and automated where repository fixtures permit
 
-✓ Final Electron transition flow is verified
+✓ Final Electron transition metadata and verification tooling are implemented
 
 ✓ Legacy Electron feed remains supported
 
-✓ Release publication remains atomic
+✓ Release workflow preserves atomic draft/verify/publish behavior
 
 ✓ Website selects the intended Tauri installers
+
+✓ Missing production credentials fail release jobs closed without leaking
+values
+
+Actual credential provisioning, signed staging, transition-release
+publication, updater installation/restart verification, and go-live approval
+remain mandatory Release Candidate Checklist operations, not migration-phase
+exit criteria.
 
 Only then may Phase 11.5 begin.
 
@@ -3811,19 +3830,20 @@ Requirements:
   copy, Download action, Remind Me Later behavior, and official release URL
 - preserve the published legacy Electron feed and transition assets required
   by installed Electron clients
-- document the release-manager evidence required before repository source is
-  deleted
+- document the release-manager evidence required before public go-live
 - do not port the dialog into Tauri unless a separate explicit redesign is
   approved
-- define Phase 12 deletion as source cleanup after the transition obligation
-  is satisfied, without deleting already published legacy assets
+- define Phase 12 deletion as repository source cleanup independent of the
+  later external release operation, without deleting already published legacy
+  assets
 
 Acceptance:
 
 - the transition obligation has an explicit owner and verifiable completion
   record
-- Phase 12 can delete Electron-only dialog source without claiming that the
-  Tauri application exposes an inapplicable legacy prompt
+- Phase 12 can delete Electron-only dialog source without claiming either that
+  the Tauri application exposes an inapplicable legacy prompt or that the
+  external transition release has already been published
 - no automatic framework replacement, uninstallation, or installer chaining
   is introduced
 
@@ -3948,9 +3968,9 @@ Only then may Phase 12 begin.
 Phase 12 begins only after:
 
 - Phase 0–11.5 are complete
-- Phase 11 production verification gate has been reached
 - Phase 11.5 functional parity has been manually verified
-- Release infrastructure is fully implemented
+- Phase 11 release infrastructure is fully implemented and validated without
+  requiring production credentials or publication
 
 The objective of this phase is to permanently remove Electron from the repository while preserving all application functionality through the completed Tauri implementation.
 
@@ -4079,7 +4099,6 @@ Verify:
 - Water reminders
 - Speech bubbles
 - Updater runtime
-- Migration dialog (where applicable)
 
 Verify there are no functional regressions after Electron removal.
 
@@ -4206,3 +4225,76 @@ Phase 12 is complete only if:
 ✓ Migration documentation finalized
 
 Only then may the migration be marked **COMPLETE**.
+
+---
+
+# Release Candidate Checklist
+
+This checklist is an external release-operation gate that runs after the
+repository migration is complete. It does not block Phase 12 engineering or
+Electron source removal.
+
+Release operators must not claim Ducky ready for public distribution until
+every applicable item below is complete and its evidence is recorded in
+`docs/RELEASING.md`.
+
+## Production Credentials and Trust
+
+- provision the stable Tauri updater signing identity
+- commit and verify the matching updater public key through the documented
+  reviewed path
+- configure `TAURI_SIGNING_PRIVATE_KEY` and its password in the production CI
+  environment
+- configure required Apple signing/notarization credentials
+- configure required Windows signing credentials and timestamp service
+- verify every production credential is available to the intended protected
+  workflow and is absent from source, logs, artifacts, and untrusted jobs
+- run the release preflight and confirm it fails closed for missing or
+  mismatched trust material
+
+## Signed Transition Release
+
+- create the final signed Electron transition release
+- publish and retain its legacy updater metadata and referenced assets
+- verify installed Electron clients discover the intended Tauri transition
+  release
+- verify the exact migration-dialog copy and both **Download PsyDuck 2.0** and
+  **Remind Me Later** outcomes
+- verify the Download action resolves only to the configured official release
+  page
+- record tag, commit, version, release URL, platforms, reviewer, date, and
+  pass/fail evidence
+
+## Staged Updater Verification
+
+- generate signed Tauri packages, updater archives, `.sig` files, checksums,
+  and `latest.json` for every supported platform and architecture
+- verify signatures against the committed updater public key
+- verify every metadata URL, version, platform, architecture, and checksum
+- exercise clean installation and staged update detection
+- verify signed download, installation, restart, settings preservation, and
+  rollback behavior on supported macOS, Windows, and Linux systems
+- confirm website download routes select only the intended Tauri installers
+
+## Production Publication
+
+- create the production GitHub release as a draft
+- upload and redownload every staged asset for final verification
+- confirm Electron and Tauri asset names and feeds cannot collide
+- confirm legacy Electron metadata remains available
+- publish atomically only after every build and verification job succeeds
+- never replace assets on an already published release
+
+## Final Go-Live
+
+- confirm production updater detection from an installed supported Tauri
+  release
+- confirm public website downloads and release metadata resolve correctly
+- confirm signing, notarization, installer reputation, and updater trust on
+  each supported platform
+- complete the security, rollback, support, and release-notes checklist
+- obtain final release-manager approval and retain the completed evidence
+  record
+
+Only after this checklist passes may the migrated application be declared
+ready for public go-live.
