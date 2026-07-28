@@ -6,10 +6,11 @@
 
 - Active work: Phase 12 — Electron Removal.
 - Last completed phase: Phase 11.5 — Functional Parity Closure.
-- Last completed task: Phase 12 legacy runtime removal. Electron main,
-  preload, provider, Node-only build, and superseded unit tests are gone.
-- Next task: remove Electron packaging, assets, release workflow paths,
-  website fallback selection, and dual-runtime release tests.
+- Last completed task: Phase 12 packaging and distribution cleanup. Release
+  automation and website downloads now accept only deterministic Tauri
+  artifacts.
+- Next task: remove native one-time migration compatibility, obsolete IPC
+  constants, fixtures, comments, permissions, and stale documentation.
 - Blockers: none. Production credentials, signed transition-release
   publication, staged updater verification, and go-live approval are external
   Release Candidate Checklist operations after Phase 12 and do not block
@@ -138,6 +139,68 @@
 
 - Remove Electron Builder configuration/assets and convert release,
   download-selection, verification, and documentation paths to Tauri-only.
+
+#### Packaging and Distribution Milestone
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Removed Electron Builder configuration, the superseded Electron feed
+  verifier, and the separate Electron icon set.
+- Repointed the native tray icon embed to the canonical `src-tauri/icons`
+  source so removing the legacy packaging assets does not alter the tray.
+- Removed the complete Electron build matrix, caches, Linux packaging step,
+  feed validation, artifact upload, and publish dependency from the release
+  workflow.
+- The release workflow now builds only signed Tauri packages for macOS,
+  Windows, and Linux, merges only `release-tauri-*` artifacts, generates
+  `latest.json`, verifies signatures/checksums, verifies the remote draft, and
+  publishes only after the complete Tauri bundle passes.
+- Simplified the release bundle verifier so only deterministic Tauri
+  installers, updater archives/signatures, `latest.json`, and checksums are
+  required.
+- Removed the website's pre-Tauri-release fallback. Public download routes now
+  reject a latest release that lacks a namespaced Tauri installer rather than
+  silently serving an older runtime.
+- Updated the website's public native-runtime copy without changing layout,
+  styling, routes, or analytics behavior.
+- Updated release tests to enforce the single-runtime workflow and absence of
+  Electron feed/build paths.
+
+**Validation**
+
+- `npm install`: passed; no Electron dependency was installed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (85 tests), including the Tauri-only release assertions.
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (132 tests).
+- `cargo build`: passed.
+- Tauri permission validation: passed through the authorization test suite.
+- Website `npm run lint`: passed.
+- Website `npm run typecheck`: passed.
+- Website `npm test`: passed (14 tests).
+- Website `npm run build`: passed.
+- `npm run tauri:build -- --bundles app`: passed; `Ducky.app` produced with
+  the canonical Tauri icon.
+- `npm run tauri:dev`: native application compiled, launched, and remained
+  alive.
+
+**Manual verification**
+
+- Native development launch succeeded with the canonical Tauri tray asset.
+  Full tray/menu and download-route interaction checks remain part of the
+  final regression sweep.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Remove one-time runtime migration imports/shims and eliminate stale
+  Electron-era constants, fixtures, comments, and active documentation.
 
 ### Release Operations Separated from Repository Migration
 

@@ -69,7 +69,7 @@ const features: FeatureCardData[] = [
   {
     title: "Native Desktop",
     description:
-      "Tray integration, Preferences, cross-platform support, automatic updates, and native Electron performance.",
+      "Tray integration, Preferences, cross-platform support, automatic updates, and native performance.",
     tag: "Built Native",
     icon: MonitorCog,
     accent: "blue",

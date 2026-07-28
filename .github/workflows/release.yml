@@ -54,100 +54,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-  build-electron:
-    name: Build legacy Electron (${{ matrix.platform }})
-    needs: validate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos
-            os: macos-latest
-            command: dist:mac
-            files: |
-              release/*.dmg
-              release/*.dmg.blockmap
-              release/*.zip
-              release/*.zip.blockmap
-              release/latest-mac.yml
-          - platform: windows
-            os: windows-latest
-            command: dist:win
-            files: |
-              release/*.exe
-              release/*.exe.blockmap
-              release/*.msi
-              release/latest.yml
-          - platform: linux
-            os: ubuntu-latest
-            command: dist:linux
-            files: |
-              release/*.AppImage
-              release/*.deb
-              release/latest-linux.yml
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: false
-    steps:
-      - name: Check out tagged source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Cache Electron downloads
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ${{ runner.temp }}/electron-cache
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            electron-${{ runner.os }}-
-
-      - name: Cache Electron Builder downloads
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ${{ runner.temp }}/electron-builder-cache
-          key: electron-builder-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            electron-builder-${{ runner.os }}-
-
-      - name: Install locked dependencies
-        run: npm ci
-        env:
-          ELECTRON_CACHE: ${{ runner.temp }}/electron-cache
-
-      - name: Install Linux packaging dependencies
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes libopenjp2-tools
-
-      - name: Build legacy Electron distributables
-        run: npm run ${{ matrix.command }} -- --publish never
-        env:
-          ELECTRON_CACHE: ${{ runner.temp }}/electron-cache
-          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
-
-      - name: Verify legacy Electron feed
-        run: npm run release:verify -- ${{ matrix.platform }}
-
-      - name: Stage legacy release artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-electron-${{ matrix.platform }}
-          path: ${{ matrix.files }}
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 7
-
   build-tauri:
     name: Build signed Tauri (${{ matrix.platform }})
     needs: validate
@@ -377,9 +283,7 @@ jobs:
 
   publish:
     name: Verify and publish GitHub Release
-    needs:
-      - build-electron
-      - build-tauri
+    needs: build-tauri
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -405,7 +309,7 @@ jobs:
       - name: Download verified artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: release-*
+          pattern: release-tauri-*
           path: release-artifacts
           merge-multiple: true
 
@@ -428,12 +332,6 @@ jobs:
             echo "::error title=Release asset collision::Duplicate asset '$duplicate'."
             exit 1
           fi
-
-      - name: Verify all legacy Electron feeds
-        run: |
-          npm run release:verify -- macos release-artifacts
-          npm run release:verify -- windows release-artifacts
-          npm run release:verify -- linux release-artifacts
 
       - name: Generate Tauri latest.json
         shell: bash
@@ -468,7 +366,7 @@ jobs:
           ) > "$RUNNER_TEMP/SHA256SUMS.txt"
           mv "$RUNNER_TEMP/SHA256SUMS.txt" release-artifacts/SHA256SUMS.txt
 
-      - name: Verify complete dual-runtime bundle
+      - name: Verify complete Tauri bundle
         run: npm run release:verify-bundle -- release-artifacts
 
       - name: Create or reset draft GitHub Release

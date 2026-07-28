@@ -64,16 +64,6 @@ try {
     }
   }
 
-  for (const legacyMetadata of [
-    "latest-mac.yml",
-    "latest.yml",
-    "latest-linux.yml",
-  ]) {
-    if (!files.includes(legacyMetadata)) {
-      throw new Error(`Missing legacy Electron feed ${legacyMetadata}.`);
-    }
-  }
-
   const manifest = JSON.parse(
     readFileSync(resolve(releaseDirectory, "latest.json"), "utf8"),
   );
@@ -146,7 +136,7 @@ try {
   }
 
   console.log(
-    `Verified complete dual-runtime release bundle for ${tag} (${files.length} assets).`,
+    `Verified complete Tauri release bundle for ${tag} (${files.length} assets).`,
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

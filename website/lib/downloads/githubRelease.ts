@@ -147,15 +147,7 @@ function selectAsset(
   const tauriCandidates = candidates.filter((asset) =>
     asset.name.toLowerCase().startsWith(tauriAssetPrefix),
   );
-  const releaseMajor = Number.parseInt(
-    release.tag_name.replace(/^v/, "").split(".")[0] ?? "",
-    10,
-  );
-  const asset =
-    tauriCandidates[0] ??
-    (Number.isInteger(releaseMajor) && releaseMajor < 2
-      ? candidates[0]
-      : undefined);
+  const asset = tauriCandidates[0];
   if (!asset) {
     throw new Error(
       `The latest GitHub release has no Tauri ${extension} asset for ${platform}`,

@@ -107,18 +107,18 @@ test("website cutover selects namespaced Tauri installers", async () => {
   );
   assert.match(source, /const tauriAssetPrefix = "ducky-tauri-"/);
   assert.match(source, /tauriCandidates\[0\]/);
-  assert.match(source, /releaseMajor < 2/);
   assert.match(source, /no Tauri/);
+  assert.doesNotMatch(source, /releaseMajor|candidates\[0\]/);
 });
 
-test("release workflow preserves atomic dual-runtime publication", async () => {
+test("release workflow publishes only the atomic Tauri bundle", async () => {
   const [workflow, releaseConfig] = await Promise.all([
     readFile(resolve(".github/workflows/release.yml"), "utf8"),
     readFile(resolve("scripts/release/create-tauri-config.mjs"), "utf8"),
   ]);
 
-  assert.match(workflow, /build-electron:/);
   assert.match(workflow, /build-tauri:/);
+  assert.doesNotMatch(workflow, /build-electron:|electron-builder|latest-mac\.yml|latest-linux\.yml/);
   assert.match(workflow, /platform: macos[\s\S]*platform: windows[\s\S]*platform: linux/);
   assert.match(releaseConfig, /createUpdaterArtifacts: true/);
   assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\./);
@@ -133,8 +133,7 @@ test("release workflow preserves atomic dual-runtime publication", async () => {
   assert.match(workflow, /Verify signed updater downloads from draft/);
   assert.match(workflow, /verify-github-draft\.mjs/);
   assert.match(workflow, /release:verify-signatures/);
-  assert.match(workflow, /latest-mac\.yml/);
-  assert.match(workflow, /latest-linux\.yml/);
+  assert.match(workflow, /Verify complete Tauri bundle/);
   assert.ok(
     workflow.indexOf("Verify remote draft inventory") <
       workflow.indexOf("Publish verified GitHub Release"),

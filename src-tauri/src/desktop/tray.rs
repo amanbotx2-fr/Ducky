@@ -12,7 +12,7 @@ use super::menus;
 pub const ID: &str = "ducky-tray";
 
 const TOOLTIP: &str = "Ducky";
-const SOURCE_ICON: &[u8] = include_bytes!("../../../assets/icons/icon.png");
+const SOURCE_ICON: &[u8] = include_bytes!("../../icons/icon.png");
 
 #[cfg(target_os = "macos")]
 const ICON_SIZE: u32 = 18;
