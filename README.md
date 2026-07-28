@@ -6,7 +6,7 @@
 
 ### A small native desktop AI companion for focused work.
 
-![Version](https://img.shields.io/badge/version-1.1.0-5b6cff?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.0-5b6cff?style=flat-square)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-supported?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)
 
