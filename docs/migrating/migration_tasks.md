@@ -3583,45 +3583,244 @@ Only then may Phase 12 begin.
 
 # PHASE 12
 
-Electron Removal
+## Electron Removal
 
-Only begins after
+Phase 12 begins only after:
 
-ALL previous phases complete.
+- Phase 0–11 are complete
+- Phase 11 production verification gate has been reached
+- Release infrastructure is fully implemented
 
-Tasks
-
-Remove Electron Builder
-
-Remove Electron dependencies
-
-Remove preload
-
-Remove main process
-
-Remove IPC
-
-Remove Builder config
-
-Acceptance
-
-Repository builds using Tauri only.
+The objective of this phase is to permanently remove Electron from the repository while preserving all application functionality through the completed Tauri implementation.
 
 ---
 
-# FINAL ACCEPTANCE
+## Scope
 
-The migration is complete only if:
+Phase 12 includes:
 
-✓ Electron removed
+- Remove Electron Builder
+- Remove Electron runtime dependencies
+- Remove Electron development dependencies
+- Remove Electron preload scripts
+- Remove Electron main process
+- Remove Electron IPC implementation
+- Remove Electron Builder configuration
+- Remove Electron packaging configuration
+- Remove Electron-specific scripts
+- Remove Electron-specific assets
+- Remove Electron-only tests
+- Remove Electron-only documentation
+- Remove Electron compatibility shims
+- Remove Electron feature flags
+- Remove obsolete migration compatibility code
+- Simplify DesktopBridge to a Tauri-only implementation
+- Remove unused Electron permissions
+- Remove dead code created during migration
+- Update documentation to reference Tauri only
+- Final repository cleanup
+
+This phase must not introduce new application functionality.
+
+It is a cleanup and consolidation phase only.
+
+---
+
+## Required Work
+
+1. Remove every Electron runtime dependency from the repository.
+
+2. Remove Electron Builder and all associated configuration.
+
+3. Remove Electron preload scripts.
+
+4. Remove the Electron main process.
+
+5. Remove Electron IPC handlers and channels.
+
+6. Remove Electron-specific DesktopBridge implementations while preserving the renderer API.
+
+7. Simplify DesktopBridge to use only the Tauri backend.
+
+8. Remove all Electron feature flags and compatibility branches.
+
+9. Remove obsolete migration scaffolding that is no longer required.
+
+10. Remove Electron packaging assets and build scripts.
+
+11. Remove Electron-specific tests and fixtures.
+
+12. Remove Electron-specific documentation.
+
+13. Update repository documentation to describe Tauri as the only supported desktop runtime.
+
+14. Verify that no Electron references remain in production code.
+
+15. Verify that the release pipeline produces only Tauri artifacts.
+
+16. Ensure the website download flow points exclusively to Tauri installers.
+
+17. Perform final repository cleanup.
+
+---
+
+## Validation
+
+Run the complete repository validation suite:
+
+- npm install
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Tauri development build
+- Tauri production build
+- macOS packaged build
+- Windows packaged build (where available)
+- Linux packaged build (where available)
+
+Additionally verify:
+
+- package.json contains no Electron packages
+- package-lock.json contains no Electron packages
+- npm install does not install Electron
+- no Electron imports remain
+- no Electron runtime code remains
+- no Electron Builder configuration remains
+- no Electron preload scripts remain
+- no Electron IPC remains
+- no Electron assets remain
+- DesktopBridge is Tauri-only
+- release pipeline produces only Tauri artifacts
+- website download flow targets Tauri installers
+- repository builds successfully from a clean checkout
+
+---
+
+## Manual Verification
+
+Verify:
+
+- AI providers
+- Companion window
+- Cursor tracking
+- Animations
+- Tray
+- Native menus
+- Notifications
+- Preferences
+- Settings persistence
+- Reminder system
+- Pomodoro
+- Water reminders
+- Speech bubbles
+- Updater runtime
+- Migration dialog (where applicable)
+
+Verify there are no functional regressions after Electron removal.
+
+---
+
+## Temporary Diagnostics
+
+If temporary diagnostics are required:
+
+- add diagnostics
+- identify the issue
+- remove diagnostics before completion
+
+No debug code may remain in production.
+
+---
+
+## Documentation
+
+Update:
+
+- docs/migrating/progress.md
+
+Record:
+
+- removed Electron components
+- repository cleanup
+- validation performed
+- manual verification
+- final migration summary
+
+---
+
+## Commits
+
+Create logical commits throughout the phase.
+
+Suggested commit sequence:
+
+```text
+refactor(tauri): remove electron runtime
+
+refactor(tauri): remove electron desktop bridge
+
+refactor(tauri): remove electron packaging
+
+refactor(tauri): remove migration compatibility
+
+docs(tauri): finalize migration
+
+chore(tauri): complete electron removal
+```
+
+If regressions are discovered:
+
+```text
+fix(tauri): ...
+```
+
+Do not squash unrelated work.
+
+---
+
+## Phase Exit Criteria
+
+Phase 12 is complete only if:
+
+✓ Electron Builder removed
+
+✓ Electron runtime removed
+
+✓ Electron dependencies removed
+
+✓ Electron preload removed
+
+✓ Electron main process removed
+
+✓ Electron IPC removed
+
+✓ Electron Builder configuration removed
+
+✓ Electron packaging removed
+
+✓ Electron compatibility code removed
+
+✓ DesktopBridge is Tauri-only
+
+✓ No Electron imports remain
+
+✓ No Electron packages remain
+
+✓ No Electron runtime code remains
+
+✓ Repository builds using only Tauri
 
 ✓ Tauri production build succeeds
 
 ✓ macOS build succeeds
 
-✓ Windows build succeeds
+✓ Windows build succeeds (where supported)
 
-✓ Linux build succeeds
+✓ Linux build succeeds (where supported)
 
 ✓ AI works
 
@@ -3637,10 +3836,12 @@ The migration is complete only if:
 
 ✓ Website download pipeline updated
 
-✓ Release pipeline updated
+✓ Release pipeline produces only Tauri artifacts
 
 ✓ No TODO items remain
 
-✓ No Electron dependencies remain
+✓ Repository is clean
 
-Only then may the migration be marked COMPLETE.
+✓ Migration documentation finalized
+
+Only then may the migration be marked **COMPLETE**.

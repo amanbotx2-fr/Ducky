@@ -4,25 +4,112 @@
 
 ## Current Status
 
-- Active work: Phase 11 — Release Pipeline is blocked at the external
-  production trust and staged-verification gate.
-- Last completed phase: Phase 10 — Updater Migration
-- Last completed task: Phase 11 credential-independent release pipeline,
-  verifier, website cutover, and runbook implementation.
-- Next task: An authorized release manager must provide the stable updater
-  identity and platform-signing credentials, then run the staged production
-  release verification documented in `docs/RELEASING.md`.
-- Blockers: `src-tauri/updater.pubkey` and its matching private-key secrets do
-  not exist; Apple signing/notarization credentials and a Windows
-  code-signing certificate are also unavailable. Signed packages, hosted
-  `latest.json`, production update/install/restart checks, and the final live
-  Electron transition therefore cannot be verified.
+- Active work: Phase 12 — Electron Removal discovery is blocked at the
+  functional-parity gate.
+- Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
+  external production credential gate remains documented for the release
+  manager and is explicitly accepted by the updated Phase 12 contract.
+- Last completed task: Phase 12 pre-removal dependency and behavior audit.
+- Next task: approve and execute a parity-closure contract for the remaining
+  Electron-only Personal Assistant, hydration, and transition behavior before
+  deleting Electron.
+- Blockers: the migrated Tauri runtime still lacks several working Electron
+  behaviors required by the Phase 12 preservation and exit criteria. Removing
+  Electron now would delete those behaviors rather than consolidate an
+  already complete migration.
 
 ## Active Verification
 
+### Phase 12 — Pre-removal Functional-Parity Gate
+
+**Status:** Blocked. Electron removal has not started.
+
+**Discovery findings**
+
+- `src/desktop/tauriBridge.ts` still returns `undefined` from
+  `getCompanionBridge()`. `src/renderer/App.tsx` relies on that bridge for Set
+  My Name, Sticky Message, and Daily Planner panel events and operations.
+  Those working Electron interactions therefore remain unavailable in Tauri.
+- The Tauri settings runtime has native user-name and sticky-message mutation
+  commands, but the Tauri adapter does not compose the complete renderer
+  contract or subscribe to the corresponding panel-request events. Deleting
+  Electron would remove the only complete path for those existing features.
+- `src/main/DailyPlannerService.ts` remains the only Daily Planner backend.
+  There is no corresponding Rust domain service, command, authorization
+  entry, capability, or Tauri DesktopBridge method. The Tauri event registry
+  contains the historical event name, but the native menu does not emit it
+  and the renderer cannot subscribe while the complete companion bridge is
+  unavailable.
+- `src/desktop/tauriBridge.ts` explicitly advertises
+  `water: false`. Hydration controls remain disabled in Tauri Preferences,
+  and the Rust settings mutation boundary still rejects water updates.
+  Renderer-side reminder timing continues to work from the loaded snapshot,
+  but users cannot manage the existing setting with Electron parity.
+- `src-tauri/src/desktop/menus.rs` intentionally implements only Pomodoro,
+  Reminder, Preferences, About, Restart, and Quit context-menu behavior. It
+  does not contain Electron's Set My Name, Daily Planner, Sticky Message,
+  Water Reminders, Eye Tracking, or Always On Top menu items and actions.
+- The approved Electron-to-Tauri migration dialog remains implemented only by
+  `src/main/TauriMigrationFlow.ts` and the Electron updater path. No migrated
+  Tauri equivalent exists. Its disposition must be explicitly clarified
+  before the Electron-only transition code is deleted.
+- These gaps originated in the Phase 4/5 deferrals. Phase 4 assigned dynamic
+  menu behavior to later domain phases, Phase 5 deferred hydration, and no
+  later executable phase contract took ownership of Daily Planner, profile,
+  sticky-message menu integration, or hydration settings.
+
+**Why cleanup cannot safely proceed**
+
+- Phase 12 is explicitly removal and consolidation only. It forbids new
+  functionality and requires all existing behavior to remain unchanged.
+- Implementing the missing Rust planner service, hydration mutations, menu
+  actions, event recovery, and full companion adapter during Phase 12 would
+  be feature-domain migration work outside the approved cleanup architecture.
+- Deleting `src/main`, the Electron bridge, Electron dependencies, and
+  Electron tests before those paths have Tauri parity would violate the Phase
+  12 preservation requirements and multiple exit criteria.
+
+**Repository changes**
+
+- Accepted the user-supplied expanded Phase 12 contract in
+  `docs/migrating/migration_tasks.md`.
+- Updated this progress record with the pre-removal audit and blocker.
+- No production, test, configuration, dependency, release, website, or asset
+  file was modified.
+
+**Validation**
+
+- Static audit covered the renderer bridge consumers, both desktop adapters,
+  native commands/events/capabilities, Electron and Tauri native menus,
+  settings capability metadata, hydration integration, Daily Planner
+  implementation, updater transition flow, package scripts, release workflow,
+  website resolver, tests, and Electron dependencies.
+- `git diff --check`: passed.
+- Builds and runtime smoke tests were not run because no production code was
+  changed and the mandatory architecture gate stopped implementation before
+  the first removal milestone.
+
+**Required contract decision**
+
+- Add an explicitly approved parity-closure milestone before Phase 12 that
+  assigns the remaining Personal Assistant, Daily Planner, hydration, dynamic
+  menu, and renderer bridge work without treating it as cleanup.
+- Clarify whether the one-time Electron-to-Tauri dialog is a final legacy
+  release obligation to be deleted after the handoff or a behavior that must
+  exist in the Tauri application.
+- Resume Phase 12 only after the resulting Tauri behavior is manually
+  verified and `getCompanionBridge()` no longer hides required functionality.
+
+**Next action**
+
+- Stop. Do not delete Electron or begin a Phase 12 implementation milestone
+  until the parity-closure contract is approved and completed.
+
 ### Phase 11 — External Credential and Production Verification Gate
 
-**Status:** Blocked. Phase 11 is not complete and Phase 12 must not begin.
+**Status:** External production verification remains pending. The updated
+Phase 12 contract accepts the implemented release infrastructure as complete
+for repository migration purposes and authorizes the Phase 12 discovery gate.
 
 **Completed implementation**
 
@@ -99,8 +186,9 @@
 
 **Next action**
 
-- Stop. Do not begin Phase 12. Resume Phase 11 only after the exact external
-  trust inputs are available.
+- Complete this external trust verification before the first signed
+  production Tauri release. Under the updated Phase 12 contract, it does not
+  replace the separate functional-parity gate documented above.
 
 ### Phase 11 — Atomic Dual-Runtime Workflow
 
