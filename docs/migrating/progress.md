@@ -8,8 +8,51 @@
 - Last completed phase: Phase 9 — AI System Migration
 - Last completed task: Task 10.7 — Permissions
 - Next task: Phase 10 final verification
-- Blockers: None. Production updater trust, feed, artifacts, and live update
-  verification remain deferred to Phase 11.
+- Blockers: The final native UI verification is blocked because the macOS
+  session is locked and cannot be unlocked by accessibility automation.
+  Production updater trust, feed, artifacts, and live update verification
+  remain deferred to Phase 11.
+
+## Active Verification
+
+### Phase 10 Final Verification
+
+**Status:** Blocked at the manual UI gate.
+
+**Completed verification**
+
+- All implementation milestones through Task 10.7 are committed.
+- The final automated gate passes: TypeScript typecheck, 151 Node tests,
+  renderer/main build, 121 Rust tests, Rust debug build, permission
+  validation, Electron production build, Tauri production build, and direct
+  process smoke launches of both packaged applications.
+- Deterministic tests cover startup/manual checks, update status transitions,
+  event delivery, persisted automatic-check settings, DesktopBridge
+  boundaries, the two migration-dialog actions, and exact updater authority.
+
+**Manual verification still required**
+
+- Open the newly built Tauri Preferences window and verify the initial status
+  text, manual Check Now transition, and final bounded no-feed status.
+- Toggle automatic update checks, restart the newly built Tauri application,
+  and verify the persisted value and one startup check.
+- Trigger the Electron transition dialog with temporary local-only test
+  metadata, verify both button paths and the official release link, then
+  remove the trigger before completion.
+- Confirm no renderer errors or permission warnings during those
+  interactions.
+
+**Blocker**
+
+- Computer-use inspection reported that the Mac is locked, and automatic
+  unlock was unavailable. No manual result is claimed while the native UI
+  cannot be observed.
+
+**Next action**
+
+- Unlock the Mac, execute the remaining native interactions, remove any
+  temporary trigger, update this section to complete, run the final clean-tree
+  check, and stop before Phase 11.
 
 ## Completed Tasks
 
