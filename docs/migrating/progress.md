@@ -4,15 +4,197 @@
 
 ## Current Status
 
-- Active work: None. Phase 10 is complete; Phase 11 has not started.
+- Active work: Phase 11 — Release Pipeline discovery and credential-independent
+  implementation.
 - Last completed phase: Phase 10 — Updater Migration
 - Last completed task: Task 10.7 — Permissions
-- Next task: Phase 11 — Packaging + Release Pipeline, only when explicitly
-  requested.
-- Blockers: None. Production updater trust, feed, artifacts, signing, and live
-  update verification remain intentionally deferred to Phase 11.
+- Next task: Configure the release-only updater artifact and trust inputs.
+- Blockers: Production updater, Apple signing/notarization, and Windows signing
+  credentials are not present in the local environment. Phase 11 can proceed
+  through the credential-independent implementation and automated validation
+  gates, but signed staged/live verification cannot be claimed without the
+  externally managed credentials.
 
 ## Active Verification
+
+### Phase 11 — Updater Artifact Contract
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added one release contract shared by CI helpers for stable version
+  validation, collision-free Tauri asset names, exact GitHub URLs, updater
+  endpoint configuration, and public-key validation.
+- Extended version validation across `package.json`, the root lockfile,
+  `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and the pushed tag.
+- Added a release-only Tauri configuration generator that enables
+  `bundle.createUpdaterArtifacts`, embeds the externally supplied updater
+  public key and production GitHub endpoint, and supports HTTPS-timestamped
+  Windows signing without changing credential-free development builds.
+- Added deterministic staging for universal macOS DMG/updater archives,
+  Windows x64 NSIS/MSI installers, and Linux x64 AppImage/DEB packages plus
+  every required updater signature.
+- Added deterministic `latest.json` generation for `darwin-aarch64`,
+  `darwin-x86_64`, `windows-x86_64`, and `linux-x86_64`.
+- Added a small release-only Rust verifier using the same Minisign primitive as
+  Tauri's updater. CI can now verify actual artifact bytes against each `.sig`
+  and the configured production public key before publication.
+- Added complete-bundle and GitHub-draft inventory verifiers for exact
+  versions, targets, URLs, signatures, legacy Electron feeds, SHA-256 values,
+  upload state, and remote byte sizes.
+- Updated the website resolver to prefer the deterministic Tauri namespace.
+  Existing v1 Electron-only releases remain downloadable; v2 and later fail
+  closed instead of silently selecting a legacy Electron installer.
+
+**Files changed**
+
+- `scripts/release/release-contract.mjs`
+- `scripts/release/validate-versions.mjs`
+- `scripts/release/create-tauri-config.mjs`
+- `scripts/release/stage-tauri-artifacts.mjs`
+- `scripts/release/generate-latest-json.mjs`
+- `scripts/release/verify-updater-signatures.mjs`
+- `scripts/release/verify-release-bundle.mjs`
+- `scripts/release/verify-github-draft.mjs`
+- `src-tauri/examples/verify_updater_signature.rs`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `package.json`
+- `.gitignore`
+- `tests/release-pipeline.test.cjs`
+- `website/lib/downloads/githubRelease.ts`
+- `docs/migrating/migration_tasks.md`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (157 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- `npm run release:validate-versions`: passed.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- Tauri production build (`npm run tauri:build -- --bundles app`): passed.
+- Electron packaged smoke launch: passed and remained alive until intentional
+  shutdown.
+- Tauri packaged smoke launch: passed and remained alive until intentional
+  shutdown.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed normal Electron and Tauri production bundles still launch without
+  permission, panic, uncaught, or fatal diagnostics.
+- A signed release-only Tauri build cannot be run honestly without the
+  production updater private key and public key.
+
+**Blockers**
+
+- None for the completed artifact-contract milestone.
+- Credential-dependent artifact generation and cryptographic verification
+  remain blocked until externally managed production material is supplied.
+
+**Next task**
+
+- Replace the Electron-only workflow with the dual-runtime atomic
+  build/verify/draft/publish pipeline.
+
+### Phase 11 — Release Pipeline Discovery
+
+**Status:** Complete.
+
+**Electron release baseline**
+
+- `.github/workflows/release.yml` is a tag-triggered, three-platform Electron
+  pipeline with tag/package/lock validation, fail-independent platform builds,
+  per-platform artifact verification, short-lived workflow artifacts, and one
+  atomic draft-to-published GitHub Release job.
+- `electron-builder.yml` builds universal macOS DMG/ZIP artifacts and update
+  metadata, Windows x64 NSIS/MSI artifacts and update metadata, and Linux x64
+  AppImage/DEB artifacts and update metadata.
+- `scripts/verify-release-artifacts.mjs` protects the legacy Electron feed by
+  checking expected packages, metadata versions, SHA-512 values, referenced
+  files, and platform-specific primary updater targets.
+- The existing workflow intentionally disables Electron macOS and Windows
+  signing. Those artifacts and `latest-mac.yml`, `latest.yml`, and
+  `latest-linux.yml` must remain available for the final Electron-to-Tauri
+  transition.
+
+**Tauri release baseline**
+
+- `src-tauri/tauri.conf.json` intentionally has no updater public key or
+  endpoint and does not enable `bundle.createUpdaterArtifacts`; this preserved
+  safe Phase 10 local/check-only builds but is not a production updater
+  configuration.
+- The native updater runtime already consumes the standard Tauri updater feed
+  and verifies signed responses once production configuration exists.
+- `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and
+  `src-tauri/tauri.conf.json` all currently declare version `1.1.0`; the
+  release workflow validates only the first two.
+- No Tauri updater-signing key, Apple signing/notarization credential, or
+  Windows signing certificate is present locally. No key or credential will be
+  generated, fabricated, logged, or committed.
+
+**Distribution and website baseline**
+
+- The website resolves the latest GitHub Release and selects installers by
+  extension plus generic platform scoring. Once Electron and Tauri assets
+  coexist, this is ambiguous and can select a legacy Electron installer.
+- The existing release names have no runtime discriminator. Tauri assets need
+  a deterministic `Ducky-Tauri-...` namespace while Electron filenames and
+  metadata references remain unchanged.
+- Tauri's production updater feed needs a signed `latest.json` mapping macOS
+  ARM64/x64, Windows x64, and Linux x64 to the exact staged updater archives
+  and signatures.
+
+**Release architecture decision**
+
+- Preserve the existing atomic publication sequence: build all platforms,
+  stage all outputs, aggregate and verify the complete release, upload to a
+  draft, verify the draft's exact asset inventory, then publish once.
+- Keep the normal Tauri configuration credential-free. CI will create a
+  release-only overlay from externally supplied public configuration and
+  server-side secrets, preventing local builds from depending on production
+  signing material.
+- Preserve Electron packages and feed metadata alongside collision-free Tauri
+  installers and updater artifacts. The website will explicitly select Tauri
+  installer names at cutover.
+
+**Validation performed**
+
+- Fully reviewed the Phase 11 contract in
+  `docs/migrating/migration_codex.md`,
+  `docs/migrating/migration_tasks.md`, and this progress file.
+- Audited root package/build versions, Electron Builder configuration, Tauri
+  configuration and updater runtime, release workflow/verifier, website
+  download resolver, tests, and release documentation.
+- Confirmed the Tauri CLI supports a mergeable release configuration via
+  `tauri build --config` and updater signing via
+  `TAURI_SIGNING_PRIVATE_KEY` /
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+- Confirmed all known production credential variables are absent locally
+  without reading or printing any values.
+
+**Manual verification**
+
+- Not applicable to discovery. Signed staged/live updater verification remains
+  a later Phase 11 gate.
+
+**Blockers**
+
+- None for credential-independent implementation.
+- Signed artifact, notarization, code-signing, hosted feed, installation,
+  restart, and production transition verification require externally managed
+  credentials and a staged release.
+
+**Next task**
+
+- Implement release-only Tauri updater configuration, deterministic artifact
+  staging, version validation, and release tests.
 
 ### Phase 10 Final Verification
 

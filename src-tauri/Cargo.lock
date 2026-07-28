@@ -964,10 +964,12 @@ name = "ducky"
 version = "1.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "iana-time-zone",
  "image",
  "keyring",
+ "minisign-verify",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

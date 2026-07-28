@@ -3507,6 +3507,24 @@ from Phase 10.
 
 ---
 
+## Secret Material
+
+Production secrets must never be generated, committed, logged, or embedded.
+
+If production signing identities, Apple credentials, Windows certificates,
+or GitHub Actions secrets are unavailable, implement the complete release
+pipeline around externally provided secrets.
+
+Use placeholders only where required by documentation.
+
+Validate only the presence and wiring of secrets.
+
+Never fabricate or commit secret values.
+
+If real signing credentials are required for final production verification,
+stop at the verification gate and report the exact external credentials
+required.
+
 ## Validation
 
 Run all repository validation plus:

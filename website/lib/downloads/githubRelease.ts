@@ -27,6 +27,7 @@ const latestReleaseUrl =
 const releaseDownloadUrlPrefix =
   "https://github.com/amanbotx2-fr/Ducky/releases/download/";
 const releaseCacheTtlMs = 5 * 60 * 1000;
+const tauriAssetPrefix = "ducky-tauri-";
 
 let cachedRelease:
   | {
@@ -143,10 +144,21 @@ function selectAsset(
         left.name.localeCompare(right.name),
     );
 
-  const asset = candidates[0];
+  const tauriCandidates = candidates.filter((asset) =>
+    asset.name.toLowerCase().startsWith(tauriAssetPrefix),
+  );
+  const releaseMajor = Number.parseInt(
+    release.tag_name.replace(/^v/, "").split(".")[0] ?? "",
+    10,
+  );
+  const asset =
+    tauriCandidates[0] ??
+    (Number.isInteger(releaseMajor) && releaseMajor < 2
+      ? candidates[0]
+      : undefined);
   if (!asset) {
     throw new Error(
-      `The latest GitHub release has no ${extension} asset for ${platform}`,
+      `The latest GitHub release has no Tauri ${extension} asset for ${platform}`,
     );
   }
 

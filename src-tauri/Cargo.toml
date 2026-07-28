@@ -43,3 +43,7 @@ keyring = { version = "=3.6.3", default-features = false, features = ["windows-n
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "=3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+
+[dev-dependencies]
+base64 = "0.22"
+minisign-verify = "0.2.5"
