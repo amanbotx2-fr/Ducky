@@ -61,6 +61,10 @@ const aiCommandPermissions = [
   'allow-list-ai-models',
   'allow-test-ai-connection',
 ];
+const updaterCommandPermissions = [
+  'allow-get-update-status',
+  'allow-check-for-updates',
+];
 
 const readJson = async (target) =>
   JSON.parse(await readFile(target, 'utf8'));
@@ -152,12 +156,14 @@ describe('Tauri IPC authorization', () => {
       'menu:',
       'notification:',
       'tray:',
+      'updater:',
     ];
 
     for (const role of ['companion', 'preferences']) {
       const capability = await readCapability(role);
 
       for (const permission of capability.permissions) {
+        assert.equal(permission.includes('*'), false);
         assert.equal(forbiddenPermissions.has(permission), false);
         assert.equal(
           forbiddenPrefixes.some((prefix) =>
@@ -167,6 +173,42 @@ describe('Tauri IPC authorization', () => {
         );
       }
     }
+  });
+
+  it('exposes only status and check to Preferences', async () => {
+    const companion = await readCapability('companion');
+    const preferences = await readCapability('preferences');
+    const grantedUpdaterPermissions = [
+      ...companion.permissions,
+      ...preferences.permissions,
+    ].filter((permission) =>
+      updaterCommandPermissions.includes(permission),
+    );
+    const tauriCommands = await readFile(
+      path.join(projectRoot, 'src', 'desktop', 'tauriCommands.ts'),
+      'utf8',
+    );
+
+    assert.deepEqual(
+      grantedUpdaterPermissions,
+      updaterCommandPermissions,
+    );
+    assert.equal(
+      companion.permissions.some((permission) =>
+        updaterCommandPermissions.includes(permission),
+      ),
+      false,
+    );
+    assert.deepEqual(
+      preferences.permissions.filter((permission) =>
+        updaterCommandPermissions.includes(permission),
+      ),
+      updaterCommandPermissions,
+    );
+    assert.doesNotMatch(
+      tauriCommands,
+      /download[_A-Z-]?update|install[_A-Z-]?update|restart[_A-Z-]?update/i,
+    );
   });
 
   it('generates one narrow allow/deny permission pair per command', async () => {

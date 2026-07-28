@@ -6,12 +6,71 @@
 
 - Active work: Phase 10 — Updater Migration
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Task 10.6 — Electron-to-Tauri Migration Flow
-- Next task: Task 10.7 — Permissions
+- Last completed task: Task 10.7 — Permissions
+- Next task: Phase 10 final verification
 - Blockers: None. Production updater trust, feed, artifacts, and live update
   verification remain deferred to Phase 11.
 
 ## Completed Tasks
+
+### Task 10.7 — Permissions
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Verified the native updater is reachable from renderer code only through
+  the two exact custom Preferences commands:
+  `get_update_status` and `check_for_updates`.
+- Verified the companion capability has no updater authority.
+- Added an explicit authorization regression test that rejects every
+  `updater:` plugin permission, including frontend check, download, install,
+  and download-and-install commands.
+- Added wildcard rejection for every renderer capability and retained the
+  existing prohibition on event emission and broad native plugin access.
+- Verified no renderer command for download, install, or restart exists.
+  Rust remains the sole owner of the native updater plugin adapter.
+
+**Files changed**
+
+- `tests/tauri-ipc-authorization.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (151 tests), including the new exact updater authority
+  assertion.
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- Electron production-output smoke launch: passed and remained alive until
+  the intentional test shutdown.
+- `npx tauri dev --no-watch`: passed; the process remained alive with the
+  known development custom-protocol fallback warning.
+- `npm run tauri:build -- --bundles app`: passed.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Inspected both generated local capability documents and confirmed updater
+  status/check are Preferences-only.
+- Inspected the resolved permission catalog and confirmed the updater
+  plugin's frontend permissions exist in the dependency catalog but are not
+  granted to either Ducky webview.
+- Confirmed no permission-denied warning was produced by the updater runtime
+  during either Electron or Tauri smoke launch.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Phase 10 final automated and manual verification.
 
 ### Task 10.6 — Electron-to-Tauri Migration Flow
 
