@@ -286,6 +286,10 @@ describe('DesktopBridge renderer boundary', () => {
       adapter,
       /const preferencesUpdateBridge[\s\S]*TAURI_COMMANDS\.getUpdateStatus[\s\S]*TAURI_COMMANDS\.checkForUpdates[\s\S]*'updateStatusChanged'/,
     );
+    assert.match(
+      adapter,
+      /'updateStatusChanged',[\s\S]*listener,[\s\S]*TAURI_COMMANDS\.getUpdateStatus[\s\S]*\.then\(listener\)/,
+    );
     assert.match(commands, /getUpdateStatus:\s*'get_update_status'/);
     assert.match(commands, /checkForUpdates:\s*'check_for_updates'/);
     for (const source of [hook, contracts, adapter, commands]) {

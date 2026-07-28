@@ -140,6 +140,11 @@ const preferencesUpdateBridge: PreferencesUpdateBridge = Object.freeze({
       'preferences',
       'updateStatusChanged',
       listener,
+      () =>
+        dispatchTauriCommand(
+          TAURI_COMMANDS.getUpdateStatus,
+          {},
+        ).then(listener),
     ),
 });
 

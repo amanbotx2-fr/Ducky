@@ -6,12 +6,72 @@
 
 - Active work: Phase 10 — Updater Migration
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Task 10.4 — Settings Integration
-- Next task: Task 10.5 — Update Status and Events
+- Last completed task: Task 10.5 — Update Status and Events
+- Next task: Task 10.6 — Electron-to-Tauri Migration Flow
 - Blockers: None. Production updater trust, feed, artifacts, and live update
   verification remain deferred to Phase 11.
 
 ## Completed Tasks
+
+### Task 10.5 — Update Status and Events
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Preserved Electron's exact updater status state machine and the existing
+  `updates:status-changed` Preferences-only event contract.
+- Kept the renderer runtime agnostic through the narrow
+  `PreferencesUpdateBridge`; no Tauri updater API is exposed to React.
+- Hardened Tauri event registration against an asynchronous-listener race:
+  once the native listener is registered, the adapter obtains one fresh
+  native status snapshot. A fast check that completed during registration
+  therefore cannot leave Preferences displaying a stale state.
+- Retained the hook's initial status request for immediate rendering and the
+  targeted event for all subsequent transitions.
+- Added no update notifications, menu actions, download, install, restart,
+  or renderer-side updater authority.
+
+**Files changed**
+
+- `src/desktop/tauriBridge.ts`
+- `tests/desktop-bridge-boundary.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (146 tests), including the updater bridge registration
+  recovery assertion.
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- Electron production-output smoke launch: passed and remained alive until
+  the intentional test shutdown.
+- `npx tauri dev --no-watch`: passed; the process remained alive with the
+  known development custom-protocol fallback warning.
+- `npm run tauri:build -- --bundles app`: passed.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed both runtime adapters expose the same initial-status,
+  manual-check, and status-event contract through DesktopBridge.
+- Confirmed updater status events remain scoped to Preferences and no
+  updater plugin commands are renderer-accessible.
+- Interactive status transitions remain part of the final Phase 10 manual
+  gate, together with settings persistence and migration-dialog behavior.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Task 10.6 — Electron-to-Tauri Migration Flow.
 
 ### Task 10.4 — Settings Integration
 
