@@ -4,25 +4,89 @@
 
 ## Current Status
 
-- Active work: Phase 12 — Electron Removal discovery is blocked at the
-  functional-parity gate.
+- Active work: Phase 11.5 — Functional Parity Closure contract is defined;
+  implementation has not started.
 - Last completed phase: Phase 11 — Release Pipeline infrastructure. Its
   external production credential gate remains documented for the release
   manager and is explicitly accepted by the updated Phase 12 contract.
-- Last completed task: Phase 12 pre-removal dependency and behavior audit.
-- Next task: approve and execute a parity-closure contract for the remaining
-  Electron-only Personal Assistant, hydration, and transition behavior before
-  deleting Electron.
+- Last completed task: Phase 11.5 architecture clarification and execution
+  contract.
+- Next task: Phase 11.5 Task 11.5.1 — re-audit remaining Electron-only
+  behavior and produce the final executable parity matrix before production
+  changes.
 - Blockers: the migrated Tauri runtime still lacks several working Electron
   behaviors required by the Phase 12 preservation and exit criteria. Removing
-  Electron now would delete those behaviors rather than consolidate an
-  already complete migration.
+  Electron now would delete those behaviors. The ownership ambiguity is
+  resolved, but Phase 12 remains blocked until the Phase 11.5 implementation
+  and manual parity gate are complete.
 
 ## Active Verification
 
+### Phase 11.5 — Functional Parity Closure Contract
+
+**Status:** Documentation complete. Implementation not started.
+
+**Why Phase 11.5 exists**
+
+- The Phase 12 audit proved that Set My Name, Sticky Message, Daily Planner,
+  hydration settings, several dynamic companion context-menu actions, and the
+  complete companion DesktopBridge were not all migrated to Tauri.
+- Earlier contracts intentionally deferred these feature domains, but no
+  later executable phase took ownership of every deferred behavior.
+- Implementing a planner backend, settings mutations, native menu behavior,
+  renderer events, permissions, and recovery semantics changes production
+  feature-domain code. That work is migration, not removal cleanup.
+- Phase 12 must remain limited to deleting Electron after parity. Combining
+  missing feature implementation with deletion would make regressions harder
+  to isolate and would violate the cleanup-only contract.
+
+**Contract added**
+
+- `docs/migrating/migration_tasks.md` now defines Phase 11.5 immediately
+  before Phase 12, with discovery, implementation, validation, manual
+  verification, and exit criteria.
+- `docs/migrating/migration_codex.md` now assigns the deferred behavior to a
+  Functional Parity Closure milestone and makes it an explicit prerequisite
+  for Electron removal.
+- The phase owns Set My Name, Sticky Message, a Rust Daily Planner backend,
+  hydration settings parity, full dynamic context-menu parity, complete Tauri
+  companion bridge composition, least-privilege permissions, and any
+  additional Electron-only behavior found by the final audit.
+- The one-time migration dialog is defined as an Electron transition-release
+  obligation. Phase 11.5 must verify and record that obligation; it must not
+  invent a Tauri-side migration prompt without a separate approved redesign.
+
+**Phase boundary**
+
+- Electron remains intact and releasable throughout Phase 11.5.
+- Renderer components remain runtime agnostic and use DesktopBridge only.
+- Existing Electron behavior remains authoritative.
+- No Electron source, dependency, test, configuration, or compatibility path
+  may be removed until Phase 11.5 is complete.
+- Phase 12 cannot begin until the final parity matrix has no unowned
+  renderer-accessible Electron behavior and all automated/manual gates pass.
+
+**Files changed**
+
+- `docs/migrating/migration_tasks.md`
+- `docs/migrating/migration_codex.md`
+- `docs/migrating/progress.md`
+
+**Validation**
+
+- Documentation-only change; no production source file was modified.
+- `git diff --check`: passed.
+- No builds or tests are required for this contract-only clarification.
+
+**Next task**
+
+- Stop after this documentation change. Begin Task 11.5.1 only when separately
+  requested; do not resume Phase 12.
+
 ### Phase 12 — Pre-removal Functional-Parity Gate
 
-**Status:** Blocked. Electron removal has not started.
+**Status:** Blocked by the newly defined Phase 11.5 exit criteria. Electron
+removal has not started.
 
 **Discovery findings**
 
@@ -91,14 +155,10 @@
 
 **Required contract decision**
 
-- Add an explicitly approved parity-closure milestone before Phase 12 that
-  assigns the remaining Personal Assistant, Daily Planner, hydration, dynamic
-  menu, and renderer bridge work without treating it as cleanup.
-- Clarify whether the one-time Electron-to-Tauri dialog is a final legacy
-  release obligation to be deleted after the handoff or a behavior that must
-  exist in the Tauri application.
-- Resume Phase 12 only after the resulting Tauri behavior is manually
-  verified and `getCompanionBridge()` no longer hides required functionality.
+- Resolved by the Phase 11.5 contract above. Resume Phase 12 only after the
+  resulting Tauri behavior is manually verified, the migration-dialog
+  transition obligation is recorded, and `getCompanionBridge()` no longer
+  hides required functionality.
 
 **Next action**
 

@@ -686,6 +686,40 @@ placeholder signing identities or claim live production update verification.
 Phase 11 must not use its release responsibilities to expand the
 renderer-visible updater behavior established by Phase 10.
 
+### Functional parity closure ownership
+
+**Phase 11.5 — Functional Parity Closure** is a mandatory feature-migration
+gate between release infrastructure and Electron removal.
+
+The Phase 12 pre-removal audit found that earlier phase contracts deferred
+several working Electron behaviors without assigning all of them to a later
+executable phase. Those behaviors cannot be implemented during Phase 12
+because Phase 12 is cleanup only, and they cannot be deleted without violating
+the migration-wide parity rule.
+
+Phase 11.5 owns:
+
+- Set My Name panel events, settings mutation, persistence, and bridge parity;
+- Sticky Message set/clear panel events, persistence, and bridge parity;
+- the Rust Daily Planner backend and its existing renderer contract;
+- hydration Preferences and runtime-settings parity while retaining the
+  renderer-owned timer;
+- the complete Electron-equivalent dynamic companion context menu;
+- complete Tauri composition of the existing companion DesktopBridge;
+- the final disposition and verification record for the Electron-only
+  one-time migration dialog; and
+- any additional renderer-accessible Electron behavior found during the final
+  parity audit.
+
+The migration dialog remains an Electron transition-release obligation rather
+than ongoing Tauri functionality. Phase 11.5 verifies that obligation and
+records when its repository implementation can be deleted; it does not invent
+a Tauri-side prompt.
+
+Phase 12 may begin only after Phase 11.5 proves that no required
+renderer-accessible Electron behavior remains without a working Tauri
+equivalent or an explicitly completed legacy-transition disposition.
+
 ## Tauri Equivalent Summary by Feature
 
 | Ducky feature | Files | Mapping | Difficulty | Key strategy |
@@ -856,8 +890,9 @@ Keep `electronBridge.ts` only while both shells are runnable. The React tree sho
 6. **Port time-based domains.** Reminders, scheduler, daily planner, Pomodoro, wake/relaunch reconciliation, and events.
 7. **Port AI.** Compatible client, Gemini, Ollama security transport, request manager, action parser/executor, diagnostics, and cancellation.
 8. **Port updater and release pipeline.** Signed updater artifacts/feed, platform bundles, verifier, checksums, website selection, and dual-feed cutover.
-9. **Run parity/security/performance validation.** Three OSes, multiple displays/DPI, suspend/resume, renderer reload/crash, offline launch, upgrade/uninstall, provider failure, and accessibility.
-10. **Cut over, then delete Electron.** Do not remove Electron files/dependencies until the Tauri artifact passes every release gate.
+9. **Close deferred functional parity.** Finish profile, sticky message, Daily Planner, hydration, dynamic context-menu, complete companion bridge, and legacy migration-dialog disposition work.
+10. **Run parity/security/performance validation.** Three OSes, multiple displays/DPI, suspend/resume, renderer reload/crash, offline launch, upgrade/uninstall, provider failure, and accessibility.
+11. **Cut over, then delete Electron.** Do not remove Electron files/dependencies until the Tauri artifact passes every release and Phase 11.5 functional-parity gate.
 
 ## Recommended Milestones
 
@@ -938,6 +973,21 @@ Deliver:
 
 Exit: clean install, Electron-to-Tauri upgrade, Tauri update, rollback policy, and uninstall tested per OS.
 
+### Milestone 6.5 — Functional parity closure
+
+Deliver:
+
+- complete Tauri Set My Name and Sticky Message paths;
+- Rust Daily Planner backend and renderer bridge;
+- hydration settings parity with the existing renderer timer;
+- Electron-equivalent dynamic companion context menu;
+- complete Tauri companion DesktopBridge composition;
+- verified final Electron migration-dialog disposition;
+- final Electron-versus-Tauri behavior matrix.
+
+Exit: no renderer-accessible Electron-only behavior remains, every
+Phase 11.5 parity check passes, and Electron is still intact and releasable.
+
 ### Milestone 7 — Cutover and cleanup
 
 Deliver:
@@ -959,7 +1009,8 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Native app/context/tray menus and About/branding behavior.
 - Settings persistence, parsing, migrations, recovery files, and broadcasts.
 - Credential encryption/decryption and a safe existing-user transition.
-- Smart reminder CRUD, recurrence, scheduler, resume behavior, and daily planner.
+- Smart reminder CRUD, recurrence, scheduler, resume behavior, and Daily
+  Planner, including the Phase 11.5 parity closure.
 - Pomodoro persistence, ticking, pause/resume/completion, and recovery.
 - AI configuration, all providers, request limits/cancellation, diagnostics, and assistant actions.
 - Always-on-top, start-at-login, theme/background, restart, and quit behavior.
@@ -968,6 +1019,9 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Release verification, bundling, updater public-key configuration, update
   signing, hosted metadata, GitHub publication, notarization, production
   updater verification, and website asset selection (Phase 11).
+- Deferred profile, sticky-message, hydration, dynamic context-menu, complete
+  companion bridge, Daily Planner, and legacy transition-disposition work
+  discovered by the pre-removal audit (Phase 11.5).
 - Main-process tests that assert behavior of code being moved to Rust.
 
 ## Everything That Can Remain Unchanged or Nearly Unchanged
@@ -994,11 +1048,14 @@ Exit: production release candidate with no required Node runtime/sidecar.
 - Native lifecycle/window/menu/tray adapters.
 - Updater runtime abstraction in Phase 10 and the release artifact
   verifier/workflow in Phase 11.
+- Daily Planner backend and any remaining privileged Personal Assistant or
+  dynamic-menu behavior assigned to Phase 11.5.
 - Main-process unit tests as Rust tests, while retaining useful black-box TypeScript contract fixtures.
 
 ## Everything That Should Be Deleted After Parity
 
-Do not delete these early. After cutover:
+Do not delete these early. Delete them only after Phase 11.5 functional parity
+and the applicable transition-release obligation are complete:
 
 - `src/main/preload.ts`;
 - `src/main/preferencesPreload.ts`;
@@ -1020,6 +1077,10 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - Companion starts at the correct screen edge and remains reachable.
 - Dynamic widgets never crop and keep a stable bottom edge.
 - Click, drag, context menu, pin, Continue Chat, panels, and Preferences work.
+- Set My Name, Sticky Message, Daily Planner, hydration settings, and every
+  dynamic context-menu state/action match Electron.
+- The Tauri companion DesktopBridge implements every renderer-used member;
+  no required feature is hidden behind an unavailable runtime adapter.
 - Tray lifecycle and all native menu commands work.
 - Settings/reminders/Pomodoro survive restart and invalid-file recovery.
 - AI ask/list/test works for every provider and actions remain allowlisted.
@@ -1054,10 +1115,14 @@ Do not delete `website/`, assets, renderer code, or legacy published GitHub asse
 - Release publication remains atomic and avoids published-asset replacement.
 - Existing Electron installs have an explicit supported transition.
 - Website routes select only intended Tauri installer assets.
+- The Phase 11.5 record proves the one-time migration dialog's final Electron
+  release obligation before its repository source is removed.
 
 These release gates belong to Phase 11. They are not prerequisites for
 implementing or unit-testing the Phase 10 runtime abstraction, and Phase 10
 must not use placeholder production signing material to satisfy them early.
+The separate Phase 11.5 functional-parity gate is mandatory before Phase 12
+regardless of release-infrastructure readiness.
 
 ## Complexity Conclusion
 

@@ -3577,6 +3577,366 @@ Phase 11 is complete only if:
 
 ✓ Website selects the intended Tauri installers
 
+Only then may Phase 11.5 begin.
+
+---
+
+# PHASE 11.5
+
+## Functional Parity Closure
+
+Phase 11.5 exists because the Phase 12 pre-removal audit found working
+Electron behavior that was deferred by earlier phase contracts but never
+assigned to a later executable migration phase.
+
+These tasks are feature-domain migration work. They are not Electron-removal
+cleanup and must be complete before any Electron implementation, dependency,
+test, or compatibility path is deleted.
+
+The migration-wide parity rule remains authoritative:
+
+> If a migration document conflicts with the existing Electron
+> implementation, the existing Electron implementation defines the required
+> behavior unless an explicit redesign was approved before implementation.
+
+Phase 11.5 must not redesign the application or add product functionality.
+
+---
+
+## Goal
+
+Close every remaining functional gap between the working Electron application
+and the migrated Tauri application so Phase 12 can remove Electron without
+removing user-visible behavior.
+
+Electron remains intact and releasable throughout this phase.
+
+---
+
+## Scope
+
+Phase 11.5 includes:
+
+- complete Set My Name behavior in Tauri
+- complete Sticky Message behavior in Tauri
+- a Rust Daily Planner backend with Electron-equivalent output
+- hydration settings parity
+- complete dynamic companion context-menu parity
+- final disposition and verification requirements for the one-time
+  Electron-to-Tauri migration dialog
+- Tauri-only composition of the existing companion DesktopBridge contract
+  after all of its domains are available
+- exact event recovery, authorization, permissions, persistence, and tests
+  required by those existing behaviors
+- discovery and migration of any additional Electron-only behavior found
+  while implementing or manually verifying this phase
+
+Phase 11.5 does NOT include:
+
+- Electron removal
+- Electron dependency or build-script removal
+- release-pipeline redesign
+- renderer redesign
+- new settings
+- new menus or menu actions
+- new planner capabilities
+- new hydration behavior
+- new notification behavior
+- new migration or updater controls
+- work beyond closing observable Electron parity gaps
+
+---
+
+## Architecture Rules
+
+- Existing Electron behavior is the specification.
+- DesktopBridge remains the only renderer abstraction.
+- React renderers must remain runtime agnostic.
+- Renderer components must not import Tauri APIs or perform runtime
+  detection.
+- Native menu callbacks, persistence, and privileged planner operations
+  remain in Rust.
+- Existing role-scoped commands, targeted events, recovery semantics, and
+  least-privilege capabilities must be extended rather than bypassed.
+- Electron implementations remain unchanged except where a parity regression
+  fix is required and separately justified.
+- No Electron code may be removed during Phase 11.5.
+
+---
+
+## Task 11.5.1 — Re-audit Remaining Electron-only Behavior
+
+Before writing production code:
+
+- compare the complete Electron and Tauri companion context menus
+- compare every associated menu action and checked/enabled state
+- inspect Set My Name panel requests, mutations, persistence, and events
+- inspect Sticky Message set/clear requests, mutations, persistence, and
+  events
+- inspect Daily Planner source data, greeting rules, ordering, and renderer
+  contract
+- inspect hydration Preferences, runtime settings, persistence, and renderer
+  timer integration
+- inspect the complete `CompanionBridge` and identify every method still
+  unavailable in Tauri
+- inspect the final Electron-to-Tauri migration-dialog release obligation
+- search for any other renderer-accessible Electron path without a working
+  Tauri equivalent
+- record findings and an exact parity matrix in
+  `docs/migrating/progress.md`
+
+Acceptance:
+
+- every remaining Electron-only behavior has an owner in a Phase 11.5 task
+- no production code changes were made before discovery completed
+- no aspirational or undocumented feature is added to the parity scope
+
+---
+
+## Task 11.5.2 — Set My Name and Sticky Message Parity
+
+Implement the existing Personal Assistant behavior through the migrated
+settings runtime.
+
+Requirements:
+
+- preserve the current React panels and copy
+- preserve Electron validation and persistence behavior
+- emit only the existing targeted panel-request events
+- preserve Sticky Message set and clear behavior
+- expose the existing operations through DesktopBridge
+- keep Electron behavior unchanged
+- add only exact companion permissions
+
+Acceptance:
+
+- Set My Name opens, saves, updates runtime state, and survives restart
+- Set Sticky Message opens, saves, displays, clears, and survives restart
+- event recovery works after companion reload
+- no renderer Tauri import or runtime detection is introduced
+
+---
+
+## Task 11.5.3 — Daily Planner Rust Backend
+
+Port the existing `DailyPlannerService` behavior to Rust.
+
+Requirements:
+
+- preserve the existing `DailyPlannerBriefing` renderer contract
+- preserve greeting periods and normalized user-name behavior
+- use the migrated reminder store as the only reminder source
+- preserve same-local-day filtering, completed/past-reminder exclusion,
+  schedule selection, chronological ordering, and ID tie-breaking
+- preserve the existing targeted panel-request event
+- expose one authorized companion command through DesktopBridge
+- do not redesign the planner UI or add planner capabilities
+
+Acceptance:
+
+- Daily Planner opens from the native context menu
+- briefing content matches Electron for equivalent clocks, names, and
+  reminders
+- empty, invalid, completed, past, recurring, and tied reminders have
+  Electron-equivalent results
+- Rust tests use deterministic clocks
+
+---
+
+## Task 11.5.4 — Hydration Settings Parity
+
+Connect the existing hydration Preferences and renderer-owned reminder timer
+to the migrated settings backend.
+
+Requirements:
+
+- keep `WaterReminder` and its timing behavior in the renderer, matching the
+  architecture plan
+- preserve the existing `water.enabled` and `water.interval` schema
+- preserve supported intervals, defaults, validation, persistence, and
+  runtime-settings broadcasts
+- enable the existing Preferences controls in Tauri
+- preserve disabled and interval-change behavior without duplicate timers
+- do not add native hydration scheduling or native notifications
+- add only the exact Preferences mutation authority already represented by
+  the existing settings patch contract
+
+Acceptance:
+
+- hydration enable/disable and interval changes save through DesktopBridge
+- changes apply immediately and survive restart
+- the renderer timer remains single-instance and follows the saved snapshot
+- Electron behavior and schema remain unchanged
+
+---
+
+## Task 11.5.5 — Dynamic Companion Context Menu Parity
+
+Complete the Tauri companion context menu using the Electron menu as the
+authoritative hierarchy and behavior.
+
+Requirements:
+
+- preserve ordering, labels, separators, submenus, checkboxes, radio items,
+  enabled states, and dynamic state snapshots
+- preserve Set My Name, Reminders, Daily Planner, Sticky Message, Water
+  Reminders, Eye Tracking, Always On Top, Pomodoro, Preferences, About,
+  Restart, and Quit behavior
+- use Rust-owned native callbacks for native actions
+- use existing targeted renderer events only for existing renderer panels
+- route renderer-originated context-menu requests through DesktopBridge
+- do not add menu items or actions absent from Electron
+
+Acceptance:
+
+- the complete menu structure and state match Electron
+- every action works and updates its checked/enabled state on the next open
+- companion and Preferences role authorization remains least privilege
+- no renderer console or permission warning appears
+
+---
+
+## Task 11.5.6 — Migration Dialog Final Disposition
+
+Resolve the lifecycle of the approved one-time Electron-to-Tauri migration
+dialog without inventing a Tauri-side replacement.
+
+The dialog is an Electron transition mechanism, not ongoing Tauri product
+functionality. Its authoritative implementation remains in the final
+Electron transition release.
+
+Requirements:
+
+- verify the final Electron transition build contains the existing dialog,
+  copy, Download action, Remind Me Later behavior, and official release URL
+- preserve the published legacy Electron feed and transition assets required
+  by installed Electron clients
+- document the release-manager evidence required before repository source is
+  deleted
+- do not port the dialog into Tauri unless a separate explicit redesign is
+  approved
+- define Phase 12 deletion as source cleanup after the transition obligation
+  is satisfied, without deleting already published legacy assets
+
+Acceptance:
+
+- the transition obligation has an explicit owner and verifiable completion
+  record
+- Phase 12 can delete Electron-only dialog source without claiming that the
+  Tauri application exposes an inapplicable legacy prompt
+- no automatic framework replacement, uninstallation, or installer chaining
+  is introduced
+
+---
+
+## Task 11.5.7 — DesktopBridge Parity and Least Privilege
+
+Compose the existing Tauri domain adapters into the complete renderer-facing
+companion bridge only after every required method is implemented.
+
+Requirements:
+
+- preserve the renderer-facing API
+- remove no Electron adapter or preload path
+- expose no generic invoke, event, filesystem, HTTP, shell, or process access
+- authorize exact commands by exact window label
+- preserve targeted event routing and reload recovery
+- keep Preferences and companion capabilities separated
+
+Acceptance:
+
+- `getCompanionBridge()` no longer returns `undefined` in Tauri
+- every `CompanionBridge` member has a working, tested Tauri implementation
+- narrow domain bridge consumers continue to work
+- authorization tests prove cross-role calls are denied
+
+---
+
+## Task 11.5.8 — Final Parity Audit and Manual Gate
+
+Repeat the complete Electron-versus-Tauri behavior audit before Phase 12.
+
+Requirements:
+
+- search every Electron IPC channel, preload method, renderer-accessible main
+  service, native menu action, and Preferences control
+- migrate any additional Electron-only behavior discovered by the audit using
+  the same parity and least-privilege rules
+- update the Phase 11.5 contract before implementing newly discovered scope
+  if ownership or architecture is ambiguous
+- preserve Electron until every parity item passes
+
+Manual verification:
+
+- Set My Name
+- Sticky Message set, display, and clear
+- Daily Planner
+- hydration enable, disable, interval, firing, and restart persistence
+- complete companion context-menu structure, state, and actions
+- Preferences and companion event recovery after reload
+- all previously completed Tauri features
+- final Electron transition-dialog obligation
+- no renderer errors or permission warnings
+
+Acceptance:
+
+- the parity matrix contains no remaining Electron-only user behavior
+- automated and manual parity verification passes
+- `docs/migrating/progress.md` contains the evidence
+- repository remains buildable and Electron remains intact
+
+---
+
+## Validation
+
+After every implementation milestone run:
+
+- npm install when dependencies change
+- npm run typecheck
+- npm test
+- npm run build
+- cargo fmt
+- cargo test
+- cargo build
+- Tauri permission validation
+- Electron production build and smoke launch
+- Tauri development and production smoke launches
+- platform-specific verification where available
+
+Fix every regression before continuing.
+
+---
+
+## Phase Exit Criteria
+
+Phase 11.5 is complete only if:
+
+✓ Set My Name has Tauri parity
+
+✓ Sticky Message has Tauri parity
+
+✓ Daily Planner has a tested Rust backend and Tauri bridge
+
+✓ Hydration Preferences and runtime behavior have Tauri parity
+
+✓ The complete dynamic companion context menu matches Electron
+
+✓ Every existing companion panel event and operation works in Tauri
+
+✓ `getCompanionBridge()` exposes a complete Tauri implementation
+
+✓ Migration-dialog disposition and transition evidence are documented
+
+✓ No additional renderer-accessible Electron-only behavior remains
+
+✓ Least-privilege permissions and cross-role denial tests pass
+
+✓ Electron remains fully functional and releasable
+
+✓ Automated and manual validation passes
+
+✓ `docs/migrating/progress.md` contains the completion evidence
+
 Only then may Phase 12 begin.
 
 ---
@@ -3587,8 +3947,9 @@ Only then may Phase 12 begin.
 
 Phase 12 begins only after:
 
-- Phase 0–11 are complete
+- Phase 0–11.5 are complete
 - Phase 11 production verification gate has been reached
+- Phase 11.5 functional parity has been manually verified
 - Release infrastructure is fully implemented
 
 The objective of this phase is to permanently remove Electron from the repository while preserving all application functionality through the completed Tauri implementation.
