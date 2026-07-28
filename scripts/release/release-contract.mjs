@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 export const releaseRepository = "amanbotx2-fr/Ducky";
@@ -115,6 +115,18 @@ export function validateUpdaterPublicKey(value) {
   }
 
   return publicKey;
+}
+
+export function loadCommittedUpdaterPublicKey(
+  path = "src-tauri/updater.pubkey",
+) {
+  const resolvedPath = resolve(path);
+  if (!existsSync(resolvedPath)) {
+    throw new Error(
+      `Committed updater public key is missing: ${resolvedPath}.`,
+    );
+  }
+  return validateUpdaterPublicKey(readFileSync(resolvedPath, "utf8"));
 }
 
 export function tauriArtifactNames(version) {

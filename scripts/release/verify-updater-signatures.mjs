@@ -2,13 +2,13 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { validateUpdaterPublicKey } from "./release-contract.mjs";
+import { loadCommittedUpdaterPublicKey } from "./release-contract.mjs";
 
 const releaseDirectory = resolve(process.argv[2] ?? "release-artifacts");
 
 try {
-  const publicKey = validateUpdaterPublicKey(
-    process.env.TAURI_UPDATER_PUBLIC_KEY,
+  const publicKey = loadCommittedUpdaterPublicKey(
+    process.env.TAURI_UPDATER_PUBLIC_KEY_PATH,
   );
   const manifestPath = resolve(releaseDirectory, "latest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));

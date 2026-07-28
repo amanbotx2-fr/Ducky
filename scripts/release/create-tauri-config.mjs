@@ -2,9 +2,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import {
+  loadCommittedUpdaterPublicKey,
   updaterEndpoint,
   validateReleaseVersions,
-  validateUpdaterPublicKey,
 } from "./release-contract.mjs";
 
 const outputPath = resolve(
@@ -21,8 +21,8 @@ if (!new Set(["macos", "windows", "linux"]).has(platform)) {
 
 try {
   validateReleaseVersions({ tag: process.env.RELEASE_TAG || undefined });
-  const publicKey = validateUpdaterPublicKey(
-    process.env.TAURI_UPDATER_PUBLIC_KEY,
+  const publicKey = loadCommittedUpdaterPublicKey(
+    process.env.TAURI_UPDATER_PUBLIC_KEY_PATH,
   );
 
   const config = {

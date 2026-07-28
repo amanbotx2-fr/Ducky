@@ -82,11 +82,21 @@ test("updater release URLs are pinned to the exact tag and repository", async ()
 });
 
 test("release-only configuration rejects missing and placeholder updater keys", async () => {
-  const { validateUpdaterPublicKey } = await releaseContract();
+  const {
+    loadCommittedUpdaterPublicKey,
+    validateUpdaterPublicKey,
+  } = await releaseContract();
   assert.throws(() => validateUpdaterPublicKey(), /not configured/);
   assert.throws(
     () => validateUpdaterPublicKey("replace-me-with-a-public-key"),
     /placeholder/,
+  );
+  assert.throws(
+    () =>
+      loadCommittedUpdaterPublicKey(
+        join(tmpdir(), "ducky-missing-updater-public-key"),
+      ),
+    /Committed updater public key is missing/,
   );
 });
 

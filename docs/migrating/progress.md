@@ -4,18 +4,103 @@
 
 ## Current Status
 
-- Active work: Phase 11 — Release Pipeline discovery and credential-independent
-  implementation.
+- Active work: Phase 11 — Release Pipeline is blocked at the external
+  production trust and staged-verification gate.
 - Last completed phase: Phase 10 — Updater Migration
-- Last completed task: Task 10.7 — Permissions
-- Next task: Configure the release-only updater artifact and trust inputs.
-- Blockers: Production updater, Apple signing/notarization, and Windows signing
-  credentials are not present in the local environment. Phase 11 can proceed
-  through the credential-independent implementation and automated validation
-  gates, but signed staged/live verification cannot be claimed without the
-  externally managed credentials.
+- Last completed task: Phase 11 credential-independent release pipeline,
+  verifier, website cutover, and runbook implementation.
+- Next task: An authorized release manager must provide the stable updater
+  identity and platform-signing credentials, then run the staged production
+  release verification documented in `docs/RELEASING.md`.
+- Blockers: `src-tauri/updater.pubkey` and its matching private-key secrets do
+  not exist; Apple signing/notarization credentials and a Windows
+  code-signing certificate are also unavailable. Signed packages, hosted
+  `latest.json`, production update/install/restart checks, and the final live
+  Electron transition therefore cannot be verified.
 
 ## Active Verification
+
+### Phase 11 — External Credential and Production Verification Gate
+
+**Status:** Blocked. Phase 11 is not complete and Phase 12 must not begin.
+
+**Completed implementation**
+
+- Production release architecture builds both the legacy Electron feed and
+  collision-free Tauri packages on all three native operating systems.
+- Release-only Tauri configuration enables updater artifacts and embeds the
+  exact GitHub `latest.json` endpoint without changing local Phase 10 builds.
+- The updater public key is required from the committed,
+  code-reviewable `src-tauri/updater.pubkey` path. The workflow does not accept
+  a mutable public-key repository variable.
+- Private updater, Apple, and Windows material is referenced only through
+  GitHub Actions secrets and ephemeral runner files/stores.
+- Tauri package/signature staging, `latest.json`, checksums, dual-feed
+  verification, cryptographic signature verification, hosted draft download
+  verification, and atomic publication are implemented.
+- Website download selection and the Electron 2.x transition feed contract are
+  preserved.
+- `docs/RELEASING.md` now contains setup, release, staged verification,
+  transition, rollback, and exact credential instructions.
+
+**Credential-independent validation**
+
+- Root `npm run typecheck`: passed.
+- Root `npm test`: passed (159 tests).
+- Root `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- `npm run release:validate-versions`: passed.
+- Workflow YAML parse: passed.
+- Missing production trust preflight: failed closed at the expected committed
+  public-key gate without logging secret-shaped values.
+- Website `npm run lint`: passed.
+- Website `npm run typecheck`: passed.
+- Website production build and `npm test`: passed (14 tests).
+- Normal Electron and Tauri production builds plus packaged smoke launches
+  passed during the Phase 11 implementation milestones.
+- `git diff --check`: passed.
+
+**Exit criteria not yet satisfied**
+
+- Stable updater key pair has not been supplied.
+- `src-tauri/updater.pubkey` cannot be committed without the real public half.
+- Private updater secrets are unavailable.
+- Apple Developer ID/App Store Connect credentials are unavailable.
+- Windows Authenticode credentials and issuer timestamp URL are unavailable.
+- No signed cross-platform Tauri artifact or `.sig` can be generated.
+- No notarized or Authenticode-signed package can be verified.
+- No authenticated GitHub draft can be populated or redownloaded.
+- `latest.json` cannot be hosted from a real signed release.
+- Production update detection, signed download, installation, restart, clean
+  install, Electron transition discovery, and rollback behavior have not been
+  manually verified on supported operating systems.
+
+**Exact external inputs required**
+
+- Commit `src-tauri/updater.pubkey` containing the stable base64-encoded Tauri
+  Minisign public-key document.
+- GitHub secrets `TAURI_SIGNING_PRIVATE_KEY` and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for its matching private half.
+- GitHub secrets `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`,
+  `APPLE_API_ISSUER`, `APPLE_API_KEY`, and `APPLE_API_PRIVATE_KEY`.
+- GitHub secrets `WINDOWS_CERTIFICATE` and
+  `WINDOWS_CERTIFICATE_PASSWORD`.
+- GitHub Actions repository variable `WINDOWS_TIMESTAMP_URL`.
+- An approved staged release tag and physical/virtual test systems for macOS
+  Apple Silicon/Intel, Windows x64, and Linux x64 installation/update checks.
+
+**Manual verification**
+
+- Credential-free normal bundles and website routes were verified.
+- Credential-dependent or live release behavior is explicitly unverified.
+
+**Next action**
+
+- Stop. Do not begin Phase 12. Resume Phase 11 only after the exact external
+  trust inputs are available.
 
 ### Phase 11 — Atomic Dual-Runtime Workflow
 

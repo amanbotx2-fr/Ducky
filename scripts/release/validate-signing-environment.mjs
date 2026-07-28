@@ -1,4 +1,4 @@
-import { validateUpdaterPublicKey } from "./release-contract.mjs";
+import { loadCommittedUpdaterPublicKey } from "./release-contract.mjs";
 
 const platform = process.argv[2];
 const supported = new Set(["macos", "windows", "linux"]);
@@ -11,7 +11,7 @@ if (!supported.has(platform)) {
 }
 
 try {
-  validateUpdaterPublicKey(process.env.TAURI_UPDATER_PUBLIC_KEY);
+  loadCommittedUpdaterPublicKey(process.env.TAURI_UPDATER_PUBLIC_KEY_PATH);
 
   const required = [
     "TAURI_SIGNING_PRIVATE_KEY",
