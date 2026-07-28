@@ -12,7 +12,7 @@ async function releaseContract() {
 
 test("release versions stay consistent across Node, Cargo, and Tauri", async () => {
   const { validateReleaseVersions } = await releaseContract();
-  assert.equal(validateReleaseVersions({ tag: "v1.1.0" }), "1.1.0");
+  assert.equal(validateReleaseVersions({ tag: "v2.0.0" }), "2.0.0");
 });
 
 test("release version validation rejects a mismatched Tauri version", async () => {
@@ -24,16 +24,16 @@ test("release version validation rejects a mismatched Tauri version", async () =
   const tauriPath = join(directory, "tauri.conf.json");
 
   await Promise.all([
-    writeFile(packagePath, '{"version":"1.1.0"}'),
-    writeFile(lockPath, '{"packages":{"":{"version":"1.1.0"}}}'),
-    writeFile(cargoPath, '[package]\nname = "ducky"\nversion = "1.1.0"\n'),
-    writeFile(tauriPath, '{"version":"1.2.0"}'),
+    writeFile(packagePath, '{"version":"2.0.0"}'),
+    writeFile(lockPath, '{"packages":{"":{"version":"2.0.0"}}}'),
+    writeFile(cargoPath, '[package]\nname = "ducky"\nversion = "2.0.0"\n'),
+    writeFile(tauriPath, '{"version":"2.1.0"}'),
   ]);
 
   assert.throws(
     () =>
       validateReleaseVersions({
-        tag: "v1.1.0",
+        tag: "v2.0.0",
         packagePath,
         lockPath,
         cargoPath,
