@@ -12,6 +12,7 @@ use crate::{
             AssistantActionProcessor, ClaudeProvider, CustomProvider, GeminiProvider, GrokProvider,
             OllamaProvider, OpenAiProvider,
         },
+        personal_assistant::{PersonalAssistantEventQueue, PersonalAssistantPanel},
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
         settings::SettingsState,
@@ -100,6 +101,17 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
             .map_err(|error| error.to_string())
         }),
     );
+    let panel_event_app_handle = app.handle().clone();
+    let personal_assistant_events =
+        PersonalAssistantEventQueue::with_emitter(Arc::new(move |panel| {
+            let event = match panel {
+                PersonalAssistantPanel::UserName => DesktopEvent::UserNamePanelRequested,
+                PersonalAssistantPanel::StickyMessage => DesktopEvent::StickyMessagePanelRequested,
+                PersonalAssistantPanel::DailyPlanner => DesktopEvent::DailyPlannerPanelRequested,
+            };
+
+            events::emit(&panel_event_app_handle, event, ()).map_err(|error| error.to_string())
+        }));
 
     let pomodoro_path = app.path().app_data_dir()?.join(POMODORO_FILE_NAME);
     let legacy_pomodoro_path = legacy_electron_data_path(app, POMODORO_FILE_NAME)?;
@@ -134,6 +146,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     app.manage(ai_runtime);
     app.manage(ai_requests);
     app.manage(assistant_actions);
+    app.manage(personal_assistant_events);
     app.manage(settings_state);
     app.manage(updater_runtime);
     app.manage(reminder_runtime);
@@ -165,6 +178,12 @@ pub(crate) fn handle_page_load<R: Runtime>(webview: &Webview<R>, payload: &PageL
         runtime.pending_deliveries.deactivate();
     }
     if let Some(events) = webview.app_handle().try_state::<PomodoroEventQueue>() {
+        events.deactivate();
+    }
+    if let Some(events) = webview
+        .app_handle()
+        .try_state::<PersonalAssistantEventQueue>()
+    {
         events.deactivate();
     }
 }

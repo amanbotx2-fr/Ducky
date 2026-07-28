@@ -3,6 +3,7 @@ use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 
 use crate::{
     authorization, desktop,
+    domain::personal_assistant::PersonalAssistantEventQueue,
     domain::settings::{
         PreferencesSettings, PreferencesSettingsPatch, RuntimeSettings, SettingsMutationError,
         SettingsState, SettingsUpdate,
@@ -18,6 +19,17 @@ pub(crate) enum SettingsCommandError {
     InvalidSettings,
     SettingsUnavailable,
     PersistenceFailed,
+}
+
+#[tauri::command]
+pub(crate) fn activate_personal_assistant_events<R: Runtime>(
+    window: WebviewWindow<R>,
+    events: State<'_, PersonalAssistantEventQueue>,
+) -> Result<(), SettingsCommandError> {
+    authorize(&window, authorization::ACTIVATE_PERSONAL_ASSISTANT_EVENTS)?;
+    events
+        .activate()
+        .map_err(|_| SettingsCommandError::SettingsUnavailable)
 }
 
 #[tauri::command]
@@ -109,7 +121,7 @@ fn map_mutation_error(error: SettingsMutationError) -> SettingsCommandError {
     }
 }
 
-fn finish_update<R: Runtime>(app: &AppHandle<R>, update: SettingsUpdate) {
+pub(crate) fn finish_update<R: Runtime>(app: &AppHandle<R>, update: SettingsUpdate) {
     if !update.changed {
         return;
     }

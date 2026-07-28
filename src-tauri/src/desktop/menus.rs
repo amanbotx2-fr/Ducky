@@ -7,7 +7,12 @@ use tauri::{
 };
 
 use crate::{
-    domain::pomodoro::{PomodoroEventQueue, PomodoroRuntime, PomodoroState},
+    commands,
+    domain::{
+        personal_assistant::{PersonalAssistantEventQueue, PersonalAssistantPanel},
+        pomodoro::{PomodoroEventQueue, PomodoroRuntime, PomodoroState},
+        settings::{SettingsDocument, SettingsState},
+    },
     events::{self, DesktopEvent},
 };
 
@@ -17,6 +22,10 @@ pub const SHOW_COMPANION_ID: &str = "ducky.show-companion";
 pub const SHOW_PREFERENCES_ID: &str = "ducky.show-preferences";
 pub const NEW_REMINDER_ID: &str = "ducky.reminders.new";
 pub const MANAGE_REMINDERS_ID: &str = "ducky.reminders.manage";
+pub const SET_USER_NAME_ID: &str = "ducky.personal-assistant.set-user-name";
+pub const DAILY_PLANNER_ID: &str = "ducky.personal-assistant.daily-planner";
+pub const SET_STICKY_MESSAGE_ID: &str = "ducky.personal-assistant.set-sticky-message";
+pub const CLEAR_STICKY_MESSAGE_ID: &str = "ducky.personal-assistant.clear-sticky-message";
 pub const POMODORO_25_ID: &str = "ducky.pomodoro.25";
 pub const POMODORO_50_ID: &str = "ducky.pomodoro.50";
 pub const POMODORO_90_ID: &str = "ducky.pomodoro.90";
@@ -96,6 +105,10 @@ enum NativeMenuAction {
     ShowPreferences,
     NewReminder,
     ManageReminders,
+    RequestUserName,
+    RequestDailyPlanner,
+    RequestStickyMessage,
+    ClearStickyMessage,
     StartPomodoro(u32),
     RequestCustomPomodoroDuration,
     PausePomodoro,
@@ -123,18 +136,55 @@ pub fn show_companion_context_menu<R: Runtime>(window: &WebviewWindow<R>) -> tau
         .state::<PomodoroRuntime>()
         .state()
         .map_err(native_runtime_error)?;
-    let menu = create_companion_context_menu(window, &state)?;
+    let settings = window
+        .state::<SettingsState>()
+        .snapshot()
+        .map_err(native_runtime_error)?;
+    let menu = create_companion_context_menu(window, &state, &settings)?;
     window.popup_menu(&menu)
 }
 
 fn create_companion_context_menu<R: Runtime, M: Manager<R>>(
     manager: &M,
     pomodoro_state: &PomodoroState,
+    settings: &SettingsDocument,
 ) -> tauri::Result<Menu<R>> {
     let pomodoro_menu = create_pomodoro_menu(manager, pomodoro_state)?;
     let reminder_menu = create_submenu(manager, "Reminders", &REMINDER_CONTEXT_MENU_ENTRIES)?;
+    let sticky_message_menu = Submenu::new(manager, "Sticky Message", true)?;
+    sticky_message_menu.append(&MenuItem::with_id(
+        manager,
+        SET_STICKY_MESSAGE_ID,
+        "Set Sticky Message…",
+        true,
+        None::<&str>,
+    )?)?;
+    sticky_message_menu.append(&MenuItem::with_id(
+        manager,
+        CLEAR_STICKY_MESSAGE_ID,
+        "Clear Sticky Message",
+        settings.sticky_message.is_some(),
+        None::<&str>,
+    )?)?;
     let personal_assistant_menu = SubmenuBuilder::new(manager, "Personal Assistant")
+        .item(&MenuItem::with_id(
+            manager,
+            SET_USER_NAME_ID,
+            "Set My Name…",
+            true,
+            None::<&str>,
+        )?)
+        .separator()
         .item(&reminder_menu)
+        .item(&MenuItem::with_id(
+            manager,
+            DAILY_PLANNER_ID,
+            "Daily Planner…",
+            true,
+            None::<&str>,
+        )?)
+        .separator()
+        .item(&sticky_message_menu)
         .build()?;
     let menu = Menu::new(manager)?;
 
@@ -338,6 +388,22 @@ pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) -> t
         NativeMenuAction::ManageReminders => {
             request_reminder_panel(app, DesktopEvent::ReminderManagerPanelRequested)?;
         }
+        NativeMenuAction::RequestUserName => {
+            request_personal_assistant_panel(app, PersonalAssistantPanel::UserName)?;
+        }
+        NativeMenuAction::RequestDailyPlanner => {
+            request_personal_assistant_panel(app, PersonalAssistantPanel::DailyPlanner)?;
+        }
+        NativeMenuAction::RequestStickyMessage => {
+            request_personal_assistant_panel(app, PersonalAssistantPanel::StickyMessage)?;
+        }
+        NativeMenuAction::ClearStickyMessage => {
+            let update = app
+                .state::<SettingsState>()
+                .update_sticky_message(None)
+                .map_err(native_runtime_error)?;
+            commands::settings::finish_update(app, update);
+        }
         NativeMenuAction::StartPomodoro(duration_minutes) => {
             app.state::<PomodoroRuntime>()
                 .start_session(duration_minutes)
@@ -381,6 +447,15 @@ fn request_reminder_panel<R: Runtime>(
     events::emit(app, event, ())
 }
 
+fn request_personal_assistant_panel<R: Runtime>(
+    app: &AppHandle<R>,
+    panel: PersonalAssistantPanel,
+) -> tauri::Result<()> {
+    companion::show(app)?;
+    app.state::<PersonalAssistantEventQueue>().request(panel);
+    Ok(())
+}
+
 fn native_runtime_error(error: impl std::fmt::Display) -> tauri::Error {
     std::io::Error::other(error.to_string()).into()
 }
@@ -391,6 +466,10 @@ fn action_for_id(id: &str) -> Option<NativeMenuAction> {
         SHOW_PREFERENCES_ID => Some(NativeMenuAction::ShowPreferences),
         NEW_REMINDER_ID => Some(NativeMenuAction::NewReminder),
         MANAGE_REMINDERS_ID => Some(NativeMenuAction::ManageReminders),
+        SET_USER_NAME_ID => Some(NativeMenuAction::RequestUserName),
+        DAILY_PLANNER_ID => Some(NativeMenuAction::RequestDailyPlanner),
+        SET_STICKY_MESSAGE_ID => Some(NativeMenuAction::RequestStickyMessage),
+        CLEAR_STICKY_MESSAGE_ID => Some(NativeMenuAction::ClearStickyMessage),
         POMODORO_25_ID => Some(NativeMenuAction::StartPomodoro(25)),
         POMODORO_50_ID => Some(NativeMenuAction::StartPomodoro(50)),
         POMODORO_90_ID => Some(NativeMenuAction::StartPomodoro(90)),
@@ -419,9 +498,10 @@ fn about_metadata<R: Runtime, M: Manager<R>>(manager: &M) -> AboutMetadata<'stat
 mod tests {
     use super::{
         action_for_id, pomodoro_menu_presentation, NativeMenuAction, PomodoroMenuPresentation,
-        StaticMenuEntry, COMPANION_CONTEXT_MENU_ENTRIES, MANAGE_REMINDERS_ID, NEW_REMINDER_ID,
-        POMODORO_25_ID, POMODORO_50_ID, POMODORO_90_ID, POMODORO_CUSTOM_ID, POMODORO_PAUSE_ID,
-        POMODORO_RESUME_ID, POMODORO_STOP_ID, QUIT_ID, REMINDER_CONTEXT_MENU_ENTRIES, RESTART_ID,
+        StaticMenuEntry, CLEAR_STICKY_MESSAGE_ID, COMPANION_CONTEXT_MENU_ENTRIES, DAILY_PLANNER_ID,
+        MANAGE_REMINDERS_ID, NEW_REMINDER_ID, POMODORO_25_ID, POMODORO_50_ID, POMODORO_90_ID,
+        POMODORO_CUSTOM_ID, POMODORO_PAUSE_ID, POMODORO_RESUME_ID, POMODORO_STOP_ID, QUIT_ID,
+        REMINDER_CONTEXT_MENU_ENTRIES, RESTART_ID, SET_STICKY_MESSAGE_ID, SET_USER_NAME_ID,
         SHOW_COMPANION_ID, SHOW_PREFERENCES_ID, TRAY_MENU_ENTRIES,
     };
     use crate::domain::pomodoro::PomodoroState;
@@ -496,6 +576,10 @@ mod tests {
             SHOW_PREFERENCES_ID,
             NEW_REMINDER_ID,
             MANAGE_REMINDERS_ID,
+            SET_USER_NAME_ID,
+            DAILY_PLANNER_ID,
+            SET_STICKY_MESSAGE_ID,
+            CLEAR_STICKY_MESSAGE_ID,
             POMODORO_25_ID,
             POMODORO_50_ID,
             POMODORO_90_ID,
@@ -528,6 +612,22 @@ mod tests {
         assert_eq!(
             action_for_id(MANAGE_REMINDERS_ID),
             Some(NativeMenuAction::ManageReminders)
+        );
+        assert_eq!(
+            action_for_id(SET_USER_NAME_ID),
+            Some(NativeMenuAction::RequestUserName)
+        );
+        assert_eq!(
+            action_for_id(DAILY_PLANNER_ID),
+            Some(NativeMenuAction::RequestDailyPlanner)
+        );
+        assert_eq!(
+            action_for_id(SET_STICKY_MESSAGE_ID),
+            Some(NativeMenuAction::RequestStickyMessage)
+        );
+        assert_eq!(
+            action_for_id(CLEAR_STICKY_MESSAGE_ID),
+            Some(NativeMenuAction::ClearStickyMessage)
         );
         assert_eq!(
             action_for_id(POMODORO_25_ID),

@@ -184,6 +184,35 @@ describe('DesktopBridge renderer boundary', () => {
     assert.doesNotMatch(adapter, /setInterval|setTimeout/);
   });
 
+  it('registers all Personal Assistant event routes before activating recovery', async () => {
+    const [adapter, transport] = await Promise.all(
+      [
+        ['desktop', 'tauriBridge.ts'],
+        ['desktop', 'tauriPersonalAssistantBridge.ts'],
+      ].map((segments) =>
+        readFile(path.join(sourceRoot, ...segments), 'utf8'),
+      ),
+    );
+
+    for (const event of [
+      'userNamePanelRequested',
+      'stickyMessagePanelRequested',
+      'dailyPlannerPanelRequested',
+    ]) {
+      assert.match(transport, new RegExp(`'${event}'`));
+    }
+    assert.match(transport, /registeredListenerCount !== 3/);
+    assert.match(
+      transport,
+      /TAURI_COMMANDS\.activatePersonalAssistantEvents/,
+    );
+    assert.match(
+      adapter,
+      /const companionBridge: CompanionBridge[\s\S]*getDailyPlanner[\s\S]*getCompanionBridge: \(\) => companionBridge/,
+    );
+    assert.doesNotMatch(transport, /setInterval|setTimeout/);
+  });
+
   it('routes settings hooks through settings-only bridge views', async () => {
     const runtimeSettingsHook = await readFile(
       path.join(

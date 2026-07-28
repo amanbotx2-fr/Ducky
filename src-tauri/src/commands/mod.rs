@@ -43,6 +43,7 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             pomodoro::custom_pomodoro_panel_closed,
             pomodoro::activate_pomodoro_events,
             settings::get_runtime_settings,
+            settings::activate_personal_assistant_events,
             settings::get_preferences_settings,
             settings::update_user_name,
             settings::update_sticky_message,

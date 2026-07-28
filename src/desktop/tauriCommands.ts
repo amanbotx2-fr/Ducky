@@ -35,6 +35,8 @@ export const TAURI_COMMANDS = Object.freeze({
   listAIModels: 'list_ai_models',
   testAIConnection: 'test_ai_connection',
   activatePomodoroEvents: 'activate_pomodoro_events',
+  activatePersonalAssistantEvents:
+    'activate_personal_assistant_events',
   activateReminderEvents: 'activate_reminder_events',
   createReminder: 'create_reminder',
   customPomodoroPanelClosed: 'custom_pomodoro_panel_closed',
@@ -77,6 +79,7 @@ interface TauriCommandArguments {
   readonly list_ai_models: Record<string, never>;
   readonly test_ai_connection: Record<string, never>;
   readonly activate_pomodoro_events: Record<string, never>;
+  readonly activate_personal_assistant_events: Record<string, never>;
   readonly activate_reminder_events: Record<string, never>;
   readonly create_reminder: {
     readonly input: CreateReminderInput;
@@ -144,6 +147,7 @@ interface TauriCommandResults {
   readonly list_ai_models: AIModelListResult;
   readonly test_ai_connection: AIConnectionTestResult;
   readonly activate_pomodoro_events: void;
+  readonly activate_personal_assistant_events: void;
   readonly activate_reminder_events: void;
   readonly create_reminder: Reminder;
   readonly custom_pomodoro_panel_closed: void;

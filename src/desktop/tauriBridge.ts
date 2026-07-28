@@ -1,5 +1,6 @@
 import type {
   CompanionAiBridge,
+  CompanionBridge,
   CompanionSettingsBridge,
   CompanionWindowBridge,
   CredentialBridge,
@@ -24,6 +25,7 @@ import {
 } from './tauriCursorStream';
 import { subscribeToTauriEvent } from './tauriEvents';
 import { tauriPomodoroBridge } from './tauriPomodoroBridge';
+import { tauriPersonalAssistantBridge } from './tauriPersonalAssistantBridge';
 
 const companionWindowBridge: CompanionWindowBridge = Object.freeze({
   getCursorPosition: getTauriCursorPosition,
@@ -203,6 +205,30 @@ const reminderBridge = Object.freeze({
     ),
 } satisfies ReminderBridge);
 
+const getTauriPlatform = (): string => {
+  const runtime = `${navigator.platform} ${navigator.userAgent}`;
+
+  if (/Windows/i.test(runtime)) {
+    return 'win32';
+  }
+  if (/Mac|iPhone|iPad|iPod/i.test(runtime)) {
+    return 'darwin';
+  }
+  return 'linux';
+};
+
+const companionBridge: CompanionBridge = Object.freeze({
+  platform: getTauriPlatform(),
+  ...companionWindowBridge,
+  ...companionSettingsBridge,
+  ...reminderBridge,
+  ...tauriPomodoroBridge,
+  ...tauriPersonalAssistantBridge,
+  askAI: companionAiBridge.askAI,
+  getDailyPlanner: () =>
+    dispatchTauriCommand(TAURI_COMMANDS.getDailyPlanner, {}),
+});
+
 const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
   general: true,
   notificationSounds: true,
@@ -219,7 +245,7 @@ const TAURI_PREFERENCES_SETTINGS_CAPABILITIES = Object.freeze({
  * backend commands and event recovery semantics reach parity.
  */
 export const tauriDesktopBridge: DesktopBridge = Object.freeze({
-  getCompanionBridge: () => undefined,
+  getCompanionBridge: () => companionBridge,
   getCompanionAiBridge: () => companionAiBridge,
   getCompanionSettingsBridge: () => companionSettingsBridge,
   getRuntimeSettingsBridge: () => runtimeSettingsBridge,

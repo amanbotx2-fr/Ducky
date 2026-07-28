@@ -64,6 +64,8 @@ pub(crate) const GET_CURSOR_POSITION: CommandAuthorization =
     CommandAuthorization::companion_only("get_cursor_position");
 pub(crate) const GET_RUNTIME_SETTINGS: CommandAuthorization =
     CommandAuthorization::companion_only("get_runtime_settings");
+pub(crate) const ACTIVATE_PERSONAL_ASSISTANT_EVENTS: CommandAuthorization =
+    CommandAuthorization::companion_only("activate_personal_assistant_events");
 pub(crate) const GET_PREFERENCES_SETTINGS: CommandAuthorization =
     CommandAuthorization::preferences_only("get_preferences_settings");
 pub(crate) const UPDATE_USER_NAME: CommandAuthorization =
@@ -128,6 +130,7 @@ pub(crate) const GET_DAILY_PLANNER: CommandAuthorization =
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     GET_CURSOR_POSITION,
     GET_RUNTIME_SETTINGS,
+    ACTIVATE_PERSONAL_ASSISTANT_EVENTS,
     GET_PREFERENCES_SETTINGS,
     UPDATE_USER_NAME,
     UPDATE_STICKY_MESSAGE,
@@ -166,6 +169,7 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
 pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     GET_CURSOR_POSITION.name(),
     GET_RUNTIME_SETTINGS.name(),
+    ACTIVATE_PERSONAL_ASSISTANT_EVENTS.name(),
     GET_PREFERENCES_SETTINGS.name(),
     UPDATE_USER_NAME.name(),
     UPDATE_STICKY_MESSAGE.name(),
@@ -241,6 +245,7 @@ mod tests {
             [
                 "get_cursor_position",
                 "get_runtime_settings",
+                "activate_personal_assistant_events",
                 "get_preferences_settings",
                 "update_user_name",
                 "update_sticky_message",
