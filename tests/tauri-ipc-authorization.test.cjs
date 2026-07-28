@@ -44,6 +44,8 @@ const preferencesCommandPermissions = [
   'allow-get-credential-status',
   'allow-save-credential',
   'allow-delete-credential',
+  'allow-get-update-status',
+  'allow-check-for-updates',
 ];
 const registeredCommandPermissions = [
   ...companionCommandPermissions,
@@ -96,6 +98,18 @@ describe('Tauri IPC authorization', () => {
         false,
       );
     }
+  });
+
+  it('keeps production updater trust and feed configuration deferred to Phase 11', async () => {
+    const configuration = await readJson(
+      path.join(tauriDirectory, 'tauri.conf.json'),
+    );
+
+    assert.deepEqual(configuration.plugins?.updater, {
+      pubkey: '',
+      endpoints: [],
+    });
+    assert.notEqual(configuration.bundle?.createUpdaterArtifacts, true);
   });
 
   it('grants completed commands only to their exact renderer role', async () => {

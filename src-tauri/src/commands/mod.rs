@@ -4,6 +4,7 @@ pub(crate) mod credentials;
 pub(crate) mod pomodoro;
 pub(crate) mod reminders;
 pub(crate) mod settings;
+pub(crate) mod updater;
 
 use tauri::{Builder, Runtime};
 
@@ -43,6 +44,8 @@ pub(crate) fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             settings::get_preferences_settings,
             settings::update_user_name,
             settings::update_sticky_message,
-            settings::update_preferences_settings
+            settings::update_preferences_settings,
+            updater::get_update_status,
+            updater::check_for_updates
         ])
 }

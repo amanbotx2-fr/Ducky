@@ -117,6 +117,10 @@ pub(crate) const LIST_AI_MODELS: CommandAuthorization =
     CommandAuthorization::preferences_only("list_ai_models");
 pub(crate) const TEST_AI_CONNECTION: CommandAuthorization =
     CommandAuthorization::preferences_only("test_ai_connection");
+pub(crate) const GET_UPDATE_STATUS: CommandAuthorization =
+    CommandAuthorization::preferences_only("get_update_status");
+pub(crate) const CHECK_FOR_UPDATES: CommandAuthorization =
+    CommandAuthorization::preferences_only("check_for_updates");
 
 #[cfg(test)]
 pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
@@ -149,6 +153,8 @@ pub(crate) const MIGRATED_COMMANDS: &[CommandAuthorization] = &[
     UPDATE_AI_CONFIGURATION,
     LIST_AI_MODELS,
     TEST_AI_CONNECTION,
+    GET_UPDATE_STATUS,
+    CHECK_FOR_UPDATES,
 ];
 
 // Consumed by build.rs through a path module; retained here as the single
@@ -184,6 +190,8 @@ pub(crate) const MIGRATED_COMMAND_NAMES: &[&str] = &[
     UPDATE_AI_CONFIGURATION.name(),
     LIST_AI_MODELS.name(),
     TEST_AI_CONNECTION.name(),
+    GET_UPDATE_STATUS.name(),
+    CHECK_FOR_UPDATES.name(),
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -256,6 +264,8 @@ mod tests {
                 "update_ai_configuration",
                 "list_ai_models",
                 "test_ai_connection",
+                "get_update_status",
+                "check_for_updates",
             ],
         );
     }
@@ -271,6 +281,8 @@ mod tests {
                 || command == &UPDATE_AI_CONFIGURATION
                 || command == &LIST_AI_MODELS
                 || command == &TEST_AI_CONNECTION
+                || command == &GET_UPDATE_STATUS
+                || command == &CHECK_FOR_UPDATES
             {
                 assert_eq!(command.allowed_roles(), [RendererRole::Preferences]);
                 assert_eq!(

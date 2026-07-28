@@ -19,6 +19,8 @@ pub fn run() {
         tauri_plugin_autostart::MacosLauncher::LaunchAgent,
         None,
     ));
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     let app = commands::register(builder)
         .on_page_load(app_state::handle_page_load)

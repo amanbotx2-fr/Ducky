@@ -15,10 +15,12 @@ use crate::{
         pomodoro::{PomodoroEventQueue, PomodoroRuntime},
         reminders::{ReminderFiredNotification, ReminderRuntime},
         settings::SettingsState,
+        updater::UpdaterRuntime,
     },
     events::{self, DesktopEvent},
     infrastructure::{
         credentials::CredentialStore, persistence::SettingsStore, pomodoro::PomodoroStore,
+        updater::TauriUpdateBackend,
     },
 };
 
@@ -32,6 +34,31 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     let settings = store.load_with_legacy(legacy_settings_path.as_deref())?;
 
     let settings_state = SettingsState::new(store, settings);
+    let updater_event_app_handle = app.handle().clone();
+    let updater_runtime = UpdaterRuntime::new(
+        app.package_info().version.to_string(),
+        !cfg!(debug_assertions),
+        Arc::new(TauriUpdateBackend::new(app.handle().clone())),
+        Arc::new(move |status| {
+            if let Err(error) = events::emit(
+                &updater_event_app_handle,
+                DesktopEvent::UpdateStatusChanged,
+                status,
+            ) {
+                eprintln!("[updates] status notification failed: {error}");
+            }
+        }),
+    );
+    let automatic_update_checks = settings_state.snapshot()?.updates.automatic;
+    updater_runtime.set_automatic_checks_enabled(automatic_update_checks)?;
+    if automatic_update_checks {
+        let startup_updater = updater_runtime.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(error) = startup_updater.check_automatically().await {
+                eprintln!("[updates] automatic check failed: {error}");
+            }
+        });
+    }
     let credential_store = CredentialStore::native();
     let ai_runtime = AiRuntime::new(credential_store.clone());
     let ai_requests = AiRequestManager::default();
@@ -108,6 +135,7 @@ pub(crate) fn initialize<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std
     app.manage(ai_requests);
     app.manage(assistant_actions);
     app.manage(settings_state);
+    app.manage(updater_runtime);
     app.manage(reminder_runtime);
     app.manage(pomodoro_events);
     app.manage(pomodoro_runtime);
