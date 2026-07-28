@@ -6,12 +6,80 @@
 
 - Active work: Phase 10 — Updater Migration
 - Last completed phase: Phase 9 — AI System Migration
-- Last completed task: Task 10.5 — Update Status and Events
-- Next task: Task 10.6 — Electron-to-Tauri Migration Flow
+- Last completed task: Task 10.6 — Electron-to-Tauri Migration Flow
+- Next task: Task 10.7 — Permissions
 - Blockers: None. Production updater trust, feed, artifacts, and live update
   verification remain deferred to Phase 11.
 
 ## Completed Tasks
+
+### Task 10.6 — Electron-to-Tauri Migration Flow
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Added the single approved updater expansion for existing Electron users:
+  an available PsyDuck 2.x release on a pre-2.x Electron client offers the
+  one-time manual framework handoff.
+- Added the exact `Download PsyDuck 2.0` / `Remind Me Later` dialog copy and
+  configured the Download action to open Ducky's official GitHub Releases
+  page.
+- Integrated the flow with Electron's existing `UpdateService` status
+  subscription. No new IPC, DesktopBridge, renderer, updater menu, or
+  notification contract was introduced.
+- Deduplicated each discovered transition version for the current process so
+  repeated status delivery cannot nag the user. `Remind Me Later` remains a
+  true deferral: the offer may appear on a later application launch.
+- Kept dialog and browser-launch failures isolated from update status and
+  application startup.
+- Added no in-place framework replacement, automatic download/install,
+  Electron uninstall, installer chaining, or Phase 11 release metadata.
+
+**Files changed**
+
+- `src/main/TauriMigrationFlow.ts`
+- `src/main/main.ts`
+- `src/shared/constants.ts`
+- `tests/tauri-migration-flow.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- `npm run typecheck`: passed.
+- `npm test`: passed (150 tests), including Download, Remind Me Later,
+  per-version deduplication, version eligibility, and failure containment.
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- Electron production-output smoke launch: passed and remained alive until
+  the intentional test shutdown.
+- `npx tauri dev --no-watch`: passed; the process remained alive with the
+  known development custom-protocol fallback warning.
+- `npm run tauri:build -- --bundles app`: passed.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed the migration flow is connected only to the Electron
+  `UpdateService` listener and cannot run in the Tauri runtime.
+- Confirmed the dialog text, button order, default/cancel behavior, and
+  official release URL in the built main-process output.
+- The visual dialog and external-browser interaction remain in the final
+  Phase 10 manual gate; the natural production trigger remains intentionally
+  unavailable until Phase 11 publishes the transition metadata.
+
+**Blockers**
+
+- None. Production discovery of the transition release remains a Phase 11
+  responsibility by contract.
+
+**Next task**
+
+- Task 10.7 — Permissions.
 
 ### Task 10.5 — Update Status and Events
 

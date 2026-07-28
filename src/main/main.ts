@@ -1,11 +1,13 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   powerMonitor,
   safeStorage,
   screen,
+  shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type Tray,
@@ -43,6 +45,7 @@ import {
   cloneReminder,
   type ReminderFiredNotification,
 } from '../shared/reminders';
+import { OFFICIAL_RELEASES_URL } from '../shared/constants';
 import {
   type AiProviderSelection,
   normalizeOpenAICompatibleBaseUrl,
@@ -96,6 +99,7 @@ import { getExpectedRendererUrl } from './rendererSecurity';
 import { SettingsService } from './SettingsService';
 import { createSystemTray } from './tray';
 import { UpdateService } from './UpdateService';
+import { TauriMigrationFlow } from './TauriMigrationFlow';
 import {
   createMainWindow,
   setCompanionContentHeight,
@@ -134,6 +138,7 @@ let reminderScheduler: ReminderScheduler | null = null;
 let reminderService: ReminderService | null = null;
 let dailyPlannerService: DailyPlannerService | null = null;
 let updateService: UpdateService | null = null;
+let tauriMigrationFlow: TauriMigrationFlow | null = null;
 let unsubscribeFromSettings: (() => void) | null = null;
 let unsubscribeFromPomodoroState: (() => void) | null = null;
 let unsubscribeFromPomodoroCompletion: (() => void) | null = null;
@@ -1452,13 +1457,32 @@ void app.whenReady().then(async () => {
     isPackaged: app.isPackaged,
   });
   updateService.initialize();
+  tauriMigrationFlow = new TauriMigrationFlow({
+    currentVersion: app.getVersion(),
+    releasePageUrl: OFFICIAL_RELEASES_URL,
+    showDialog: async (options) => {
+      const electronOptions = {
+        ...options,
+        buttons: [...options.buttons],
+      };
+
+      return mainWindow === null || mainWindow.isDestroyed()
+        ? dialog.showMessageBox(electronOptions)
+        : dialog.showMessageBox(mainWindow, electronOptions);
+    },
+    openExternal: async (url) => {
+      await shell.openExternal(url);
+    },
+  });
   automaticUpdateChecksEnabled =
     settingsService.get().updates.automatic;
   updateService.setAutomaticChecksEnabled(
     automaticUpdateChecksEnabled,
   );
-  unsubscribeFromUpdateStatus =
-    updateService.subscribe(broadcastUpdateStatus);
+  unsubscribeFromUpdateStatus = updateService.subscribe((status) => {
+    broadcastUpdateStatus(status);
+    void tauriMigrationFlow?.handleStatus(status);
+  });
 
   reminderService = new ReminderService(settingsService);
   dailyPlannerService = new DailyPlannerService(reminderService);
@@ -1536,6 +1560,7 @@ app.once('before-quit', () => {
   unsubscribeFromUpdateStatus = null;
   updateService?.dispose();
   updateService = null;
+  tauriMigrationFlow = null;
   pendingReminderNotifications.length = 0;
   aiRequestManager.cancelAll('application_quit');
   unsubscribeFromSettings?.();
