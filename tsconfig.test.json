@@ -4,7 +4,7 @@
     "target": "ES2022",
     "module": "Node16",
     "moduleResolution": "Node16",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "rootDir": "src",
     "outDir": "dist",
@@ -13,8 +13,6 @@
     "esModuleInterop": true
   },
   "include": [
-    "src/ai/**/*.ts",
-    "src/main/**/*.ts",
     "src/personality/**/*.ts",
     "src/shared/**/*.ts"
   ]

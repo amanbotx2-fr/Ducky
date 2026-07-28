@@ -6,10 +6,10 @@
 
 - Active work: Phase 12 — Electron Removal.
 - Last completed phase: Phase 11.5 — Functional Parity Closure.
-- Last completed task: Phase 12 renderer boundary cleanup. DesktopBridge is
-  now a Tauri-only native boundary with unchanged renderer-facing APIs.
-- Next task: remove the legacy Electron main process, preload, provider, and
-  Node-only runtime implementation.
+- Last completed task: Phase 12 legacy runtime removal. Electron main,
+  preload, provider, Node-only build, and superseded unit tests are gone.
+- Next task: remove Electron packaging, assets, release workflow paths,
+  website fallback selection, and dual-runtime release tests.
 - Blockers: none. Production credentials, signed transition-release
   publication, staged updater verification, and go-live approval are external
   Release Candidate Checklist operations after Phase 12 and do not block
@@ -86,6 +86,58 @@
 
 - Remove the legacy Electron runtime and Electron-only provider code while
   retaining the shared renderer contracts and Rust implementations.
+
+#### Legacy Runtime Removal Milestone
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Removed all files under the legacy `src/main/` and `src/ai/` privileged
+  runtime trees. Their behavior remains implemented and tested in Rust.
+- Removed the Electron entry point metadata, main-process TypeScript project,
+  Electron development/build/distribution scripts, and Electron/Node-provider
+  packages.
+- The root `dev`, `start`, and `dist` entry points now run Tauri. The frontend
+  production build remains a focused Vite build consumed by Tauri.
+- Added `tsconfig.test.json` so retained runtime-neutral TypeScript utilities
+  can still be compiled for the Node test runner without compiling a removed
+  native runtime.
+- Removed tests whose subjects were the deleted Electron services/providers.
+  Equivalent native functionality remains covered by the Rust suite.
+- Retained and adapted runtime-neutral model explorer and notification-sound
+  contract tests rather than discarding their renderer/shared coverage.
+- Regenerated `package-lock.json`; `npm install` removed 358 obsolete
+  packages.
+
+**Validation**
+
+- `npm install`: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (85 tests).
+- `npm run build`: passed without compiling an Electron main process.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (132 tests).
+- `cargo build`: passed.
+- Tauri permission validation: passed through the authorization test suite.
+- `npm run tauri:build -- --bundles app`: passed; `Ducky.app` produced.
+- `npm run tauri:dev`: native application compiled, launched, and remained
+  alive.
+
+**Manual verification**
+
+- The native development application launched after the Node/Electron
+  dependency removal. Complete interaction parity remains scheduled for the
+  final Phase 12 gate.
+
+**Blockers**
+
+- None.
+
+**Next task**
+
+- Remove Electron Builder configuration/assets and convert release,
+  download-selection, verification, and documentation paths to Tauri-only.
 
 ### Release Operations Separated from Repository Migration
 
