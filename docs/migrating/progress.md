@@ -4,55 +4,85 @@
 
 ## Current Status
 
-- Active work: Phase 10 — Updater Migration
-- Last completed phase: Phase 9 — AI System Migration
+- Active work: None. Phase 10 is complete; Phase 11 has not started.
+- Last completed phase: Phase 10 — Updater Migration
 - Last completed task: Task 10.7 — Permissions
-- Next task: Phase 10 final verification
-- Blockers: The final native UI verification is blocked because the macOS
-  session is locked and cannot be unlocked by accessibility automation.
-  Production updater trust, feed, artifacts, and live update verification
-  remain deferred to Phase 11.
+- Next task: Phase 11 — Packaging + Release Pipeline, only when explicitly
+  requested.
+- Blockers: None. Production updater trust, feed, artifacts, signing, and live
+  update verification remain intentionally deferred to Phase 11.
 
 ## Active Verification
 
 ### Phase 10 Final Verification
 
-**Status:** Blocked at the manual UI gate.
+**Status:** Complete.
 
-**Completed verification**
+**Implementation and commit summary**
 
-- All implementation milestones through Task 10.7 are committed.
-- The final automated gate passes: TypeScript typecheck, 151 Node tests,
-  renderer/main build, 121 Rust tests, Rust debug build, permission
-  validation, Electron production build, Tauri production build, and direct
-  process smoke launches of both packaged applications.
-- Deterministic tests cover startup/manual checks, update status transitions,
-  event delivery, persisted automatic-check settings, DesktopBridge
-  boundaries, the two migration-dialog actions, and exact updater authority.
+- `d6b7842 feat(tauri): migrate updater runtime`
+- `9bd47f0 feat(tauri): migrate updater bridge`
+- `23b0f32 feat(tauri): migrate updater settings`
+- `37dd31d feat(tauri): migrate updater status`
+- `87f08bb feat(updater): add tauri migration flow`
+- `da3729d feat(tauri): migrate updater permissions`
+- `81937e3 docs(tauri): record phase 10 verification blocker`
+- `docs(tauri): complete phase 10 verification` records this final gate.
+- Phase 10 now contains the native check-only updater runtime, exact
+  Preferences DesktopBridge surface, status/events, persisted automatic
+  checks, least-privilege authorization, and the approved Electron-to-Tauri
+  handoff dialog.
 
-**Manual verification still required**
+**Final automated validation**
 
-- Open the newly built Tauri Preferences window and verify the initial status
-  text, manual Check Now transition, and final bounded no-feed status.
-- Toggle automatic update checks, restart the newly built Tauri application,
-  and verify the persisted value and one startup check.
-- Trigger the Electron transition dialog with temporary local-only test
-  metadata, verify both button paths and the official release link, then
-  remove the trigger before completion.
-- Confirm no renderer errors or permission warnings during those
-  interactions.
+- `npm run typecheck`: passed.
+- `npm test`: passed (151 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- The clean packaged Electron application launched and remained alive until
+  the intentional smoke-test shutdown.
+- `npx tauri dev --no-watch`: passed and remained alive. WebKit logged only
+  the known development custom-protocol fallback warnings.
+- `npm run tauri:build -- --bundles app`: passed.
+- The clean packaged Tauri application launched and remained alive until the
+  intentional smoke-test shutdown.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Built and launched an isolated Tauri verification bundle with a unique
+  application identifier so the test could not mutate or inspect an older
+  installed Ducky bundle.
+- Confirmed Preferences initially displayed version `1.1.0`, automatic checks
+  disabled, and the idle status text.
+- Clicked Check Now and observed the real native status event update the UI to
+  the bounded `Unable to check for updates.` result expected while Phase 11
+  feed configuration is absent.
+- Enabled automatic checks and observed the immediate check. Restarted the
+  isolated application, confirmed the setting remained enabled, and observed
+  the startup check result. Reset the isolated setting to disabled afterward.
+- Triggered the Electron transition dialog through temporary local-only
+  metadata. Confirmed the approved explanation and both exact buttons.
+- Confirmed Remind Me Later dismissed the dialog without opening a browser.
+- Restarted Electron, selected Download PsyDuck 2.0, and confirmed Safari
+  opened exactly `https://github.com/amanbotx2-fr/Ducky/releases`. The
+  verification browser window was closed afterward.
+- Observed no renderer exception, updater permission warning, download,
+  install, restart, or in-place migration behavior.
+- Removed every temporary source/configuration change before the final build
+  and validation. No diagnostic code remains.
 
 **Blocker**
 
-- Computer-use inspection reported that the Mac is locked, and automatic
-  unlock was unavailable. No manual result is claimed while the native UI
-  cannot be observed.
+- None.
 
 **Next action**
 
-- Unlock the Mac, execute the remaining native interactions, remove any
-  temporary trigger, update this section to complete, run the final clean-tree
-  check, and stop before Phase 11.
+- Stop. Phase 11 remains unstarted until explicitly requested.
 
 ## Completed Tasks
 
