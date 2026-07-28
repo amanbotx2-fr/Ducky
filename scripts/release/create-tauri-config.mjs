@@ -24,6 +24,17 @@ try {
   const publicKey = loadCommittedUpdaterPublicKey(
     process.env.TAURI_UPDATER_PUBLIC_KEY_PATH,
   );
+  const platformSigning = process.env.PLATFORM_SIGNING?.trim();
+  const allowedSigningStatuses =
+    platform === "linux"
+      ? new Set(["not_applicable"])
+      : new Set(["enabled", "skipped"]);
+
+  if (!allowedSigningStatuses.has(platformSigning)) {
+    throw new Error(
+      `PLATFORM_SIGNING is invalid for ${platform}: ${platformSigning || "(missing)"}.`,
+    );
+  }
 
   const config = {
     bundle: {
@@ -37,27 +48,25 @@ try {
     },
   };
 
-  if (platform === "windows") {
+  if (platform === "windows" && platformSigning === "enabled") {
     const certificateThumbprint =
       process.env.WINDOWS_CERTIFICATE_THUMBPRINT?.trim();
     const timestampUrl = process.env.WINDOWS_TIMESTAMP_URL?.trim();
 
-    if ((certificateThumbprint && !timestampUrl) || (!certificateThumbprint && timestampUrl)) {
+    if (!certificateThumbprint || !timestampUrl) {
       throw new Error(
         "Windows signing requires both WINDOWS_CERTIFICATE_THUMBPRINT and WINDOWS_TIMESTAMP_URL.",
       );
     }
-    if (certificateThumbprint && timestampUrl) {
-      const timestamp = new URL(timestampUrl);
-      if (timestamp.protocol !== "https:") {
-        throw new Error("WINDOWS_TIMESTAMP_URL must use HTTPS.");
-      }
-      config.bundle.windows = {
-        certificateThumbprint,
-        digestAlgorithm: "sha256",
-        timestampUrl: timestamp.href,
-      };
+    const timestamp = new URL(timestampUrl);
+    if (timestamp.protocol !== "https:") {
+      throw new Error("WINDOWS_TIMESTAMP_URL must use HTTPS.");
     }
+    config.bundle.windows = {
+      certificateThumbprint,
+      digestAlgorithm: "sha256",
+      timestampUrl: timestamp.href,
+    };
   }
 
   mkdirSync(dirname(outputPath), { recursive: true });

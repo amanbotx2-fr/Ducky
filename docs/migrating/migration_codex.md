@@ -1149,14 +1149,20 @@ Before public go-live, release operators must:
 
 - provision and verify the stable updater signing identity, updater public
   key, and protected updater-signing secrets;
-- verify Apple and Windows production signing credentials and the configured
-  timestamp/notarization services without exposing secret values;
+- optionally configure and verify complete Apple and Windows production
+  signing credential sets and their timestamp/notarization services without
+  exposing secret values; incomplete sets select the documented unsigned
+  platform build;
 - produce the final signed Electron transition release and retain its legacy
   updater metadata and referenced assets;
 - verify installed Electron clients discover that transition release and
   exercise both migration-dialog actions;
-- stage signed Tauri artifacts, signatures, checksums, and updater metadata
-  for every supported platform and architecture;
+- stage Tauri artifacts, mandatory signed updater archives/signatures,
+  checksums, and updater metadata for every supported platform and
+  architecture;
+- verify Apple notarization and Windows Authenticode timestamps when their
+  optional signing sets are enabled, or verify the release-note disclosure
+  when either platform is unsigned;
 - verify clean installation, signed update detection, download, install,
   restart, persistence, rollback, and website installer selection;
 - populate and redownload a draft GitHub release, verify feed separation and

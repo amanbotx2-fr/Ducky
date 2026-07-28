@@ -39,6 +39,12 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: npm run release:validate-versions
 
+      - name: Validate mandatory updater signing
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/release/validate-signing-environment.mjs updater
+
       - name: Validate tag is contained in main
         shell: bash
         run: |
@@ -55,7 +61,7 @@ jobs:
         run: npm test
 
   build-tauri:
-    name: Build signed Tauri (${{ matrix.platform }})
+    name: Build Tauri (${{ matrix.platform }})
     needs: validate
     strategy:
       fail-fast: false
@@ -106,7 +112,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Validate signing configuration
+      - name: Resolve platform signing configuration
+        id: signing
         run: node scripts/release/validate-signing-environment.mjs ${{ matrix.platform }}
 
       - name: Cache Rust build inputs
@@ -141,7 +148,7 @@ jobs:
             patchelf
 
       - name: Import Apple signing and notarization credentials
-        if: matrix.platform == 'macos'
+        if: matrix.platform == 'macos' && steps.signing.outputs.platform_signing == 'enabled'
         shell: bash
         run: |
           set -euo pipefail
@@ -184,7 +191,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Import Windows code-signing certificate
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && steps.signing.outputs.platform_signing == 'enabled'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -208,15 +215,31 @@ jobs:
             Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Create release-only Tauri configuration
+        env:
+          PLATFORM_SIGNING: ${{ steps.signing.outputs.platform_signing }}
         run: >-
           node scripts/release/create-tauri-config.mjs
           "${{ runner.temp }}/tauri.release.conf.json"
           ${{ matrix.platform }}
 
-      - name: Build signed Tauri distributables
+      - name: Build Tauri distributables
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${{ steps.signing.outputs.platform_signing }}" != "enabled" ]]; then
+            unset \
+              APPLE_CERTIFICATE \
+              APPLE_CERTIFICATE_PASSWORD \
+              APPLE_SIGNING_IDENTITY \
+              APPLE_API_ISSUER \
+              APPLE_API_KEY \
+              APPLE_API_KEY_PATH \
+              APPLE_API_PRIVATE_KEY \
+              WINDOWS_CERTIFICATE \
+              WINDOWS_CERTIFICATE_PASSWORD \
+              WINDOWS_CERTIFICATE_THUMBPRINT \
+              WINDOWS_TIMESTAMP_URL
+          fi
           build_args=(
             --ci
             --bundles "${{ matrix.bundles }}"
@@ -228,7 +251,7 @@ jobs:
           npx tauri build "${build_args[@]}"
 
       - name: Verify Apple code signing and notarization
-        if: matrix.platform == 'macos'
+        if: matrix.platform == 'macos' && steps.signing.outputs.platform_signing == 'enabled'
         shell: bash
         run: |
           set -euo pipefail
@@ -246,7 +269,7 @@ jobs:
           xcrun stapler validate "$dmg_path"
 
       - name: Verify Windows Authenticode signatures
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && steps.signing.outputs.platform_signing == 'enabled'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -263,6 +286,9 @@ jobs:
             if ($signature.Status -ne "Valid") {
               throw "Invalid Authenticode signature for $($artifact.Name): $($signature.Status)"
             }
+            if (-not $signature.TimeStamperCertificate) {
+              throw "Missing Authenticode timestamp for $($artifact.Name)"
+            }
           }
 
       - name: Stage deterministic Tauri assets
@@ -272,7 +298,23 @@ jobs:
           "${{ matrix.bundle_directory }}"
           release-tauri
 
-      - name: Stage signed Tauri release artifacts
+      - name: Record platform signing status
+        shell: bash
+        env:
+          PLATFORM_SIGNING: ${{ steps.signing.outputs.platform_signing }}
+        run: |
+          set -euo pipefail
+          case "$PLATFORM_SIGNING" in
+            enabled|skipped|not_applicable) ;;
+            *)
+              echo "::error title=Invalid platform signing status::$PLATFORM_SIGNING"
+              exit 1
+              ;;
+          esac
+          printf '%s\n' "$PLATFORM_SIGNING" \
+            > "release-tauri/platform-signing-status-${{ matrix.platform }}.txt"
+
+      - name: Stage Tauri release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-tauri-${{ matrix.platform }}
@@ -312,6 +354,56 @@ jobs:
           pattern: release-tauri-*
           path: release-artifacts
           merge-multiple: true
+
+      - name: Collect platform signing statuses
+        shell: bash
+        run: |
+          set -euo pipefail
+          read_status() {
+            local platform="$1"
+            local path="release-artifacts/platform-signing-status-${platform}.txt"
+            if [[ ! -f "$path" ]]; then
+              echo "::error title=Missing platform signing status::$platform" >&2
+              return 1
+            fi
+            local status
+            status="$(tr -d '\r\n' < "$path")"
+            rm "$path"
+            printf '%s' "$status"
+          }
+
+          apple_status="$(read_status macos)"
+          windows_status="$(read_status windows)"
+          linux_status="$(read_status linux)"
+
+          if [[ "$apple_status" != "enabled" && "$apple_status" != "skipped" ]]; then
+            echo "::error title=Invalid Apple signing status::$apple_status"
+            exit 1
+          fi
+          if [[ "$windows_status" != "enabled" && "$windows_status" != "skipped" ]]; then
+            echo "::error title=Invalid Windows signing status::$windows_status"
+            exit 1
+          fi
+          if [[ "$linux_status" != "not_applicable" ]]; then
+            echo "::error title=Invalid Linux signing status::$linux_status"
+            exit 1
+          fi
+
+          if [[ "$apple_status" == "enabled" ]]; then
+            echo "Apple signing: enabled"
+          else
+            echo "Apple signing: skipped (credentials not configured)"
+          fi
+          if [[ "$windows_status" == "enabled" ]]; then
+            echo "Windows signing: enabled"
+          else
+            echo "Windows signing: skipped (credentials not configured)"
+          fi
+
+          {
+            echo "APPLE_SIGNING_STATUS=$apple_status"
+            echo "WINDOWS_SIGNING_STATUS=$windows_status"
+          } >> "$GITHUB_ENV"
 
       - name: Refuse release asset name collisions
         shell: bash
@@ -405,6 +497,24 @@ jobs:
               --generate-notes \
               --title "Ducky ${RELEASE_TAG}"
           fi
+
+      - name: Add platform signing status to release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json body \
+            --jq '.body // ""' \
+            > "$RUNNER_TEMP/generated-release-notes.md"
+          node scripts/release/prepare-release-notes.mjs \
+            "$RUNNER_TEMP/generated-release-notes.md" \
+            "$RUNNER_TEMP/final-release-notes.md"
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes-file "$RUNNER_TEMP/final-release-notes.md"
 
       - name: Upload complete bundle to draft
         shell: bash
