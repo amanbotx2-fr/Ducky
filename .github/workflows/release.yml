@@ -12,6 +12,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI: true
+
 jobs:
   validate:
     name: Validate release
@@ -31,53 +34,28 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Validate tag and package version
-        shell: bash
+      - name: Validate tag and all package versions
         env:
-          TAG_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run release:validate-versions
+
+      - name: Validate tag is contained in main
+        shell: bash
         run: |
           set -euo pipefail
-
-          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error title=Invalid release tag::Expected vMAJOR.MINOR.PATCH, received '$TAG_NAME'."
-            exit 1
-          fi
-
-          package_version="$(node -p "require('./package.json').version")"
-          if [[ "$TAG_NAME" != "v${package_version}" ]]; then
-            echo "::error title=Version mismatch::Tag '$TAG_NAME' does not match package.json version '${package_version}'."
-            exit 1
-          fi
-
-          lock_version="$(node -p "require('./package-lock.json').packages[''].version")"
-          if [[ "$lock_version" != "$package_version" ]]; then
-            echo "::error title=Lockfile version mismatch::package-lock.json version '${lock_version}' does not match package.json version '${package_version}'."
-            exit 1
-          fi
-
           if ! git merge-base --is-ancestor HEAD origin/main; then
-            echo "::error title=Tag is not on main::Release tag '$TAG_NAME' must point to a commit contained in origin/main."
+            echo "::error title=Tag is not on main::Release tag '$GITHUB_REF_NAME' must point to a commit contained in origin/main."
             exit 1
           fi
-
-      - name: Cache Electron downloads
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ${{ runner.temp }}/electron-cache
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            electron-${{ runner.os }}-
 
       - name: Install locked dependencies
         run: npm ci
-        env:
-          ELECTRON_CACHE: ${{ runner.temp }}/electron-cache
 
       - name: Run tests
         run: npm test
 
-  build:
-    name: Build ${{ matrix.platform }}
+  build-electron:
+    name: Build legacy Electron (${{ matrix.platform }})
     needs: validate
     strategy:
       fail-fast: false
@@ -110,7 +88,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
-      CI: true
       CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
       - name: Check out tagged source
@@ -153,32 +130,280 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes libopenjp2-tools
 
-      - name: Build distributables
+      - name: Build legacy Electron distributables
         run: npm run ${{ matrix.command }} -- --publish never
         env:
           ELECTRON_CACHE: ${{ runner.temp }}/electron-cache
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
 
-      - name: Verify distributables
+      - name: Verify legacy Electron feed
         run: npm run release:verify -- ${{ matrix.platform }}
 
-      - name: Stage release artifacts
+      - name: Stage legacy release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-${{ matrix.platform }}
+          name: release-electron-${{ matrix.platform }}
           path: ${{ matrix.files }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
 
+  build-tauri:
+    name: Build signed Tauri (${{ matrix.platform }})
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            os: macos-latest
+            target: universal-apple-darwin
+            bundles: app,dmg
+            bundle_directory: src-tauri/target/universal-apple-darwin/release/bundle
+          - platform: windows
+            os: windows-latest
+            target: ""
+            bundles: nsis,msi
+            bundle_directory: src-tauri/target/release/bundle
+          - platform: linux
+            os: ubuntu-22.04
+            target: ""
+            bundles: appimage,deb
+            bundle_directory: src-tauri/target/release/bundle
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ matrix.platform == 'macos' && secrets.APPLE_CERTIFICATE || '' }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+      APPLE_API_ISSUER: ${{ matrix.platform == 'macos' && secrets.APPLE_API_ISSUER || '' }}
+      APPLE_API_KEY: ${{ matrix.platform == 'macos' && secrets.APPLE_API_KEY || '' }}
+      APPLE_API_PRIVATE_KEY: ${{ matrix.platform == 'macos' && secrets.APPLE_API_PRIVATE_KEY || '' }}
+      WINDOWS_CERTIFICATE: ${{ matrix.platform == 'windows' && secrets.WINDOWS_CERTIFICATE || '' }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'windows' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate signing configuration
+        run: node scripts/release/validate-signing-environment.mjs ${{ matrix.platform }}
+
+      - name: Cache Rust build inputs
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: tauri-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            tauri-${{ runner.os }}-${{ matrix.target || 'native' }}-
+            tauri-${{ runner.os }}-
+
+      - name: Install universal macOS Rust targets
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Install Linux Tauri packaging dependencies
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf
+
+      - name: Import Apple signing and notarization credentials
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          certificate_path="$RUNNER_TEMP/ducky-release-certificate.p12"
+          keychain_path="$RUNNER_TEMP/ducky-release.keychain-db"
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          keychain_password="$(openssl rand -hex 24)"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 -D > "$certificate_path"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$certificate_path" "$api_key_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" |
+              sed -n 's/.*"\\(Developer ID Application:.*\\)"/\\1/p' |
+              head -n 1
+          )"
+          if [[ -z "$signing_identity" ]]; then
+            echo "::error title=Apple signing identity missing::The imported certificate has no Developer ID Application identity."
+            exit 1
+          fi
+
+          {
+            echo "APPLE_SIGNING_IDENTITY=$signing_identity"
+            echo "APPLE_API_KEY_PATH=$api_key_path"
+          } >> "$GITHUB_ENV"
+
+      - name: Import Windows code-signing certificate
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $certificatePath = Join-Path $env:RUNNER_TEMP "ducky-release-certificate.pfx"
+          [IO.File]::WriteAllBytes(
+            $certificatePath,
+            [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          )
+          $password = ConvertTo-SecureString `
+            -String $env:WINDOWS_CERTIFICATE_PASSWORD `
+            -AsPlainText `
+            -Force
+          $certificate = Import-PfxCertificate `
+            -FilePath $certificatePath `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -Password $password
+          if (-not $certificate.Thumbprint) {
+            throw "The imported PFX contains no code-signing certificate."
+          }
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Create release-only Tauri configuration
+        run: >-
+          node scripts/release/create-tauri-config.mjs
+          "${{ runner.temp }}/tauri.release.conf.json"
+          ${{ matrix.platform }}
+
+      - name: Build signed Tauri distributables
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_args=(
+            --ci
+            --bundles "${{ matrix.bundles }}"
+            --config "${{ runner.temp }}/tauri.release.conf.json"
+          )
+          if [[ -n "${{ matrix.target }}" ]]; then
+            build_args+=(--target "${{ matrix.target }}")
+          fi
+          npx tauri build "${build_args[@]}"
+
+      - name: Verify Apple code signing and notarization
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(
+            find "${{ matrix.bundle_directory }}" -type d -name 'Ducky.app' -print -quit
+          )"
+          dmg_path="$(
+            find "${{ matrix.bundle_directory }}" -type f -name '*.dmg' -print -quit
+          )"
+          test -n "$app_path"
+          test -n "$dmg_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          xcrun stapler validate "$dmg_path"
+
+      - name: Verify Windows Authenticode signatures
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $artifacts = Get-ChildItem `
+            -Path "${{ matrix.bundle_directory }}" `
+            -Recurse `
+            -File |
+            Where-Object { $_.Extension -in ".exe", ".msi" }
+          if ($artifacts.Count -lt 2) {
+            throw "Expected signed NSIS and MSI artifacts."
+          }
+          foreach ($artifact in $artifacts) {
+            $signature = Get-AuthenticodeSignature $artifact.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Invalid Authenticode signature for $($artifact.Name): $($signature.Status)"
+            }
+          }
+
+      - name: Stage deterministic Tauri assets
+        run: >-
+          node scripts/release/stage-tauri-artifacts.mjs
+          ${{ matrix.platform }}
+          "${{ matrix.bundle_directory }}"
+          release-tauri
+
+      - name: Stage signed Tauri release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-tauri-${{ matrix.platform }}
+          path: release-tauri/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
   publish:
-    name: Publish GitHub Release
-    needs: build
+    name: Verify and publish GitHub Release
+    needs:
+      - build-electron
+      - build-tauri
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
     steps:
+      - name: Check out tagged source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
       - name: Download verified artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -186,75 +411,175 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
+      - name: Refuse release asset name collisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release-artifacts -maxdepth 1 -type f -printf '%f\n' | sort)
+          if (( ${#assets[@]} == 0 )); then
+            echo "::error title=No release assets::Build jobs produced no release files."
+            exit 1
+          fi
+          duplicate="$(
+            printf '%s\n' "${assets[@]}" |
+              sort |
+              uniq -d |
+              head -n 1
+          )"
+          if [[ -n "$duplicate" ]]; then
+            echo "::error title=Release asset collision::Duplicate asset '$duplicate'."
+            exit 1
+          fi
+
+      - name: Verify all legacy Electron feeds
+        run: |
+          npm run release:verify -- macos release-artifacts
+          npm run release:verify -- windows release-artifacts
+          npm run release:verify -- linux release-artifacts
+
+      - name: Generate Tauri latest.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_timestamp="$(
+            git show -s --format=%cI "$GITHUB_SHA"
+          )"
+          RELEASE_PUB_DATE="$release_timestamp" \
+            node scripts/release/generate-latest-json.mjs release-artifacts
+
+      - name: Verify updater signatures
+        run: npm run release:verify-signatures -- release-artifacts
+
       - name: Generate SHA-256 checksums
         shell: bash
         run: |
           set -euo pipefail
-
           (
             cd release-artifacts
-            mapfile -d '' release_files < <(find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z)
+            mapfile -d '' release_files < <(
+              find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 |
+                sort -z
+            )
             if (( ${#release_files[@]} == 0 )); then
               echo "::error title=No release assets::No files were downloaded from the build jobs." >&2
               exit 1
             fi
-
             for file in "${release_files[@]}"; do
               sha256sum "$file"
             done
           ) > "$RUNNER_TEMP/SHA256SUMS.txt"
-
           mv "$RUNNER_TEMP/SHA256SUMS.txt" release-artifacts/SHA256SUMS.txt
 
-      - name: Create or update GitHub Release
+      - name: Verify complete dual-runtime bundle
+        run: npm run release:verify-bundle -- release-artifacts
+
+      - name: Create or reset draft GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-
-          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             release_is_draft="$(
-              gh release view "$TAG_NAME" \
+              gh release view "$RELEASE_TAG" \
                 --repo "$GITHUB_REPOSITORY" \
                 --json isDraft \
                 --jq '.isDraft'
             )"
             if [[ "$release_is_draft" != "true" ]]; then
-              echo "::error title=Release already published::Refusing to replace assets on published release '$TAG_NAME'."
+              echo "::error title=Release already published::Refusing to replace assets on published release '$RELEASE_TAG'."
               exit 1
             fi
-
             mapfile -t existing_assets < <(
-              gh release view "$TAG_NAME" \
+              gh release view "$RELEASE_TAG" \
                 --repo "$GITHUB_REPOSITORY" \
                 --json assets \
                 --jq '.assets[].name'
             )
             for asset in "${existing_assets[@]}"; do
-              gh release delete-asset "$TAG_NAME" "$asset" \
+              gh release delete-asset "$RELEASE_TAG" "$asset" \
                 --repo "$GITHUB_REPOSITORY" \
                 --yes
             done
           else
-            gh release create "$TAG_NAME" \
+            gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --draft \
               --generate-notes \
-              --title "Ducky ${TAG_NAME}"
+              --title "Ducky ${RELEASE_TAG}"
           fi
 
-          mapfile -d '' assets < <(find release-artifacts -maxdepth 1 -type f -print0 | sort -z)
-          if (( ${#assets[@]} == 0 )); then
-            echo "::error title=No release assets::No files were downloaded from the build jobs."
-            exit 1
-          fi
-
-          gh release upload "$TAG_NAME" "${assets[@]}" \
+      - name: Upload complete bundle to draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' assets < <(
+            find release-artifacts -maxdepth 1 -type f -print0 |
+              sort -z
+          )
+          gh release upload "$RELEASE_TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY"
 
-          gh release edit "$TAG_NAME" \
+      - name: Verify remote draft inventory
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            > "$RUNNER_TEMP/release-draft.json"
+          node scripts/release/verify-github-draft.mjs \
+            release-artifacts \
+            "$RUNNER_TEMP/release-draft.json"
+
+      - name: Verify signed updater downloads from draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/staged-updater-download"
+          cp release-artifacts/latest.json "$RUNNER_TEMP/staged-updater-download/latest.json"
+          mapfile -t updater_assets < <(
+            node - <<'NODE'
+          const manifest = require("./release-artifacts/latest.json");
+          const names = new Set();
+          for (const release of Object.values(manifest.platforms)) {
+            const artifact = new URL(release.url).pathname.split("/").at(-1);
+            names.add(artifact);
+            names.add(`${artifact}.sig`);
+          }
+          process.stdout.write(`${[...names].sort().join("\n")}\n`);
+          NODE
+          )
+          for asset_name in "${updater_assets[@]}"; do
+            asset_id="$(
+              gh release view "$RELEASE_TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --json assets \
+                --jq ".assets[] | select(.name == \"$asset_name\") | .id"
+            )"
+            if [[ -z "$asset_id" ]]; then
+              echo "::error title=Missing draft updater asset::$asset_name"
+              exit 1
+            fi
+            gh api \
+              -H "Accept: application/octet-stream" \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
+              > "$RUNNER_TEMP/staged-updater-download/$asset_name"
+          done
+          npm run release:verify-signatures -- "$RUNNER_TEMP/staged-updater-download"
+
+      - name: Publish verified GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false

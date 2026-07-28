@@ -100,3 +100,53 @@ test("website cutover selects namespaced Tauri installers", async () => {
   assert.match(source, /releaseMajor < 2/);
   assert.match(source, /no Tauri/);
 });
+
+test("release workflow preserves atomic dual-runtime publication", async () => {
+  const [workflow, releaseConfig] = await Promise.all([
+    readFile(resolve(".github/workflows/release.yml"), "utf8"),
+    readFile(resolve("scripts/release/create-tauri-config.mjs"), "utf8"),
+  ]);
+
+  assert.match(workflow, /build-electron:/);
+  assert.match(workflow, /build-tauri:/);
+  assert.match(workflow, /platform: macos[\s\S]*platform: windows[\s\S]*platform: linux/);
+  assert.match(releaseConfig, /createUpdaterArtifacts: true/);
+  assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\./);
+  assert.match(
+    workflow,
+    /APPLE_CERTIFICATE: \$\{\{ matrix\.platform == 'macos' && secrets\./,
+  );
+  assert.match(
+    workflow,
+    /WINDOWS_CERTIFICATE: \$\{\{ matrix\.platform == 'windows' && secrets\./,
+  );
+  assert.match(workflow, /Verify signed updater downloads from draft/);
+  assert.match(workflow, /verify-github-draft\.mjs/);
+  assert.match(workflow, /release:verify-signatures/);
+  assert.match(workflow, /latest-mac\.yml/);
+  assert.match(workflow, /latest-linux\.yml/);
+  assert.ok(
+    workflow.indexOf("Verify remote draft inventory") <
+      workflow.indexOf("Publish verified GitHub Release"),
+  );
+  assert.ok(
+    workflow.indexOf("Verify signed updater downloads from draft") <
+      workflow.indexOf("Publish verified GitHub Release"),
+  );
+  assert.doesNotMatch(
+    workflow,
+    /TAURI_SIGNING_PRIVATE_KEY:\s*(?!\$\{\{ secrets\.)\S+/,
+  );
+});
+
+test("signing preflight checks names without printing credential values", async () => {
+  const source = await readFile(
+    resolve("scripts/release/validate-signing-environment.mjs"),
+    "utf8",
+  );
+  assert.match(source, /TAURI_SIGNING_PRIVATE_KEY/);
+  assert.match(source, /APPLE_API_PRIVATE_KEY/);
+  assert.match(source, /WINDOWS_CERTIFICATE/);
+  assert.match(source, /missing\.join/);
+  assert.doesNotMatch(source, /console\.(?:log|error)\([^)]*process\.env/);
+});

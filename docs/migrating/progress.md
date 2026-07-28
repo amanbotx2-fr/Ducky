@@ -17,6 +17,87 @@
 
 ## Active Verification
 
+### Phase 11 — Atomic Dual-Runtime Workflow
+
+**Status:** Complete.
+
+**Implementation summary**
+
+- Replaced the Electron-only release workflow with two fail-independent native
+  build matrices: the preserved legacy Electron feed and signed Tauri
+  packages for macOS universal, Windows x64, and Linux x64.
+- Added release-only secret preflight without printing values. Missing updater,
+  Apple, or Windows signing configuration fails the appropriate native build
+  before credentials are decoded or packaging begins.
+- Scoped Apple and Windows credentials to their matching matrix entries while
+  sharing only the Tauri updater-signing identity across the three native
+  builds.
+- Added ephemeral Apple certificate/keychain import, Developer ID validation,
+  App/DMG signature verification, Gatekeeper assessment, notarization stapling
+  validation, and App Store Connect API-key wiring.
+- Added ephemeral Windows PFX import, SHA-256/timestamped SignTool
+  configuration, and Authenticode verification for both NSIS and MSI output.
+- Added the Linux WebKit/AppIndicator packaging prerequisites and native Rust
+  build caching for every Tauri runner.
+- Preserved Electron `latest-mac.yml`, `latest.yml`, and `latest-linux.yml`
+  beside the namespaced Tauri assets. A v2 Electron feed therefore remains
+  able to trigger the approved manual transition dialog.
+- Preserved atomic publication: all six native builds must pass; the publish
+  job regenerates and verifies metadata/checksums, refuses a published release,
+  resets or creates a draft, uploads the complete bundle, checks every remote
+  name/state/byte size, redownloads updater assets from the authenticated
+  draft, verifies their signatures again, and only then publishes.
+
+**Files changed**
+
+- `.github/workflows/release.yml`
+- `scripts/release/validate-signing-environment.mjs`
+- `tests/release-pipeline.test.cjs`
+- `docs/migrating/progress.md`
+
+**Validation performed**
+
+- Workflow YAML parse: passed.
+- `npm run typecheck`: passed.
+- `npm test`: passed (159 tests).
+- `npm run build`: passed.
+- `cargo fmt --check`: passed.
+- `cargo test`: passed (121 tests).
+- `cargo build`: passed without warnings.
+- `npx tauri permission list`: passed.
+- `npm run release:validate-versions`: passed.
+- Release-only Tauri overlay schema/build validation with a public test vector:
+  passed without bundling.
+- Missing-signing preflight: rejected configuration without printing key
+  material.
+- Electron production build (`npm run dist:mac -- --dir`): passed.
+- Tauri production build (`npm run tauri:build -- --bundles app`): passed.
+- Electron packaged smoke launch: passed and remained alive until intentional
+  shutdown.
+- Tauri packaged smoke launch: passed and remained alive until intentional
+  shutdown.
+- `git diff --check`: passed.
+
+**Manual verification**
+
+- Confirmed the credential-free Electron/Tauri applications still launch.
+- Reviewed the workflow order and confirmed draft inventory plus downloaded
+  signature verification precede the only publish operation.
+- Actual Apple/Windows signatures, notarization, updater signatures, draft
+  upload, and GitHub publication were not claimed because no production
+  credentials or release tag were provided.
+
+**Blockers**
+
+- None for workflow implementation.
+- Execution of the signing and hosted-draft gates requires the external
+  configuration listed in the Phase 11 release documentation.
+
+**Next task**
+
+- Replace Electron-only release documentation with the dual-feed cutover,
+  secret setup, rollback, and production-verification runbook.
+
 ### Phase 11 — Updater Artifact Contract
 
 **Status:** Complete.
